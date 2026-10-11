@@ -195,7 +195,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         description: z.string().max(500).default(''),
       })
       .strict()
-      .safeParse(await c.req.json());
+      .safeParse(await c.req.json().catch(() => null));
     if (!data.success)
       return c.json(
         { error: 'Enter a Space name (up to 60 characters).' },
@@ -209,7 +209,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
   app.post('/dots', async (c) => {
     const data = dotSchema
       .extend({ spaceId: z.string() })
-      .safeParse(await c.req.json());
+      .safeParse(await c.req.json().catch(() => null));
     if (!data.success)
       return c.json(
         {
@@ -257,7 +257,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
     );
   });
   app.put('/dots/:id', async (c) => {
-    const data = dotSchema.safeParse(await c.req.json());
+    const data = dotSchema.safeParse(await c.req.json().catch(() => null));
     if (!data.success)
       return c.json({ error: 'Invalid specialist settings.' }, 400);
     const current = platform.workspace.dot(c.req.param('id'));
@@ -294,7 +294,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         title: z.string().trim().min(1).max(120).default('A new thought'),
       })
       .strict()
-      .safeParse(await c.req.json());
+      .safeParse(await c.req.json().catch(() => null));
     if (!data.success)
       return c.json({ error: 'Select a Dot and a conversation title.' }, 400);
     if (platform.setup().missing.length)
@@ -351,7 +351,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
     const data = z
       .object({ threadId: z.string(), sdp: z.string().max(100000) })
       .strict()
-      .safeParse(await c.req.json());
+      .safeParse(await c.req.json().catch(() => null));
     if (!data.success)
       return c.json(
         { error: 'A conversation and audio SDP offer are required.' },
@@ -376,7 +376,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         transcript: z.string().max(12000).default(''),
       })
       .strict()
-      .safeParse(await c.req.json());
+      .safeParse(await c.req.json().catch(() => null));
     if (!data.success)
       return c.json(
         { error: 'A bounded compute request and tool call ID are required.' },
@@ -397,7 +397,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         anchorMessageId: z.string().max(200).optional(),
       })
       .strict()
-      .safeParse(await c.req.json());
+      .safeParse(await c.req.json().catch(() => null));
     if (!data.success)
       return c.json(
         { error: 'Transcript exceeds the 20,000 character limit.' },
@@ -412,6 +412,8 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
   });
   app.onError((error, c) => {
     const text = error.message;
+    if (text.startsWith('Space access must include'))
+      return c.json({ error: text }, 400);
     const known =
       /^(Setup|Voice setup|Dot |Space |Specialist |Conversation |Call |This call|End the current|Voice provider|An audio)/.test(
         text,
