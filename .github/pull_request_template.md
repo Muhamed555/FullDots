@@ -8,6 +8,7 @@ A short description of the change and why it is needed. Link the issue it fixes,
 - [ ] `npm run lint`
 - [ ] `npm run typecheck`
 - [ ] `npm test`
+- [ ] `npm run build`
 
 ## Notes
 

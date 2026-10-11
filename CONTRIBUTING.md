@@ -24,13 +24,29 @@ Open <http://127.0.0.1:5173>. The API runs on port 4310. You can work on most of
 
 ## Run the checks
 
-CI runs these on every pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Run them before you push:
+Run these before you push:
 
 ```sh
 npm run check-format && npm run lint && npm run typecheck && npm test && npm run build
+npm run smoke -- start   # starts the built app and checks that it answers
 ```
 
-`npm run format` fixes formatting. `npm test` runs Vitest once and takes about a minute. If a test times out on a slow machine, run it again on its own before you report it.
+`npm run format` fixes formatting. `npm test` runs Vitest once and takes about a minute. If a test times out on a slow machine, run it again on its own before you report it. `npm run smoke -- dev` checks that `npm run dev` starts; it needs ports 4310 and 5173 free.
+
+Every pull request runs these checks:
+
+| Check                                                        | What it does                                                                             |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| [CI](.github/workflows/ci.yml): format, lint, types, tests   | The commands above on Linux, then starts the built app and validates the Compose files   |
+| CI: tests and dev startup                                    | `npm test` and `npm run dev` on Linux, Windows and macOS                                 |
+| CI: dependency audit                                         | Fails on high or critical `npm audit` findings                                           |
+| CI: secret scan                                              | Gitleaks over the full history; reviewed false positives are listed in `.gitleaksignore` |
+| CI: Docker images build                                      | Builds the app and page reader images                                                    |
+| CI: workflow lint                                            | actionlint on the workflow files                                                         |
+| [CodeQL](.github/workflows/codeql.yml)                       | Security analysis of the JavaScript and TypeScript code, also weekly                     |
+| [Dependency review](.github/workflows/dependency-review.yml) | Blocks new dependencies with high-severity advisories or GPL/AGPL licences               |
+
+Dependabot opens weekly pull requests for npm updates, and monthly ones for GitHub Actions and Docker base images.
 
 ## Pull requests
 

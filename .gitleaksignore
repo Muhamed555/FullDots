@@ -1,0 +1,15 @@
+# Reviewed gitleaks findings that are not secrets.
+# tests/*: fake keys used as fixtures (for example sk-test-0123456789abcdef-WXYZ).
+# deployment/computers/README.md: an upstream commit pin, not a credential.
+9548b8112ea133271d042b59bd730115bd2a2840:tests/model-provider-store.test.ts:generic-api-key:31
+9548b8112ea133271d042b59bd730115bd2a2840:tests/model-provider-integration.test.ts:generic-api-key:25
+9548b8112ea133271d042b59bd730115bd2a2840:tests/model-provider-integration.test.ts:generic-api-key:26
+9548b8112ea133271d042b59bd730115bd2a2840:tests/model-provider-integration.test.ts:generic-api-key:27
+9548b8112ea133271d042b59bd730115bd2a2840:tests/model-provider-routes.test.ts:generic-api-key:20
+9548b8112ea133271d042b59bd730115bd2a2840:tests/model-providers-ui.test.tsx:generic-api-key:58
+9548b8112ea133271d042b59bd730115bd2a2840:tests/model-providers.test.ts:generic-api-key:27
+9548b8112ea133271d042b59bd730115bd2a2840:tests/model-providers.test.ts:generic-api-key:28
+9548b8112ea133271d042b59bd730115bd2a2840:tests/model-providers.test.ts:generic-api-key:870
+957e66c792a5ea0ed28be3bb2529bd128a6656e2:tests/mcp-connectors.test.ts:generic-api-key:475
+a4374d78841f3654d357042acfbd112df0551305:deployment/computers/README.md:generic-api-key:7
+ec6b95f296b05a37548b7a09325e4709ae4492a1:deployment/computers/README.md:generic-api-key:7
