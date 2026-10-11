@@ -41,6 +41,7 @@ import type {
 import { Mascot } from './Mascot';
 import { useVoice } from './useVoice';
 import { CallView } from './CallView';
+import { shouldSubmitComposerOnKeyDown } from './chat-composer';
 // These tools draw no UI of their own, so their arguments are not inspected.
 const anyArguments = z.looseObject({});
 export function Chat({
@@ -567,7 +568,7 @@ export function Chat({
             maxLength={4000}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (shouldSubmitComposerOnKeyDown(e)) {
                 e.preventDefault();
                 e.currentTarget.form?.requestSubmit();
               }
