@@ -46,8 +46,6 @@ Every pull request runs these checks:
 | [CodeQL](.github/workflows/codeql.yml)                       | Security analysis of the JavaScript and TypeScript code, also weekly                     |
 | [Dependency review](.github/workflows/dependency-review.yml) | Blocks new dependencies with high-severity advisories or GPL/AGPL licences               |
 
-Dependabot opens weekly pull requests for npm updates, and monthly ones for GitHub Actions and Docker base images.
-
 ## Pull requests
 
 1. Fork the repository and create a branch from `main`. Use a short, descriptive name such as `fix-approval-expiry`.
