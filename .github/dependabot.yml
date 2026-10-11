@@ -6,12 +6,25 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      # CopilotKit ships its own AG-UI version, so these must move together.
+      agent-stack:
+        patterns:
+          - '@copilotkit/*'
+          - '@ag-ui/*'
+          - '@tanstack/ai*'
       minor-and-patch:
         update-types: [minor, patch]
+        exclude-patterns:
+          - '@copilotkit/*'
+          - '@ag-ui/*'
+          - '@tanstack/ai*'
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
   - package-ecosystem: docker
     directory: /
     schedule:
