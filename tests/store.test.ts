@@ -64,7 +64,8 @@ describe('durable task lifecycle', () => {
     expect(store.detail(task.id)?.runs).toHaveLength(2);
   });
   it('honours every excluded task id, however long the list', () => {
-    const { store } = fixture();
+    // In memory: 550 inserts into a file database take over 10 seconds on Windows CI.
+    const store = new Store(':memory:');
     const ids = Array.from(
       { length: 550 },
       (_, i) => store.createTask(`Job ${i}`).id,
@@ -74,6 +75,7 @@ describe('durable task lifecycle', () => {
     expect(store.claim(Date.now(), 180_000, ids.slice(0, 549))?.id).toBe(
       ids[549],
     );
+    store.close();
   });
   it('filters in JS when the exclusion list is too long to bind', () => {
     const { store } = fixture();
