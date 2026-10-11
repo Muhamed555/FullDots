@@ -294,3 +294,27 @@ it('tells the model the current time so scheduled runs do not invent one', async
     vi.useRealTimers();
   }
 });
+
+it('says the turn hit its time limit when the provider request is aborted', async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fixture();
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(init.signal?.reason),
+            { once: true },
+          );
+        }),
+    );
+    const finished = lastValueFrom(f.agent.run(f.input).pipe(toArray()));
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    const events = await finished;
+    expect(JSON.stringify(events)).toMatch(/time limit/i);
+    expect(events.at(-1)).toMatchObject({ type: EventType.RUN_FINISHED });
+  } finally {
+    vi.useRealTimers();
+  }
+});
