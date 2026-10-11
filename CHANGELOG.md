@@ -2,6 +2,29 @@
 
 All notable changes to FullDots are listed here. The project follows [Semantic Versioning](https://semver.org), and 0.x releases may change without notice.
 
+## Unreleased
+
+### Added
+
+- **Delete a page.** Its subpages move up to the deleted page's parent, and a retried review approval cannot recreate it (ported from OpenDots [#49](https://github.com/CopilotKit/OpenDots/pull/49)).
+
+### Fixed
+
+Ported from OpenDots, adapted to FullDots and covered by tests:
+
+- Interrupted scheduled runs wait for an explicit retry instead of re-running ([#47](https://github.com/CopilotKit/OpenDots/pull/47)).
+- Background runner database errors are contained and retried ([#12](https://github.com/CopilotKit/OpenDots/pull/12)).
+- Dot turns know the current time ([#76](https://github.com/CopilotKit/OpenDots/pull/76)).
+- Reviewed-page retries are bound to the saved draft ([#48](https://github.com/CopilotKit/OpenDots/pull/48)), and reverted drafts survive save errors ([#44](https://github.com/CopilotKit/OpenDots/pull/44)).
+- The composer ignores Enter during IME composition ([#40](https://github.com/CopilotKit/OpenDots/pull/40)), and the home composer sends on Enter ([#95](https://github.com/CopilotKit/OpenDots/pull/95)).
+- The connection error clears once polling recovers ([#73](https://github.com/CopilotKit/OpenDots/pull/73)).
+- Voice calls survive short connection and status-poll drops, and failed compute turns can be retried ([#26](https://github.com/CopilotKit/OpenDots/pull/26), [#39](https://github.com/CopilotKit/OpenDots/pull/39), [#13](https://github.com/CopilotKit/OpenDots/pull/13)).
+- Checklist checkboxes stay inline with their text ([#90](https://github.com/CopilotKit/OpenDots/pull/90)).
+- Research keeps balanced brackets in requested URLs ([#99](https://github.com/CopilotKit/OpenDots/pull/99)).
+- Unknown conversations, calls, Dots and pages return 404, and malformed JSON returns 400 ([#14](https://github.com/CopilotKit/OpenDots/pull/14), [#98](https://github.com/CopilotKit/OpenDots/pull/98), [#11](https://github.com/CopilotKit/OpenDots/pull/11)).
+- Scheduled task activity logs use neutral wording ([#105](https://github.com/CopilotKit/OpenDots/pull/105)).
+- `npm run dev` works on Windows ([#20](https://github.com/asasemahmed/FullDots/pull/20), by @brunnojob).
+
 ## 0.1.0 — first public release (2026-10-09)
 
 FullDots was forked from CopilotKit OpenDots at commit `c2569bb` (2 October 2026). This release covers the 13 commits made on top of that point. Later upstream changes are not merged. See [FullDots and OpenDots](README.md#fulldots-and-opendots).

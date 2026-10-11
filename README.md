@@ -253,7 +253,7 @@ FullDots was forked from [CopilotKit OpenDots](https://github.com/CopilotKit/Ope
 | Approvals and handoff     | None                            | Risky actions pause, and you type the secrets |
 | Slack, Automatic Learning | Included                        | Removed (both depend on Intelligence)         |
 
-OpenDots has kept moving since the fork, and none of its later changes are merged here, including dark mode ([#81](https://github.com/CopilotKit/OpenDots/pull/81)), page deletion ([#49](https://github.com/CopilotKit/OpenDots/pull/49)) and its own per-Dot MCP connections ([#52](https://github.com/CopilotKit/OpenDots/pull/52)). If you want what upstream ships today, use OpenDots.
+OpenDots has kept moving since the fork. FullDots does not merge upstream wholesale; useful changes are ported one at a time, adapted and tested, and listed in the [changelog](CHANGELOG.md). Page deletion ([#49](https://github.com/CopilotKit/OpenDots/pull/49)) and most upstream bug fixes are in. Not ported: dark mode ([#81](https://github.com/CopilotKit/OpenDots/pull/81), FullDots will need its own), OpenDots's per-Dot MCP connections ([#52](https://github.com/CopilotKit/OpenDots/pull/52), FullDots has its own connectors), and anything tied to telemetry or the hosted Intelligence service.
 
 FullDots is an independent project, not affiliated with or endorsed by CopilotKit. Thanks to Atai Barkai and the CopilotKit team for OpenDots, and for [CopilotKit](https://github.com/CopilotKit/CopilotKit), [AG-UI](https://docs.ag-ui.com) and [OpenBot](https://github.com/CopilotKit/OpenBot), which FullDots builds on. See [`NOTICE.md`](NOTICE.md).
 

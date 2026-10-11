@@ -6,7 +6,7 @@ FullDots is derived from **OpenDots** by CopilotKit (<https://github.com/Copilot
 
 FullDots is an independent project. It is not affiliated with, sponsored by, or endorsed by CopilotKit. "CopilotKit" and "OpenDots" are names of their respective owners and are used here only to identify the original work.
 
-Changes made upstream after the fork point are not included in FullDots. See [FullDots and OpenDots](README.md#fulldots-and-opendots).
+Selected changes made upstream after the fork point are ported individually; each ported commit names its upstream pull request. See [FullDots and OpenDots](README.md#fulldots-and-opendots).
 
 ## What FullDots changed
 
