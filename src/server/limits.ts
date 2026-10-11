@@ -133,6 +133,10 @@ export interface IntegrationSettings {
   connectorResultMaxChars: number;
   approvalTtlMs: number;
   notifyWebhookUrl?: string;
+  /** How many background tasks may run at once (different Dots). */
+  backgroundConcurrency: number;
+  /** Tokens per Dot per day after which the owner is warned once. */
+  dailyTokenWarn: number;
 }
 
 /** Connector, approval and notification settings from the environment. */
@@ -156,6 +160,14 @@ export function readIntegrationSettings(
     ),
     approvalTtlMs:
       number(env, 'APPROVAL_TTL', 7 * 24 * 3600, 60, 31_536_000) * 1000,
+    backgroundConcurrency: number(env, 'BACKGROUND_CONCURRENCY', 2, 1, 8),
+    dailyTokenWarn: number(
+      env,
+      'DOT_DAILY_TOKEN_WARN',
+      2_000_000,
+      1000,
+      1_000_000_000,
+    ),
     ...(webhook ? { notifyWebhookUrl: webhook } : {}),
   };
 }

@@ -3319,3 +3319,10 @@ h3 {
 .task-row > div > .task-wait:focus-visible {
   background: #efe7d6;
 }
+
+.task-row .task-summary {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #2f7d4f;
+}

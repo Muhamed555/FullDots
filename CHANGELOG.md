@@ -6,6 +6,11 @@ All notable changes to FullDots are listed here. The project follows [Semantic V
 
 ### Added
 
+- **Standing goals.** A goal runs on a schedule until the Dot calls `mark_goal_done`, with an optional run limit. Repeats get run limits too ([`docs/AUTOMATIONS.md`](docs/AUTOMATIONS.md)).
+- **Parallel background work.** `BACKGROUND_CONCURRENCY` (default 2) tasks run at once on different Dots.
+- **Triggers.** Webhooks with bearer, URL or HMAC secrets (hashed or sealed, shown once, rotatable), dedupe, rate and size limits; and polls of read-only connector tools that fire when the answer changes. Events become tasks in the trigger's conversation.
+- **Token use and budgets.** Provider-reported tokens per Dot per UTC day, a once-a-day warning (`DOT_DAILY_TOKEN_WARN`), and an optional daily budget that pauses a Dot's background work.
+
 - **Delete a page.** Its subpages move up to the deleted page's parent, and a retried review approval cannot recreate it (ported from OpenDots [#49](https://github.com/CopilotKit/OpenDots/pull/49)).
 
 ### Fixed

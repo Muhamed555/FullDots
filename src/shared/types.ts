@@ -12,6 +12,56 @@ export interface Settings {
   researchAllowed: boolean;
   memoryAllowed: boolean;
 }
+export type TriggerKind = 'webhook' | 'poll';
+/** bearer: Authorization header; query: ?token= in the URL; hmac: a signature of the body. */
+export type TriggerAuth = 'bearer' | 'query' | 'hmac';
+/** Starts work from outside: a webhook call, or a polled connector tool whose answer changed. */
+export interface Trigger {
+  id: string;
+  dotId: string;
+  threadId: string;
+  kind: TriggerKind;
+  name: string;
+  /** What the Dot should do when the trigger fires. */
+  prompt: string;
+  auth: TriggerAuth | null;
+  hmacHeader: string | null;
+  hmacPrefix: string | null;
+  connectorId: string | null;
+  tool: string | null;
+  args: Record<string, unknown>;
+  intervalSeconds: number | null;
+  /** JSON path (a.b.0.c) a poll compares; null compares the whole answer. */
+  dedupePath: string | null;
+  enabled: boolean;
+  createdAt: number;
+  lastFiredAt: number | null;
+  lastPolledAt: number | null;
+  lastError: string | null;
+  eventCount: number;
+}
+/** Tokens one Dot used on one UTC day (`YYYY-MM-DD`). */
+export interface UsageDay {
+  day: string;
+  inputTokens: number;
+  outputTokens: number;
+  turns: number;
+  /** Turns whose provider reported no usage; their tokens are not counted. */
+  unreportedTurns: number;
+}
+export interface DotUsage {
+  dotId: string;
+  /** Tokens today (UTC). */
+  today: number;
+  /** Tokens this calendar month (UTC). */
+  month: number;
+  /** Daily token budget; null means none. Over it, background work waits for the next day. */
+  budget: number | null;
+  /** The last 30 days with any use, newest first. */
+  days: UsageDay[];
+}
+/** once: a single run; repeat: every interval; goal: repeats until the Dot marks it done; event: started by a trigger. */
+export type TaskKind = 'once' | 'repeat' | 'goal' | 'event';
 export interface Task {
   id: string;
   prompt: string;
@@ -23,6 +73,16 @@ export interface Task {
   error: string | null;
   lease: string | null;
   leaseUntil: number | null;
+  kind: TaskKind;
+  /** Completed runs so far. */
+  runCount: number;
+  /** A repeat or goal stops after this many runs; null means no limit. */
+  maxRuns: number | null;
+  lastRunAt: number | null;
+  /** The trigger that created an event task. */
+  triggerId: string | null;
+  /** How a goal ended, written by the Dot through mark_goal_done. */
+  summary: string | null;
 }
 export interface Source {
   title: string;

@@ -22,6 +22,10 @@ export interface PlatformConfig extends WebConfig {
   approvalTtlMs?: number;
   /** NOTIFY_WEBHOOK_URL: notification-only webhook for approvals and handoffs. */
   notifyWebhookUrl?: string;
+  /** BACKGROUND_CONCURRENCY, default 2: background tasks running at once. */
+  backgroundConcurrency?: number;
+  /** DOT_DAILY_TOKEN_WARN, default 2,000,000: warn once a Dot passes this many tokens in a day. */
+  dailyTokenWarn?: number;
   /** Where the app is opened (APP_ORIGIN, else the server address); makes notification links absolute. */
   publicOrigin?: string;
 }

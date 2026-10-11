@@ -19,6 +19,12 @@ const task: Task = {
   error: null,
   lease: null,
   leaseUntil: null,
+  kind: 'repeat',
+  runCount: 0,
+  maxRuns: null,
+  lastRunAt: null,
+  triggerId: null,
+  summary: null,
 };
 it('offers pause for a completed task waiting on its next scheduled run', () => {
   const html = renderToStaticMarkup(

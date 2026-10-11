@@ -13,6 +13,7 @@ import { loadConnectorKey } from './connector-crypto.js';
 import { Platform } from './platform.js';
 import type { PlatformConfig } from './platform-config.js';
 import { TurnRegistry } from './turn-registry.js';
+import { goalRunPrompt } from './goal-tools.js';
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 4310);
 const ownerToken = process.env.OWNER_TOKEN;
@@ -81,15 +82,36 @@ const runner = new Runner(
       throw new Error(
         'This legacy task has no conversation. Create a new scheduled task from a conversation.',
       );
-    progress('Running this task in its conversation.');
-    const text = await platform.turn(threadId, claim.prompt, signal, {
-      source: 'task',
-      ref: claim.id,
-    });
+    progress(
+      claim.kind === 'goal'
+        ? `Working on the goal (run ${claim.runCount + 1}).`
+        : 'Running this task in its conversation.',
+    );
+    const text = await platform.turn(
+      threadId,
+      claim.kind === 'goal' ? goalRunPrompt(claim) : claim.prompt,
+      signal,
+      { source: claim.kind === 'event' ? 'trigger' : 'task', ref: claim.id },
+    );
     return { text, sources: [], sample: false };
   },
   config.limits!.taskTimeoutMs,
-  { excluded: () => workspace.taskIdsFor(turns.exclusions()) },
+  {
+    concurrency: config.backgroundConcurrency,
+    dotOf: (taskId) => workspace.taskDot(taskId),
+    excluded: (activeDotIds) => {
+      const { threadIds, dotIds } = turns.exclusions();
+      return workspace.taskIdsFor({
+        threadIds,
+        // Dots over today's token budget wait for tomorrow.
+        dotIds: [
+          ...dotIds,
+          ...activeDotIds,
+          ...workspace.usage.overBudgetDots(),
+        ],
+      });
+    },
+  },
 );
 const app = createApp({
   store,

@@ -86,6 +86,22 @@ An optional container per Dot with a browser, files and a shell. Its screen stre
 
 </td>
 </tr>
+<tr>
+<td valign="top">
+
+#### Always-on work
+
+Standing goals that run until the Dot says they are done, several Dots working in the background at once, and triggers from webhooks or connector polls. See [Automations](docs/AUTOMATIONS.md).
+
+</td>
+<td valign="top">
+
+#### Token use and budgets
+
+Tokens per Dot per day from the provider's own counts, a daily warning, and an optional budget that pauses a Dot's background work until tomorrow.
+
+</td>
+</tr>
 </table>
 
 ### At a glance
@@ -169,7 +185,9 @@ All settings live in `.env`. [`.env.example`](.env.example) lists every variable
 | `WEB_SEARCH_PROVIDER`                               | `duckduckgo` (default) or `disabled`.                                                       |
 | `CONNECTORS_ALLOW_STDIO`                            | Lets connectors start local programs. Off by default.                                       |
 | `AGENT_TURN_TIMEOUT`, `AGENT_MAX_STEPS`             | How long and how many steps a Dot may take in one turn. Defaults: 90 seconds and 8 steps.   |
-| `NOTIFY_WEBHOOK_URL`                                | Optional. Receives a title, text and link for new approvals and handoffs.                   |
+| `NOTIFY_WEBHOOK_URL`                                | Optional. Receives a title, text and link for new approvals, handoffs and usage warnings.   |
+| `BACKGROUND_CONCURRENCY`                            | Background tasks running at once (different Dots). Default 2, at most 8.                    |
+| `DOT_DAILY_TOKEN_WARN`                              | Tokens per Dot per day before you are warned. Default 2,000,000.                            |
 
 ## Security
 
@@ -230,15 +248,16 @@ docs/        Guides, brand assets and screenshots
 
 ## Documentation
 
-| Guide                            | Covers                                       |
-| -------------------------------- | -------------------------------------------- |
-| [Setup](docs/SETUP.md)           | Running, Docker, storage, search and backups |
-| [Models](docs/MODELS.md)         | Providers, keys and per-Dot models           |
-| [Connectors](docs/CONNECTORS.md) | MCP connectors, browser sign-in and grants   |
-| [Approvals](docs/APPROVALS.md)   | Modes, what pauses, handoffs and resumes     |
-| [Computers](docs/COMPUTERS.md)   | A computer for each Dot                      |
-| [Brand](docs/brand/README.md)    | Logo, Dots and colours                       |
-| [Changelog](CHANGELOG.md)        | What changed in each release                 |
+| Guide                              | Covers                                        |
+| ---------------------------------- | --------------------------------------------- |
+| [Setup](docs/SETUP.md)             | Running, Docker, storage, search and backups  |
+| [Models](docs/MODELS.md)           | Providers, keys and per-Dot models            |
+| [Connectors](docs/CONNECTORS.md)   | MCP connectors, browser sign-in and grants    |
+| [Approvals](docs/APPROVALS.md)     | Modes, what pauses, handoffs and resumes      |
+| [Automations](docs/AUTOMATIONS.md) | Goals, triggers, parallel work, token budgets |
+| [Computers](docs/COMPUTERS.md)     | A computer for each Dot                       |
+| [Brand](docs/brand/README.md)      | Logo, Dots and colours                        |
+| [Changelog](CHANGELOG.md)          | What changed in each release                  |
 
 ## FullDots and OpenDots
 

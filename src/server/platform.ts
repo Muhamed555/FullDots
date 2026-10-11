@@ -20,7 +20,9 @@ import { ModelProviderRegistry } from './model-providers.js';
 import { ResumeQueue } from './resume-queue.js';
 import { ApprovalService } from './approval-service.js';
 import { HandoffService } from './handoff-service.js';
-import { createNotify } from './notify.js';
+import { createNotify, type Notify } from './notify.js';
+import { TriggerService } from './trigger-service.js';
+import { included } from './mcp-tools.js';
 import type { DotAgentServices } from './dot-agent.js';
 import type { TurnMetadata } from '../shared/types.js';
 const DEFAULT_APPROVAL_TTL_MS = 7 * 24 * 3600_000;
@@ -37,6 +39,8 @@ export class Platform {
   readonly resumes: ResumeQueue;
   readonly approvals: ApprovalService;
   readonly handoffs: HandoffService;
+  readonly notify: Notify;
+  readonly triggers: TriggerService;
   constructor(
     readonly store: Store,
     readonly workspace: WorkspaceStore,
@@ -102,6 +106,7 @@ export class Platform {
       console.error,
       config.publicOrigin,
     );
+    this.notify = notify;
     this.approvals = new ApprovalService({
       approvals: workspace.approvals,
       resumes: this.resumes,
@@ -117,6 +122,22 @@ export class Platform {
       resumes: this.resumes,
       audit: workspace.computers,
       notify,
+    });
+    this.triggers = new TriggerService({
+      triggers: workspace.triggers,
+      createEventTask: (trigger, prompt) => {
+        const task = store.createTask(prompt, {
+          kind: 'event',
+          triggerId: trigger.id,
+        });
+        workspace.bindTask(task.id, trigger.threadId);
+        return task.id;
+      },
+      connectors: this.connectors,
+      grantAllows: (dotId, connectorId, tool) => {
+        const grant = workspace.connectors.grant(dotId, connectorId);
+        return !!grant && included(grant, tool);
+      },
     });
     // Conversations are stored locally; no hosted thread service is involved.
     this.runner = new SqliteAgentRunner(chatDatabase);
@@ -171,14 +192,66 @@ export class Platform {
       approvals: this.approvals,
       handoffs: this.handoffs,
       models: this.models,
+      usage: (dotId, tokens) => this.recordUsage(dotId, tokens),
+      goals: {
+        isOpenGoal: (taskId) => {
+          const task = this.store.task(taskId);
+          return task?.kind === 'goal' && !task.summary;
+        },
+        complete: (taskId, summary) =>
+          !!this.store.completeGoal(taskId, summary),
+      },
     };
+  }
+  /** Adds a finished turn's tokens and warns the owner once a day when a Dot uses a lot. */
+  recordUsage(
+    dotId: string,
+    tokens: { input: number; output: number } | null,
+    now = Date.now(),
+  ) {
+    const usage = this.workspace.usage;
+    const total = usage.record(dotId, tokens, now);
+    const budget = usage.budget(dotId);
+    const warnAt = Math.min(
+      this.config.dailyTokenWarn ?? 2_000_000,
+      budget ?? Infinity,
+    );
+    if (total < warnAt || !usage.claimWarning(dotId, now)) return;
+    const name = this.workspace.dot(dotId)?.name ?? 'A Dot';
+    const reached = budget !== null && total >= budget;
+    void this.notify({
+      title: reached
+        ? `${name} reached its daily token budget`
+        : `${name} has used ${total.toLocaleString('en-US')} tokens today`,
+      text: reached
+        ? `Its background work waits until tomorrow (UTC). Chat still works. Budget: ${budget.toLocaleString('en-US')} tokens.`
+        : `That is above the ${warnAt.toLocaleString('en-US')} token warning level. Check its scheduled work if this is unexpected.`,
+      url: '/',
+    });
   }
   async start() {
     await this.connectors.start();
     this.approvals.startSweep();
     this.resumes.start();
+    this.triggers.start();
+  }
+  /** Why a connector tool cannot be polled for this Dot; undefined when it can. */
+  pollProblem(dotId: string, connectorId: string, toolName: string) {
+    const connector = this.workspace.connectors.get(connectorId);
+    if (!connector) return 'Connector not found.';
+    const tool = this.connectors
+      .toolsCached(connectorId)
+      .find((item) => item.name === toolName);
+    if (!tool)
+      return 'That tool is not available. Check that the connector is connected.';
+    if (!tool.readOnly) return 'Only read-only tools can be polled.';
+    const grant = this.workspace.connectors.grant(dotId, connectorId);
+    if (!grant || !included(grant, tool))
+      return 'This Dot is not granted that tool. Grant it in the Dot settings first.';
+    return undefined;
   }
   async stop() {
+    this.triggers.stop();
     this.resumes.stop();
     this.approvals.stopSweep();
     await this.connectors.stop();

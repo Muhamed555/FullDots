@@ -16,6 +16,7 @@ import {
   FilePlus,
   ArrowUp,
   Clock3,
+  Zap,
   Link2,
   Phone,
   PhoneOff,
@@ -54,6 +55,7 @@ export function Chat({
   paused,
   onSaved,
   onSchedule,
+  onTrigger,
   onComputer,
 }: {
   thread: Conversation;
@@ -65,6 +67,8 @@ export function Chat({
   paused: boolean;
   onSaved: () => void;
   onSchedule: () => void;
+  /** Adds a webhook or poll trigger that starts work in this conversation. */
+  onTrigger?: () => void;
   onComputer?: () => void;
 }) {
   const { agent, isReady } = useAgent({
@@ -410,6 +414,16 @@ export function Chat({
           >
             <Clock3 size={18} />
           </button>
+          {onTrigger && (
+            <button
+              className="icon-button"
+              aria-label="Add a trigger to this conversation"
+              title="Start work from a webhook or a connector"
+              onClick={onTrigger}
+            >
+              <Zap size={18} />
+            </button>
+          )}
           <button
             className={`icon-button ${voice.status === 'active' ? 'on-call' : ''}`}
             aria-label={

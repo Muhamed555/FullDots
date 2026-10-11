@@ -50,7 +50,10 @@ export interface McpToolContext {
 }
 
 /** Whether a grant offers a tool: a denied tool never; `'*'` read-only tools only; a list exactly its names. */
-function included(grant: DotConnectorGrant, tool: ConnectorToolInfo): boolean {
+export function included(
+  grant: DotConnectorGrant,
+  tool: ConnectorToolInfo,
+): boolean {
   if (grant.overrides[tool.name] === 'deny') return false;
   if (grant.tools === '*') return tool.readOnly;
   return Array.isArray(grant.tools) && grant.tools.includes(tool.name);

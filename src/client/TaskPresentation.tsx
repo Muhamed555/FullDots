@@ -17,9 +17,38 @@ export const relative = (value: number) => {
         : new Date(value).toLocaleDateString();
 };
 export const statusLabel = (task: Task) =>
-  task.status === 'completed' && task.nextRunAt
-    ? 'Scheduled'
-    : task.status.charAt(0).toUpperCase() + task.status.slice(1);
+  task.kind === 'goal' && task.status === 'completed' && task.summary
+    ? 'Achieved'
+    : task.status === 'completed' && task.nextRunAt
+      ? 'Scheduled'
+      : task.status.charAt(0).toUpperCase() + task.status.slice(1);
+
+const every = (seconds: number) =>
+  seconds < 3600
+    ? `${Math.round(seconds / 60)} min`
+    : seconds < 86_400
+      ? `${Math.round(seconds / 3600)} hr`
+      : `${Math.round(seconds / 86_400)} day${seconds >= 172_800 ? 's' : ''}`;
+
+/** The line a task is listed by: an event task's prompt starts with its trigger's instructions. */
+export const taskTitle = (task: Task) =>
+  task.kind === 'event' ? task.prompt.split('\n')[0] : task.prompt;
+
+/** What kind of work this is and how far it got, for the task list. */
+export function taskSchedule(task: Task): string {
+  const runs = task.runCount
+    ? ` · ${task.runCount} ${task.runCount === 1 ? 'run' : 'runs'}`
+    : '';
+  const limit = task.maxRuns ? ` of ${task.maxRuns}` : '';
+  if (task.kind === 'goal')
+    return task.summary
+      ? `Goal achieved${runs}`
+      : `Goal · checks every ${every(task.intervalSeconds ?? 3600)}${runs}${limit}`;
+  if (task.kind === 'event') return 'From a trigger';
+  if (task.intervalSeconds)
+    return `Repeats every ${every(task.intervalSeconds)}${runs}${limit}`;
+  return '';
+}
 export function Status({ task }: { task: Task }) {
   return (
     <span className={`status ${task.status}`}>
@@ -73,13 +102,14 @@ export function TaskRow({
         )}
       </span>
       <div>
-        <strong>{task.prompt}</strong>
+        <strong>{taskTitle(task)}</strong>
         <span>
-          {task.intervalSeconds
-            ? `Repeats every ${task.intervalSeconds < 3600 ? task.intervalSeconds / 60 + ' min' : task.intervalSeconds / 3600 + ' hr'} · `
-            : ''}
+          {taskSchedule(task) ? `${taskSchedule(task)} · ` : ''}
           {relative(task.updatedAt)}
         </span>
+        {task.kind === 'goal' && task.summary && (
+          <span className="task-summary">{task.summary}</span>
+        )}
         {waits.map((text) => (
           <span
             key={text}

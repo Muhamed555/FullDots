@@ -16,8 +16,16 @@ export class Runner {
       progress: (text: string) => void,
     ) => Promise<Result>,
     private timeoutMs = 90_000,
-    private options: { excluded?: () => string[] } = {},
+    private options: {
+      /** Task ids to skip; gets the Dots of the runs this runner has in flight. */
+      excluded?: (activeDotIds: string[]) => string[];
+      /** Background tasks at once; each runs on a different Dot. Default 1. */
+      concurrency?: number;
+      /** The Dot a task runs on, so two of its tasks are never claimed together. */
+      dotOf?: (taskId: string) => string | undefined;
+    } = {},
   ) {}
+  private activeDots = new Map<string, string>();
   private exclusionsFailed = false;
   start() {
     if (!this.timer) {
@@ -46,7 +54,9 @@ export class Runner {
   }
   private excludedTaskIds(): string[] {
     try {
-      return this.options.excluded?.() ?? [];
+      return (
+        this.options.excluded?.([...new Set(this.activeDots.values())]) ?? []
+      );
     } catch (error) {
       if (!this.exclusionsFailed) {
         this.exclusionsFailed = true;
@@ -70,16 +80,34 @@ export class Runner {
     }
   }
   private async runTick() {
-    if (this.active.size) return;
-    // The lease must outlive the run so a slow task is never claimed twice.
-    const claim = this.store.claim(
-      Date.now(),
-      this.timeoutMs + 90_000,
-      this.excludedTaskIds(),
-    );
-    if (!claim) return;
-    const controller = new AbortController();
-    this.active.set(claim.id, controller);
+    const concurrency = Math.max(1, this.options.concurrency ?? 1);
+    const started: Promise<void>[] = [];
+    let failure: unknown;
+    try {
+      while (this.active.size < concurrency) {
+        // The lease must outlive the run so a slow task is never claimed twice.
+        const claim = this.store.claim(
+          Date.now(),
+          this.timeoutMs + 90_000,
+          this.excludedTaskIds(),
+        );
+        if (!claim) break;
+        const controller = new AbortController();
+        this.active.set(claim.id, controller);
+        const dotId = this.options.dotOf?.(claim.id);
+        if (dotId) this.activeDots.set(claim.id, dotId);
+        started.push(this.run(claim, controller));
+      }
+    } catch (error) {
+      failure = error;
+    }
+    // Every started run is awaited, so none can end as an unhandled rejection.
+    const settled = await Promise.allSettled(started);
+    if (failure) throw failure;
+    const rejected = settled.find((outcome) => outcome.status === 'rejected');
+    if (rejected) throw rejected.reason;
+  }
+  private async run(claim: Claim, controller: AbortController) {
     const ownershipCheck = setInterval(() => {
       try {
         if (!this.store.owns(claim))
@@ -135,6 +163,7 @@ export class Runner {
       clearInterval(ownershipCheck);
       clearTimeout(timeout);
       this.active.delete(claim.id);
+      this.activeDots.delete(claim.id);
     }
   }
 }

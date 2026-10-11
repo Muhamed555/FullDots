@@ -11,10 +11,26 @@ import type {
   Settings,
   Task,
   TaskEvent,
+  TaskKind,
 } from '../shared/types.js';
 
 export type Claim = Task & { lease: string };
+export interface NewTask {
+  kind?: TaskKind;
+  intervalSeconds?: number | null;
+  maxRuns?: number | null;
+  triggerId?: string | null;
+}
 const MAX_BOUND_EXCLUDES = 30_000;
+// Columns added after the first release; ALTER TABLE keeps existing rows and their ids.
+const TASK_COLUMNS: [string, string][] = [
+  ['kind', "TEXT NOT NULL DEFAULT 'once'"],
+  ['runCount', 'INTEGER NOT NULL DEFAULT 0'],
+  ['maxRuns', 'INTEGER'],
+  ['lastRunAt', 'INTEGER'],
+  ['triggerId', 'TEXT'],
+  ['summary', 'TEXT'],
+];
 const defaults: Settings = {
   name: 'Dot',
   paused: false,
@@ -38,6 +54,23 @@ export class Store {
     this.db
       .prepare('INSERT OR IGNORE INTO settings VALUES (1, ?)')
       .run(JSON.stringify(defaults));
+    this.migrateTasks();
+  }
+  private migrateTasks() {
+    const present = new Set(
+      (
+        this.db.prepare('PRAGMA table_info(tasks)').all() as {
+          name: string;
+        }[]
+      ).map((column) => column.name),
+    );
+    for (const [name, type] of TASK_COLUMNS)
+      if (!present.has(name))
+        this.db.exec(`ALTER TABLE tasks ADD COLUMN ${name} ${type}`);
+    if (!present.has('kind'))
+      this.db.exec(
+        "UPDATE tasks SET kind='repeat' WHERE intervalSeconds IS NOT NULL",
+      );
   }
   close() {
     this.db.close();
@@ -93,15 +126,41 @@ export class Store {
       .prepare('SELECT * FROM tasks WHERE id=?')
       .get(id) as unknown as Task | undefined;
   }
-  createTask(prompt: string, intervalSeconds: number | null = null): Task {
+  createTask(prompt: string, options: number | null | NewTask = null): Task {
+    const input: NewTask =
+      typeof options === 'number' || options === null
+        ? { intervalSeconds: options }
+        : options;
+    const intervalSeconds = input.intervalSeconds ?? null;
+    const kind: TaskKind = input.kind ?? (intervalSeconds ? 'repeat' : 'once');
+    if (kind === 'goal' && !intervalSeconds)
+      throw new Error('A goal needs a check interval.');
     const now = Date.now();
     const id = randomUUID();
     this.db
       .prepare(
-        "INSERT INTO tasks VALUES (?, ?, 'queued', ?, NULL, ?, ?, NULL, NULL, NULL)",
+        `INSERT INTO tasks (id, prompt, status, intervalSeconds, nextRunAt, createdAt, updatedAt, kind, maxRuns, triggerId)
+         VALUES (?, ?, 'queued', ?, NULL, ?, ?, ?, ?, ?)`,
       )
-      .run(id, prompt, intervalSeconds, now, now);
-    this.event(id, null, 'Task added to the queue.');
+      .run(
+        id,
+        prompt,
+        intervalSeconds,
+        now,
+        now,
+        kind,
+        input.maxRuns ?? null,
+        input.triggerId ?? null,
+      );
+    this.event(
+      id,
+      null,
+      kind === 'goal'
+        ? 'Goal added. The Dot works on it until it is achieved.'
+        : kind === 'event'
+          ? 'Started by a trigger.'
+          : 'Task added to the queue.',
+    );
     return this.task(id)!;
   }
   detail(id: string): Detail | undefined {
@@ -260,13 +319,20 @@ export class Store {
           "UPDATE runs SET status='completed', finishedAt=?, result=? WHERE id=?",
         )
         .run(now, JSON.stringify(result), claim.lease);
+      const runCount = task.runCount + 1;
+      // A goal the Dot marked done during this run has no next run.
+      const repeats =
+        !!task.intervalSeconds && !(task.kind === 'goal' && task.summary);
+      const limited = task.maxRuns !== null && runCount >= task.maxRuns;
       this.db
         .prepare(
-          "UPDATE tasks SET status='completed', lease=NULL, leaseUntil=NULL, updatedAt=?, nextRunAt=? WHERE id=?",
+          "UPDATE tasks SET status='completed', lease=NULL, leaseUntil=NULL, updatedAt=?, nextRunAt=?, runCount=?, lastRunAt=? WHERE id=?",
         )
         .run(
           now,
-          task.intervalSeconds ? now + task.intervalSeconds * 1000 : null,
+          repeats && !limited ? now + task.intervalSeconds! * 1000 : null,
+          runCount,
+          now,
           claim.id,
         );
       this.event(
@@ -274,7 +340,31 @@ export class Store {
         claim.lease,
         result.sample ? 'Fictional sample brief ready.' : 'Run completed.',
       );
+      if (repeats && limited)
+        this.event(
+          claim.id,
+          null,
+          `Stopped after ${runCount} ${runCount === 1 ? 'run' : 'runs'}, its run limit.`,
+        );
       return true;
+    });
+  }
+  /**
+   * Marks a goal achieved. Called by the Dot on the goal's own running turn; the run itself
+   * finishes normally and then schedules nothing more.
+   */
+  completeGoal(taskId: string, summary: string): Task | undefined {
+    return this.transaction(() => {
+      const task = this.task(taskId);
+      if (!task || task.kind !== 'goal') return undefined;
+      const text = summary.trim().slice(0, 2000) || 'Goal achieved.';
+      this.db
+        .prepare(
+          'UPDATE tasks SET summary=?, nextRunAt=NULL, updatedAt=? WHERE id=?',
+        )
+        .run(text, Date.now(), taskId);
+      this.event(taskId, task.lease, `Goal achieved: ${text}`);
+      return this.task(taskId);
     });
   }
   interrupt(claim: Claim, reason: string) {

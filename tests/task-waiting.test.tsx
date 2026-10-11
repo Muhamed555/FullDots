@@ -18,6 +18,12 @@ const task: ListedTask = {
   error: null,
   lease: null,
   leaseUntil: null,
+  kind: 'once',
+  runCount: 0,
+  maxRuns: null,
+  lastRunAt: null,
+  triggerId: null,
+  summary: null,
   threadId: 'thread-1',
 };
 const approval = (extra: Partial<Approval> = {}): Approval => ({

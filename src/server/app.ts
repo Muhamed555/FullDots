@@ -4,6 +4,8 @@ import { connectorAuthRoutes } from './connector-auth-routes.js';
 import { modelProviderRoutes } from './model-provider-routes.js';
 import { connectorPresets } from '../shared/connector-presets.js';
 import { approvalRoutes } from './approval-routes.js';
+import { usageRoutes } from './usage-routes.js';
+import { hookRoutes, triggerRoutes } from './trigger-routes.js';
 import { turnRoutes } from './turn-routes.js';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -34,6 +36,12 @@ export function createApp({
   platform,
 }: AppOptions) {
   const app = new Hono();
+  // Webhooks first: they carry their own secret and limits instead of the owner checks below.
+  if (platform)
+    app.route(
+      '/api',
+      hookRoutes({ triggers: platform.triggers, ownerToken, origin }),
+    );
   app.use(
     '/api/*',
     bodyLimit({
@@ -155,6 +163,26 @@ export function createApp({
       }),
     );
   }
+  if (platform)
+    app.route(
+      '/api',
+      triggerRoutes({
+        triggers: platform.triggers,
+        workspace: platform.workspace,
+        publicOrigin:
+          platform.config.publicOrigin ?? origin ?? 'http://127.0.0.1:4310',
+        pollTool: (dotId, connectorId, tool) =>
+          platform.pollProblem(dotId, connectorId, tool),
+      }),
+    );
+  if (platform)
+    app.route(
+      '/api',
+      usageRoutes({
+        workspace: platform.workspace,
+        warnAt: platform.config.dailyTokenWarn ?? 2_000_000,
+      }),
+    );
   const voice = platform ? new VoiceService(platform) : undefined;
   if (platform && voice) app.route('/api', workspaceRoutes(platform, voice));
   app.get('/api/state', (c) =>
@@ -176,6 +204,8 @@ export function createApp({
         prompt: z.string().trim().min(3).max(4000),
         intervalSeconds: interval.optional(),
         threadId: z.string().optional(),
+        kind: z.enum(['once', 'repeat', 'goal']).optional(),
+        maxRuns: z.number().int().min(1).max(1000).nullable().optional(),
       })
       .strict()
       .safeParse(await c.req.json().catch(() => null));
@@ -185,6 +215,11 @@ export function createApp({
           error:
             'Enter a request between 3 and 4,000 characters; repeat intervals must be at least 60 seconds.',
         },
+        400,
+      );
+    if (parsed.data.kind === 'goal' && !parsed.data.intervalSeconds)
+      return c.json(
+        { error: 'Choose how often the Dot checks on the goal.' },
         400,
       );
     if (!store.settings().researchAllowed)
@@ -209,10 +244,15 @@ export function createApp({
         );
       }
     }
-    const task = store.createTask(
-      parsed.data.prompt,
-      parsed.data.intervalSeconds,
-    );
+    const task = store.createTask(parsed.data.prompt, {
+      kind:
+        parsed.data.kind ?? (parsed.data.intervalSeconds ? 'repeat' : 'once'),
+      intervalSeconds:
+        parsed.data.kind === 'once'
+          ? null
+          : (parsed.data.intervalSeconds ?? null),
+      maxRuns: parsed.data.maxRuns ?? null,
+    });
     if (platform && parsed.data.threadId)
       platform.workspace.bindTask(task.id, parsed.data.threadId);
     return c.json(task, 201);

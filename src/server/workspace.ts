@@ -6,6 +6,8 @@ import { ConnectorStore } from './connector-store.js';
 import { ModelProviderStore } from './model-provider-store.js';
 import { HandoffStore } from './handoff-store.js';
 import { ResumeStore } from './resume-store.js';
+import { UsageStore } from './usage-store.js';
+import { TriggerStore } from './trigger-store.js';
 import { Pages } from './pages.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -32,6 +34,8 @@ export class WorkspaceStore {
   readonly approvals: ApprovalStore;
   readonly handoffs: HandoffStore;
   readonly resumes: ResumeStore;
+  readonly usage: UsageStore;
+  readonly triggers: TriggerStore;
   constructor(
     path: string,
     readonly ownerId: string,
@@ -85,6 +89,8 @@ export class WorkspaceStore {
     this.approvals = new ApprovalStore(this.db);
     this.handoffs = new HandoffStore(this.db);
     this.resumes = new ResumeStore(this.db);
+    this.usage = new UsageStore(this.db);
+    this.triggers = new TriggerStore(this.db, connectorKey);
     this.pages = new Pages(this.db, (id) =>
       this.spaces().some((space) => space.id === id),
     );
@@ -374,6 +380,8 @@ export class WorkspaceStore {
         'DELETE FROM approvals WHERE threadId=?',
         'DELETE FROM handoffs WHERE threadId=?',
         'DELETE FROM resume_markers WHERE threadId=?',
+        'DELETE FROM trigger_events WHERE triggerId IN (SELECT id FROM triggers WHERE threadId=?)',
+        'DELETE FROM triggers WHERE threadId=?',
       ])
         this.db.prepare(sql).run(id);
       this.db
@@ -410,6 +418,16 @@ export class WorkspaceStore {
       .prepare('SELECT taskId FROM task_threads WHERE threadId=? LIMIT 1')
       .get(threadId);
     return typeof row?.taskId === 'string' ? row.taskId : undefined;
+  }
+  /** The Dot whose conversation a task runs in. */
+  taskDot(taskId: string): string | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT b.dotId FROM task_threads t JOIN thread_bindings b ON b.id=t.threadId
+         WHERE t.taskId=? AND b.ownerId=?`,
+      )
+      .get(taskId, this.ownerId);
+    return typeof row?.dotId === 'string' ? row.dotId : undefined;
   }
   taskThread(taskId: string): string | undefined {
     const row = this.db

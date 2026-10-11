@@ -1,0 +1,278 @@
+/* Triggers and token use, above the task list in "Scheduled and activity". */
+.automations {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.automations-section {
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid #e9e8e6;
+  border-radius: 12px;
+}
+.automations-section > h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #242424;
+}
+.automations-empty,
+.automations-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b6b6b;
+}
+.automations-hint {
+  margin-top: 10px;
+  font-size: 12px;
+}
+.automations-error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff1f1;
+  color: #a32b32;
+  font-size: 13px;
+}
+
+.trigger-list,
+.usage-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.trigger-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid #f0efed;
+}
+.trigger-row:first-child {
+  border-top: 0;
+}
+.trigger-row[data-enabled='false'] .trigger-main {
+  opacity: 0.6;
+}
+.trigger-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background: #f4f5fe;
+  color: #5867e0;
+}
+.trigger-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.trigger-main strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #242424;
+}
+.trigger-main > span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6b6b6b;
+  overflow-wrap: anywhere;
+}
+.trigger-main .link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #5867e0;
+  font: inherit;
+  cursor: pointer;
+}
+.trigger-main .link-button:hover {
+  text-decoration: underline;
+}
+.trigger-error {
+  color: #a32b32 !important;
+}
+.trigger-secret code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: #f4f4f2;
+  font-size: 11.5px;
+  user-select: all;
+}
+.trigger-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #6b6b6b;
+  cursor: pointer;
+}
+.trigger-toggle input {
+  accent-color: #5867e0;
+}
+
+.usage-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 140px) minmax(60px, 1fr) auto auto;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 0;
+  border-top: 1px solid #f0efed;
+}
+.usage-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: #242424;
+}
+.usage-numbers {
+  font-size: 12px;
+  color: #6b6b6b;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.usage-note {
+  grid-column: 1 / -1;
+}
+.usage-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .usage-row {
+    grid-template-columns: 1fr auto;
+  }
+  .usage-row .usage-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+.usage-row:first-child {
+  border-top: 0;
+}
+.usage-note {
+  font-size: 12px;
+  color: #6b6b6b;
+}
+.usage-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: #f0efed;
+  overflow: hidden;
+}
+.usage-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #5867e0;
+}
+.usage-bar[data-over='true'] > span {
+  background: #d9822b;
+}
+.usage-budget {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.usage-budget label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b6b6b;
+}
+.usage-budget input {
+  width: 110px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid #e7e7e7;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.usage-budget .ghost-button {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid #e7e7e7;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.usage-budget .ghost-button:hover {
+  border-color: #d0d0d0;
+}
+.usage-error {
+  font-size: 12px;
+  color: #a32b32;
+}
+
+/* Trigger dialog extras */
+.modal.dlg .trg-kinds {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.modal.dlg .trg-kinds strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.modal.dlg .trg-code {
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 12.5px;
+}
+.modal.dlg .trg-created {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.modal.dlg .trg-created .dlg-footer {
+  padding: 0;
+  border: 0;
+}
+.trg-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.trg-copy-row code {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #e7e7e7;
+  border-radius: 10px;
+  background: #fafaf9;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.trg-copy-row .dlg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 560px) {
+  .modal.dlg .trg-kinds {
+    grid-template-columns: 1fr;
+  }
+}

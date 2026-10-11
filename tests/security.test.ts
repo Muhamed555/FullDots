@@ -53,6 +53,8 @@ const PLANTED = {
   master: 'master-secret-RRR',
   connector: 'connector-secret-ABC',
   webhook: 'webhook-secret-SSS',
+  trigger: 'trigger-secret-TTT',
+  signing: 'signing-secret-UUU',
 };
 const PROVIDER_URL = 'https://models.provider.test/v1';
 const WEBHOOK_URL = `https://hooks.example.test/notify/${PLANTED.webhook}`;
@@ -275,8 +277,26 @@ describe('planted secrets', () => {
       expect.objectContaining({ url: expect.any(String) }),
     ]);
 
+    // Trigger secrets: a bearer one (kept as a hash) and a signing one (sealed).
+    for (const [auth, secret] of [
+      ['bearer', PLANTED.trigger],
+      ['hmac', PLANTED.signing],
+    ] as const) {
+      const { trigger } = platform.triggers.create({
+        dotId: dot.id,
+        threadId: 'thread',
+        kind: 'webhook',
+        name: `Planted ${auth}`,
+        prompt: 'Handle the event.',
+        auth,
+      });
+      workspace.triggers.setSecret(trigger.id, secret);
+    }
+
     const observed: Record<string, string> = {};
     for (const path of [
+      '/api/triggers',
+      '/api/usage',
       '/api/state',
       '/api/workspace',
       '/api/connectors',

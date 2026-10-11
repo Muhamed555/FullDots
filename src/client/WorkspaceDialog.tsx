@@ -219,6 +219,10 @@ export function WorkspaceDialog({
     dialog.type === 'dot' ? (dialog.dot?.spaceId ?? dialog.spaceId) : '',
   );
   const [interval, setInterval] = useState('86400');
+  const [scheduleKind, setScheduleKind] = useState<'once' | 'repeat' | 'goal'>(
+    'repeat',
+  );
+  const [maxRuns, setMaxRuns] = useState('');
   // A model id plus the provider that serves it; a null provider means the default one.
   const [modelChoice, setModelChoice] = useState<ModelChoice>({
     providerId:
@@ -428,7 +432,13 @@ export function WorkspaceDialog({
               body = {
                 prompt: text,
                 threadId: dialog.threadId,
-                intervalSeconds: Number(interval),
+                kind: scheduleKind,
+                ...(scheduleKind === 'once'
+                  ? {}
+                  : {
+                      intervalSeconds: Number(interval),
+                      maxRuns: maxRuns ? Number(maxRuns) : null,
+                    }),
               };
             }
             let saved: boolean;
@@ -653,6 +663,38 @@ export function WorkspaceDialog({
                 />
               </>
             )}
+            {dialog.type === 'schedule' && (
+              <fieldset className="dlg-segments">
+                <legend className="field-label">What kind of work</legend>
+                {(
+                  [
+                    ['once', 'Once', 'Runs one time.'],
+                    ['repeat', 'Repeat', 'Runs again on a schedule.'],
+                    [
+                      'goal',
+                      'Goal',
+                      'Keeps working until the Dot says it is done.',
+                    ],
+                  ] as const
+                ).map(([value, label, hint]) => (
+                  <label
+                    key={value}
+                    className="dlg-segment"
+                    data-checked={scheduleKind === value}
+                  >
+                    <input
+                      type="radio"
+                      name="schedule-kind"
+                      value={value}
+                      checked={scheduleKind === value}
+                      onChange={() => setScheduleKind(value)}
+                    />
+                    <strong>{label}</strong>
+                    <small>{hint}</small>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             {(dialog.type === 'space' ||
               dialog.type === 'memory' ||
               dialog.type === 'schedule') && (
@@ -662,7 +704,9 @@ export function WorkspaceDialog({
                     ? 'What belongs here?'
                     : dialog.type === 'memory'
                       ? 'Preference or context'
-                      : 'Task to revisit'}
+                      : scheduleKind === 'goal'
+                        ? 'Goal'
+                        : 'Task to revisit'}
                 </label>
                 <textarea
                   id="entity-text"
@@ -672,13 +716,20 @@ export function WorkspaceDialog({
                   required={dialog.type !== 'space'}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
+                  placeholder={
+                    dialog.type === 'schedule' && scheduleKind === 'goal'
+                      ? 'Keep the release notes in the Launch space up to date with every merged change.'
+                      : undefined
+                  }
                 />
               </>
             )}
-            {dialog.type === 'schedule' && (
+            {dialog.type === 'schedule' && scheduleKind !== 'once' && (
               <>
                 <label className="field-label" htmlFor="schedule-interval">
-                  Repeat after each successful run
+                  {scheduleKind === 'goal'
+                    ? 'Check on the goal'
+                    : 'Repeat after each successful run'}
                 </label>
                 <select
                   id="schedule-interval"
@@ -691,12 +742,31 @@ export function WorkspaceDialog({
                   <option value="86400">Every day</option>
                   <option value="604800">Every week</option>
                 </select>
-                <p className="dlg-hint">
-                  Runs on the server in this same conversation, even with the
-                  tab closed. Failed or interrupted runs wait for manual retry.
-                  Review completed work before retrying an interrupted run.
-                </p>
+                <label className="field-label" htmlFor="schedule-max-runs">
+                  Stop after (runs, optional)
+                </label>
+                <input
+                  id="schedule-max-runs"
+                  className="dlg-input"
+                  type="number"
+                  min={1}
+                  max={1000}
+                  inputMode="numeric"
+                  placeholder="No limit"
+                  value={maxRuns}
+                  onChange={(e) => setMaxRuns(e.target.value)}
+                />
               </>
+            )}
+            {dialog.type === 'schedule' && (
+              <p className="dlg-hint">
+                {scheduleKind === 'goal'
+                  ? 'Each check is a turn in this conversation. The Dot closes the goal itself when it is achieved, or it stops at the run limit. '
+                  : ''}
+                Runs on the server in this same conversation, even with the tab
+                closed. Failed or interrupted runs wait for manual retry. Review
+                completed work before retrying an interrupted run.
+              </p>
             )}
             {dialog.type === 'settings' && (
               <div className="ss-shell">

@@ -49,6 +49,8 @@ import { ResultPane } from './ResultPane';
 import { TaskRow, taskWaits, type ListedTask } from './TaskPresentation';
 import { TaskActions } from './TaskActions';
 import { WorkspaceDialog, type Dialog } from './WorkspaceDialog';
+import { TriggerDialog } from './TriggerDialog';
+import { AutomationsPanel } from './AutomationsPanel';
 import { submitComposerOnEnter } from './chat-composer';
 
 function describeFailure(error: unknown, fallback: string) {
@@ -135,6 +137,12 @@ export function App() {
   const [auth, setAuth] = useState('');
   const [needsAuth, setNeedsAuth] = useState(false);
   const [dialog, setDialog] = useState<Dialog>();
+  const [triggerFor, setTriggerFor] = useState<{
+    threadId: string;
+    dotId: string;
+  }>();
+  // Bumped after a trigger is created, so the activity view reloads its list.
+  const [automations, setAutomations] = useState(0);
   const [mobile, setMobile] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(() =>
     readFlag('fulldots.sidebar.collapsed', false),
@@ -564,6 +572,9 @@ export function App() {
                   onSchedule={() =>
                     setDialog({ type: 'schedule', threadId: thread.id })
                   }
+                  onTrigger={() =>
+                    setTriggerFor({ threadId: thread.id, dotId: thread.dotId })
+                  }
                 />
               ) : (
                 <div className="new-conversation">
@@ -775,6 +786,21 @@ export function App() {
               </>
             ) : (
               <>
+                <AutomationsPanel
+                  dots={workspace.dots}
+                  conversations={workspace.conversations}
+                  version={automations}
+                  onOpenThread={(id) => {
+                    const target = workspace.conversations.find(
+                      (t) => t.id === id,
+                    );
+                    if (target) {
+                      setView('chat');
+                      setSelectedDot(target.dotId);
+                      setSelectedThread(id);
+                    }
+                  }}
+                />
                 <label className="search-box">
                   <Search size={16} />
                   <input
@@ -893,6 +919,14 @@ export function App() {
           workspace={workspace}
           onClose={() => setDialog(undefined)}
           mutate={mutate}
+        />
+      )}
+      {triggerFor && (
+        <TriggerDialog
+          threadId={triggerFor.threadId}
+          dotId={triggerFor.dotId}
+          onClose={() => setTriggerFor(undefined)}
+          onCreated={() => setAutomations((value) => value + 1)}
         />
       )}
     </div>
