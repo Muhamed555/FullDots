@@ -18,6 +18,7 @@ Self-hosted and local-first. Bring any model, connect your tools, and approve ev
 ![Node.js 24+](https://img.shields.io/badge/node-%3E%3D24-339933.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)
 ![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)
+[![M8ven Score](https://m8ven.ai/badge/mcp/asasemahmed-fulldots-1p2yvw)](https://m8ven.ai/mcp/asasemahmed-fulldots-1p2yvw?s=readme)
 
 [Quick start](#quick-start) · [Features](#features) · [How it works](#how-it-works) · [Documentation](#documentation) · [FullDots and OpenDots](#fulldots-and-opendots)
 
