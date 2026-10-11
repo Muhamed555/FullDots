@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { Store } from '../src/server/store.js';
 import { WorkspaceStore } from '../src/server/workspace.js';
 import { Platform } from '../src/server/platform.js';
@@ -20,6 +20,7 @@ function fixture(ownerToken?: string) {
   });
   return {
     ws,
+    platform,
     app: createApp({
       store,
       runner: new Runner(store, config),
@@ -300,4 +301,50 @@ it('saves a per-Dot model through the API and clears it back to the default', as
       )
     ).status,
   ).toBe(400);
+});
+
+it.each([
+  ['GET', '/reviewed-page/tool'],
+  ['POST', '/reviewed-page'],
+  ['GET', '/page-context'],
+  ['POST', '/page'],
+])(
+  'returns 404 for an unknown conversation on %s %s',
+  async (method, suffix) => {
+    const { ws, app } = fixture();
+    const body =
+      suffix === '/reviewed-page'
+        ? {
+            title: 'Draft',
+            content: 'Text',
+            spaceId: ws.spaces()[0].id,
+            toolCallId: 'tool',
+          }
+        : { title: 'Draft' };
+    const response = await app.request(
+      `/api/conversations/missing${suffix}`,
+      method === 'GET' ? undefined : request(body),
+    );
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: 'Conversation does not belong to this Dot and owner.',
+    });
+  },
+);
+
+it('keeps real page failures as 503 without exposing details', async () => {
+  const { ws, app, platform } = fixture();
+  ws.bindThread('valid-thread', ws.dots()[0].id, 'Conversation');
+  vi.spyOn(platform.pages, 'saveConversation').mockRejectedValueOnce(
+    new Error('Provider secret'),
+  );
+  const response = await app.request(
+    '/api/conversations/valid-thread/page',
+    request({ title: 'Draft' }),
+  );
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({
+    error:
+      'Page operation could not complete. Check the model setup or retry; your draft has not been discarded.',
+  });
 });
