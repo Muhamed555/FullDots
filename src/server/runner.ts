@@ -59,6 +59,17 @@ export class Runner {
     }
   }
   async tick() {
+    try {
+      await this.runTick();
+    } catch {
+      // Store errors must not become unhandled interval promise rejections.
+      // Do not log task content, provider responses, or database details.
+      console.error(
+        'Background runner tick failed; will retry on the next tick.',
+      );
+    }
+  }
+  private async runTick() {
     if (this.active.size) return;
     // The lease must outlive the run so a slow task is never claimed twice.
     const claim = this.store.claim(
@@ -70,8 +81,12 @@ export class Runner {
     const controller = new AbortController();
     this.active.set(claim.id, controller);
     const ownershipCheck = setInterval(() => {
-      if (!this.store.owns(claim))
-        controller.abort(new Error('Run permission or lease was revoked.'));
+      try {
+        if (!this.store.owns(claim))
+          controller.abort(new Error('Run permission or lease was revoked.'));
+      } catch {
+        controller.abort(new Error('Run ownership check failed.'));
+      }
     }, 100);
     const timeout = setTimeout(
       () =>
