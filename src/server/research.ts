@@ -21,6 +21,24 @@ const modelResponse = z.object({
     .array(z.object({ message: z.object({ content: z.string().min(1) }) }))
     .min(1),
 });
+const closers: Record<string, string> = { ')': '(', ']': '[' };
+export function requestedUrls(prompt: string): string[] {
+  // Split Markdown link boundaries so a URL used as a link label does not
+  // swallow the destination: [https://a](https://b) holds two URLs.
+  const text = prompt.replace(/\]\(/g, '] (');
+  const urls = (text.match(/https?:\/\/[^\s<>"']+/gi) ?? []).map((raw) => {
+    let url = raw;
+    for (;;) {
+      const last = url.at(-1)!;
+      const open = closers[last];
+      const unbalanced =
+        open !== undefined && url.split(last).length > url.split(open).length;
+      if (/[.,;!?:]/.test(last) || unbalanced) url = url.slice(0, -1);
+      else return url;
+    }
+  });
+  return [...new Set(urls)];
+}
 export function configured(config: Config): boolean {
   return (
     config.mode === 'sample' ||
@@ -73,10 +91,7 @@ export async function research(
     );
   const pages: WebSource[] = [];
   const limitations: string[] = [];
-  const urls = prompt
-    .match(/https?:\/\/[^\s<>"'\])]+/gi)
-    ?.map((url) => url.replace(/[.,;!?]+$/, ''));
-  let targets = urls ?? [];
+  let targets = requestedUrls(prompt);
   if (!targets.length) {
     progress('Searching the public web.');
     const results = await searchWeb(prompt.slice(0, 300), signal);
