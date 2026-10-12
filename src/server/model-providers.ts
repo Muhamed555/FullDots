@@ -1,3 +1,8 @@
+import {
+  addThoughtSignatures,
+  captureThoughtSignatures,
+  isGeminiEndpoint,
+} from './thought-signatures.js';
 import { openaiCompatibleText } from '@tanstack/ai-openai/compatible';
 import {
   modelPreset,
@@ -184,6 +189,8 @@ export function providerFetch(
   const redact = options.redact ?? ((text: string) => text);
   const extraHeaders = { ...preset.defaultHeaders, ...options.headers };
   const dropFields = preset.dropFields ?? [];
+  // Gemini 3 needs each tool call's thought signature back on the next request.
+  const gemini = isGeminiEndpoint(preset.id, baseUrl);
 
   const send = async (target: URL, init: RequestInit): Promise<Response> => {
     const host = bareHost(target);
@@ -244,9 +251,11 @@ export function providerFetch(
       for (const [name, value] of Object.entries(extraHeaders))
         if (!headers.has(name)) headers.set(name, value);
       next.headers = headers;
-      const body = dropBodyFields(next.body, dropFields);
+      let body = dropBodyFields(next.body, dropFields);
+      if (gemini) body = addThoughtSignatures(body);
       if (body !== next.body) next.body = body as BodyInit;
-      return await send(target, next);
+      const response = await send(target, next);
+      return gemini ? captureThoughtSignatures(response) : response;
     } catch (error) {
       if (!(error instanceof Error) || ABORT_NAMES.has(error.name)) throw error;
       const code = (error.cause as { code?: unknown } | undefined)?.code;
