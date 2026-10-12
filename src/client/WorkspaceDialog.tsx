@@ -11,6 +11,7 @@ import {
   FolderLock,
   Info,
   Plug,
+  Users,
   Settings2,
   ShieldCheck,
   Sparkles,
@@ -237,7 +238,19 @@ export function WorkspaceDialog({
   const [connectors, setConnectors] = useState<ConnectorView[]>([]);
   const [grants, setGrants] = useState<GrantInput[]>([]);
   const [grantsDirty, setGrantsDirty] = useState(false);
+  const [teamIds, setTeamIds] = useState<string[]>([]);
+  const [teamDirty, setTeamDirty] = useState(false);
   const savedDotId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (dialog.type !== 'dot' || !dialog.dot) return;
+    let active = true;
+    void api<{ delegateIds: string[] }>(`/dots/${dialog.dot.id}/team`)
+      .then((team) => active && setTeamIds(team.delegateIds))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [dialog]);
   useEffect(() => {
     if (dialog.type !== 'dot') return;
     let active = true;
@@ -442,7 +455,7 @@ export function WorkspaceDialog({
               };
             }
             let saved: boolean;
-            if (dialog.type === 'dot' && grantsDirty) {
+            if (dialog.type === 'dot' && (grantsDirty || teamDirty)) {
               try {
                 // A new Dot needs its id before the grants can be saved. The
                 // last step goes through mutate so the workspace refreshes.
@@ -453,11 +466,15 @@ export function WorkspaceDialog({
                   savedDotId.current = dotId;
                   saved = true;
                 }
-                if (saved)
+                if (saved && grantsDirty)
                   saved = await mutate(`/dots/${dotId}/connectors`, 'PUT', {
                     grants: grants.filter((grant) =>
                       connectors.some((item) => item.id === grant.connectorId),
                     ),
+                  });
+                if (saved && teamDirty)
+                  saved = await mutate(`/dots/${dotId}/team`, 'PUT', {
+                    delegateIds: teamIds,
                   });
               } catch (e) {
                 setError(e instanceof Error ? e.message : 'Could not save.');
@@ -566,6 +583,50 @@ export function WorkspaceDialog({
                       setGrantsDirty(true);
                     }}
                   />
+                </DotSection>
+                <DotSection
+                  id="team"
+                  icon={Users}
+                  title="Team"
+                  description="Dots this one may hand work to. Each works in its own conversation and reports back."
+                >
+                  {workspace.dots.filter((item) => item.id !== dialog.dot?.id)
+                    .length === 0 ? (
+                    <p className="dlg-hint">
+                      Create another Dot first; then this one can hand it work.
+                    </p>
+                  ) : (
+                    <div
+                      className="dlg-list"
+                      role="group"
+                      aria-label="Can hand work to"
+                    >
+                      {workspace.dots
+                        .filter((item) => item.id !== dialog.dot?.id)
+                        .map((item) => (
+                          <label className="dlg-check-row" key={item.id}>
+                            <input
+                              type="checkbox"
+                              checked={teamIds.includes(item.id)}
+                              onChange={(event) => {
+                                setTeamIds((current) =>
+                                  event.target.checked
+                                    ? [...current, item.id]
+                                    : current.filter((id) => id !== item.id),
+                                );
+                                setTeamDirty(true);
+                              }}
+                            />
+                            <span className="dlg-team-text">
+                              <strong>{item.name}</strong>
+                              <small>
+                                {item.instructions.split('\n')[0].slice(0, 90)}
+                              </small>
+                            </span>
+                          </label>
+                        ))}
+                    </div>
+                  )}
                 </DotSection>
                 <DotSection
                   id="approvals"

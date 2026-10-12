@@ -137,6 +137,8 @@ export interface IntegrationSettings {
   backgroundConcurrency: number;
   /** Tokens per Dot per day after which the owner is warned once. */
   dailyTokenWarn: number;
+  /** How many hand-offs between Dots may chain. */
+  teamMaxDepth: number;
 }
 
 /** Connector, approval and notification settings from the environment. */
@@ -161,6 +163,7 @@ export function readIntegrationSettings(
     approvalTtlMs:
       number(env, 'APPROVAL_TTL', 7 * 24 * 3600, 60, 31_536_000) * 1000,
     backgroundConcurrency: number(env, 'BACKGROUND_CONCURRENCY', 2, 1, 8),
+    teamMaxDepth: number(env, 'TEAM_MAX_DEPTH', 2, 1, 5),
     dailyTokenWarn: number(
       env,
       'DOT_DAILY_TOKEN_WARN',

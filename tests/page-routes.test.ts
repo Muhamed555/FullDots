@@ -36,7 +36,7 @@ const request = (body: unknown, method = 'POST') => ({
   body: JSON.stringify(body),
 });
 
-it('saves Learning settings through the owner API and rejects malformed container IDs', async () => {
+it('ignores the removed Learning fields that older clients still send', async () => {
   const { ws, app } = fixture();
   const dot = ws.dots()[0];
   const body = {
@@ -47,38 +47,20 @@ it('saves Learning settings through the owner API and rejects malformed containe
     learningContainerId: 'research',
     skillDeliveryEnabled: true,
   };
-  expect(
-    (await app.request(`/api/dots/${dot.id}`, request(body, 'PUT'))).status,
-  ).toBe(200);
-  expect(ws.dot(dot.id)).toMatchObject({
-    learningContainerId: 'research',
-    skillDeliveryEnabled: true,
-  });
-  expect(
-    (
-      await app.request(
-        `/api/dots/${dot.id}`,
-        request({ ...body, learningContainerId: 'bad--id' }, 'PUT'),
-      )
-    ).status,
-  ).toBe(400);
-  expect(
-    (
-      await app.request(
-        `/api/dots/${dot.id}`,
-        request({ ...body, learningContainerId: null }, 'PUT'),
-      )
-    ).status,
-  ).toBe(400);
+  const updated = await app.request(
+    `/api/dots/${dot.id}`,
+    request(body, 'PUT'),
+  );
+  expect(updated.status).toBe(200);
   const created = await app.request(
     '/api/dots',
     request({ ...body, spaceId: dot.spaceId }),
   );
   expect(created.status).toBe(201);
-  expect(await created.json()).toMatchObject({
-    learningContainerId: 'research',
-    skillDeliveryEnabled: true,
-  });
+  for (const value of [await updated.json(), await created.json()]) {
+    expect(value).not.toHaveProperty('learningContainerId');
+    expect(value).not.toHaveProperty('skillDeliveryEnabled');
+  }
   const privateApp = fixture('owner-secret');
   expect(
     (

@@ -636,3 +636,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Dot form: team members */
+.modal.dlg .dlg-team-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.modal.dlg .dlg-team-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 400;
+  color: #707070;
+}

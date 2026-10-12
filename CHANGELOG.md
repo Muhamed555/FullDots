@@ -6,6 +6,11 @@ All notable changes to FullDots are listed here. The project follows [Semantic V
 
 ### Added
 
+- **Teams of Dots.** A Dot hands work to a teammate with `delegate_to_dot`; the teammate works in its own conversation and the result comes back as a new turn. Team grants per Dot, a depth limit (`TEAM_MAX_DEPTH`), loop protection and at most three hand-offs per turn ([`docs/TEAMS.md`](docs/TEAMS.md)).
+- **Pause a single Dot** from its sidebar menu. Its turns stop and its background work waits until it is resumed.
+- **`npm run backup`** writes a consistent copy of the database (and the connector key) while FullDots runs.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
 - **Standing goals.** A goal runs on a schedule until the Dot calls `mark_goal_done`, with an optional run limit. Repeats get run limits too ([`docs/AUTOMATIONS.md`](docs/AUTOMATIONS.md)).
 - **Parallel background work.** `BACKGROUND_CONCURRENCY` (default 2) tasks run at once on different Dots.
 - **Triggers.** Webhooks with bearer, URL or HMAC secrets (hashed or sealed, shown once, rotatable), dedupe, rate and size limits; and polls of read-only connector tools that fire when the answer changes. Events become tasks in the trigger's conversation.
@@ -14,6 +19,9 @@ All notable changes to FullDots are listed here. The project follows [Semantic V
 - **Delete a page.** Its subpages move up to the deleted page's parent, and a retried review approval cannot recreate it (ported from OpenDots [#49](https://github.com/CopilotKit/OpenDots/pull/49)).
 
 ### Fixed
+
+- A model provider is shown as Ready only after a successful test, the built-in `.env` provider included.
+- When a Dot is busy, the chat says so, keeps the message and offers to send it again or to stop the other work and send.
 
 Ported from OpenDots, adapted to FullDots and covered by tests:
 
@@ -29,6 +37,10 @@ Ported from OpenDots, adapted to FullDots and covered by tests:
 - Unknown conversations, calls, Dots and pages return 404, and malformed JSON returns 400 ([#14](https://github.com/CopilotKit/OpenDots/pull/14), [#98](https://github.com/CopilotKit/OpenDots/pull/98), [#11](https://github.com/CopilotKit/OpenDots/pull/11)).
 - Scheduled task activity logs use neutral wording ([#105](https://github.com/CopilotKit/OpenDots/pull/105)).
 - `npm run dev` works on Windows ([#20](https://github.com/asasemahmed/FullDots/pull/20), by @brunnojob).
+
+### Removed
+
+- The leftover Automatic Learning settings (`learningContainerId`, `skillDeliveryEnabled`). The database columns stay; older clients that still send the fields are not refused.
 
 ## 0.1.0 — first public release (2026-10-09)
 

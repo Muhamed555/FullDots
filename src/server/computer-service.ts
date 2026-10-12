@@ -133,6 +133,8 @@ export class ComputerService {
       throw new Error('Computer permission is disabled.');
     if (actor === 'agent' && this.paused())
       throw new Error('Agents are paused.');
+    if (actor === 'agent' && this.workspace.dot(id)?.paused)
+      throw new Error('This Dot is paused.');
   }
   private async json(
     url: string,

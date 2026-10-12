@@ -11,7 +11,9 @@ import {
   Clock3,
   PanelLeftClose,
   PanelLeftOpen,
+  Pause,
   Pencil,
+  Play,
   Plus,
   Search,
   Settings2,
@@ -53,6 +55,8 @@ export interface SidebarProps {
   onHome: () => void;
   onNewChat: (dot?: Dot) => void;
   onChooseDot: (dot: Dot) => void;
+  /** Pauses or resumes one Dot. */
+  onTogglePause?: (dot: Dot) => void;
   onSelectThread: (id: string) => void;
   onRenameThread: (id: string, title: string) => Promise<boolean>;
   onDeleteThreads: (ids: string[]) => Promise<boolean>;
@@ -133,6 +137,7 @@ export function Sidebar({
   onHome,
   onNewChat,
   onChooseDot,
+  onTogglePause,
   onSelectThread,
   onRenameThread,
   onDeleteThreads,
@@ -323,9 +328,13 @@ export function Sidebar({
                         name={item.name}
                         small
                         decorative
+                        {...(item.paused ? { state: 'paused' } : {})}
                       />
                     </span>
                     <span className="sb-text">{item.name}</span>
+                    {item.paused && (
+                      <span className="sb-badge-paused">Paused</span>
+                    )}
                   </button>
                   <RowMenu
                     label={`${item.name} options`}
@@ -347,6 +356,16 @@ export function Sidebar({
                             dot: item,
                             spaceId: item.spaceId,
                           }),
+                      },
+                      {
+                        id: 'pause',
+                        label: item.paused ? 'Resume Dot' : 'Pause Dot',
+                        icon: item.paused ? (
+                          <Play size={14} aria-hidden />
+                        ) : (
+                          <Pause size={14} aria-hidden />
+                        ),
+                        onSelect: () => onTogglePause?.(item),
                       },
                     ]}
                   />

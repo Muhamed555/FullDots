@@ -12,6 +12,7 @@
     "build": "vite build && tsc -p tsconfig.server.json",
     "start": "node --env-file-if-exists=.env dist/server/server/index.js",
     "smoke": "node scripts/smoke.mjs",
+    "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "browser": "node --env-file-if-exists=.env --import tsx src/browser/index.ts",
     "browser:start": "node --env-file-if-exists=.env dist/server/browser/index.js",
     "test": "vitest run",

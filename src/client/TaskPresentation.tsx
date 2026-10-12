@@ -32,7 +32,11 @@ const every = (seconds: number) =>
 
 /** The line a task is listed by: an event task's prompt starts with its trigger's instructions. */
 export const taskTitle = (task: Task) =>
-  task.kind === 'event' ? task.prompt.split('\n')[0] : task.prompt;
+  task.kind === 'event'
+    ? task.prompt.split('\n')[0]
+    : task.kind === 'delegation'
+      ? (task.prompt.match(/^Brief: (.*)$/m)?.[1] ?? task.prompt)
+      : task.prompt;
 
 /** What kind of work this is and how far it got, for the task list. */
 export function taskSchedule(task: Task): string {
@@ -45,6 +49,8 @@ export function taskSchedule(task: Task): string {
       ? `Goal achieved${runs}`
       : `Goal · checks every ${every(task.intervalSeconds ?? 3600)}${runs}${limit}`;
   if (task.kind === 'event') return 'From a trigger';
+  if (task.kind === 'delegation')
+    return `Handed over by ${task.prompt.split(' handed you this work.')[0]}`;
   if (task.intervalSeconds)
     return `Repeats every ${every(task.intervalSeconds)}${runs}${limit}`;
   return '';

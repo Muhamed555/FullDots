@@ -22,6 +22,7 @@ import { ApprovalService } from './approval-service.js';
 import { HandoffService } from './handoff-service.js';
 import { createNotify, type Notify } from './notify.js';
 import { TriggerService } from './trigger-service.js';
+import { TeamService } from './team-service.js';
 import { included } from './mcp-tools.js';
 import type { DotAgentServices } from './dot-agent.js';
 import type { TurnMetadata } from '../shared/types.js';
@@ -41,6 +42,7 @@ export class Platform {
   readonly handoffs: HandoffService;
   readonly notify: Notify;
   readonly triggers: TriggerService;
+  readonly team: TeamService;
   constructor(
     readonly store: Store,
     readonly workspace: WorkspaceStore,
@@ -80,6 +82,7 @@ export class Platform {
     this.resumes = new ResumeQueue({
       store: workspace.resumes,
       registry: turns,
+      isPaused: (dotId) => !!workspace.dot(dotId)?.paused,
       turn: (threadId, prompt, signal, metadata) =>
         this.turn(threadId, prompt, signal, metadata),
       onGiveUp: (marker) =>
@@ -123,6 +126,12 @@ export class Platform {
       audit: workspace.computers,
       notify,
     });
+    this.team = new TeamService({
+      workspace,
+      store,
+      resume: (marker) => void this.resumes.enqueue(marker),
+      maxDepth: config.teamMaxDepth ?? 2,
+    });
     this.triggers = new TriggerService({
       triggers: workspace.triggers,
       createEventTask: (trigger, prompt) => {
@@ -134,6 +143,7 @@ export class Platform {
         return task.id;
       },
       connectors: this.connectors,
+      isPaused: (dotId) => !!workspace.dot(dotId)?.paused,
       grantAllows: (dotId, connectorId, tool) => {
         const grant = workspace.connectors.grant(dotId, connectorId);
         return !!grant && included(grant, tool);
@@ -193,6 +203,7 @@ export class Platform {
       handoffs: this.handoffs,
       models: this.models,
       usage: (dotId, tokens) => this.recordUsage(dotId, tokens),
+      team: this.team,
       goals: {
         isOpenGoal: (taskId) => {
           const task = this.store.task(taskId);

@@ -723,3 +723,13 @@
 .sb.collapsed .sb-space-row > .sb-row.active::before {
   left: -7px;
 }
+
+.sb-badge-paused {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f1f0ee;
+  color: #6b6b6b;
+  font-size: 10.5px;
+  font-weight: 600;
+}

@@ -6,6 +6,7 @@ import { connectorPresets } from '../shared/connector-presets.js';
 import { approvalRoutes } from './approval-routes.js';
 import { usageRoutes } from './usage-routes.js';
 import { hookRoutes, triggerRoutes } from './trigger-routes.js';
+import { teamRoutes } from './team-routes.js';
 import { turnRoutes } from './turn-routes.js';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -113,7 +114,21 @@ export function createApp({
         },
       }),
     );
-    app.route('/api', turnRoutes(platform.turns, platform.workspace));
+    app.route(
+      '/api',
+      turnRoutes(platform.turns, platform.workspace, (dotId) => {
+        for (const task of store.tasks())
+          if (
+            task.status === 'running' &&
+            task.lease &&
+            platform.workspace.taskDot(task.id) === dotId
+          )
+            store.interrupt(
+              { ...task, lease: task.lease },
+              'Interrupted because the Dot was paused. Review completed effects before retrying.',
+            );
+      }),
+    );
     app.route(
       '/api',
       connectorRoutes({
@@ -175,6 +190,7 @@ export function createApp({
           platform.pollProblem(dotId, connectorId, tool),
       }),
     );
+  if (platform) app.route('/api', teamRoutes(platform.workspace));
   if (platform)
     app.route(
       '/api',

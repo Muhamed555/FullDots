@@ -8,12 +8,12 @@ import { HandoffStore } from './handoff-store.js';
 import { ResumeStore } from './resume-store.js';
 import { UsageStore } from './usage-store.js';
 import { TriggerStore } from './trigger-store.js';
+import { TeamStore } from './team-store.js';
 import { Pages } from './pages.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { validateLearningSettings } from '../shared/learning.js';
 import type {
   ApprovalMode,
   CallReceipt,
@@ -36,6 +36,7 @@ export class WorkspaceStore {
   readonly resumes: ResumeStore;
   readonly usage: UsageStore;
   readonly triggers: TriggerStore;
+  readonly team: TeamStore;
   constructor(
     path: string,
     readonly ownerId: string,
@@ -56,6 +57,7 @@ export class WorkspaceStore {
       ['thread_bindings', 'learningContainerId', 'TEXT'],
       ['dots', 'model', 'TEXT'],
       ['dots', 'approvalMode', 'TEXT'],
+      ['dots', 'paused', 'INTEGER NOT NULL DEFAULT 0'],
       ['dots', 'modelProviderId', 'TEXT'],
     ]) {
       if (
@@ -91,6 +93,7 @@ export class WorkspaceStore {
     this.resumes = new ResumeStore(this.db);
     this.usage = new UsageStore(this.db);
     this.triggers = new TriggerStore(this.db, connectorKey);
+    this.team = new TeamStore(this.db);
     this.pages = new Pages(this.db, (id) =>
       this.spaces().some((space) => space.id === id),
     );
@@ -136,23 +139,27 @@ export class WorkspaceStore {
     return space;
   }
   dots(): Dot[] {
-    return this.db
-      .prepare('SELECT * FROM dots ORDER BY createdAt')
-      .all()
-      .map((row) => ({
-        ...row,
-        spaceIds: this.db
-          .prepare(
-            'SELECT spaceId FROM dot_spaces WHERE dotId=? ORDER BY spaceId',
-          )
-          .all(String(row.id))
-          .map((grant) => String(grant.spaceId)),
-        researchAllowed: !!row.researchAllowed,
-        memoryAllowed: !!row.memoryAllowed,
-        skillDeliveryEnabled: !!row.skillDeliveryEnabled,
-        approvalMode: row.approvalMode ?? 'sensitive',
-        modelProviderId: row.modelProviderId ?? null,
-      })) as unknown as Dot[];
+    return (
+      this.db
+        .prepare('SELECT * FROM dots ORDER BY createdAt')
+        .all()
+        // Columns from the removed Automatic Learning feature stay in the table but are not read.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .map(({ learningContainerId, skillDeliveryEnabled, ...row }) => ({
+          ...row,
+          spaceIds: this.db
+            .prepare(
+              'SELECT spaceId FROM dot_spaces WHERE dotId=? ORDER BY spaceId',
+            )
+            .all(String(row.id))
+            .map((grant) => String(grant.spaceId)),
+          researchAllowed: !!row.researchAllowed,
+          memoryAllowed: !!row.memoryAllowed,
+          paused: !!row.paused,
+          approvalMode: row.approvalMode ?? 'sensitive',
+          modelProviderId: row.modelProviderId ?? null,
+        })) as unknown as Dot[]
+    );
   }
   dot(id: string) {
     return this.dots().find((dot) => dot.id === id);
@@ -164,14 +171,11 @@ export class WorkspaceStore {
     researchAllowed: boolean,
     memoryAllowed: boolean,
     spaceIds: string[] = [spaceId],
-    learningContainerId: string | null = null,
-    skillDeliveryEnabled = false,
     model: string | null = null,
     approvalMode: ApprovalMode = 'sensitive',
     modelProviderId: string | null = null,
   ): Dot {
     this.validateSpaceAccess(spaceId, spaceIds);
-    validateLearningSettings(learningContainerId, skillDeliveryEnabled);
     const dot: Dot = {
       id: randomUUID(),
       spaceId,
@@ -180,18 +184,17 @@ export class WorkspaceStore {
       instructions,
       researchAllowed,
       memoryAllowed,
-      learningContainerId,
-      skillDeliveryEnabled,
       model,
       modelProviderId,
       approvalMode,
+      paused: false,
       createdAt: Date.now(),
     };
     this.db.exec('BEGIN');
     try {
       this.db
         .prepare(
-          'INSERT INTO dots (id, spaceId, name, instructions, researchAllowed, memoryAllowed, createdAt, learningContainerId, skillDeliveryEnabled, model, approvalMode, modelProviderId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO dots (id, spaceId, name, instructions, researchAllowed, memoryAllowed, createdAt, model, approvalMode, modelProviderId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         )
         .run(
           dot.id,
@@ -201,8 +204,6 @@ export class WorkspaceStore {
           +researchAllowed,
           +memoryAllowed,
           dot.createdAt,
-          learningContainerId,
-          +skillDeliveryEnabled,
           model,
           approvalMode,
           modelProviderId,
@@ -236,8 +237,6 @@ export class WorkspaceStore {
     > & {
       spaceId?: string;
       spaceIds?: string[];
-      learningContainerId?: string | null;
-      skillDeliveryEnabled?: boolean;
       model?: string | null;
       modelProviderId?: string | null;
       approvalMode?: ApprovalMode | null;
@@ -248,13 +247,6 @@ export class WorkspaceStore {
     const defaultSpace = patch.spaceId ?? current.spaceId;
     const spaceIds = patch.spaceIds ?? current.spaceIds;
     this.validateSpaceAccess(defaultSpace, spaceIds);
-    const learningContainerId =
-      patch.learningContainerId === undefined
-        ? (current.learningContainerId ?? null)
-        : patch.learningContainerId;
-    const skillDeliveryEnabled =
-      patch.skillDeliveryEnabled ?? current.skillDeliveryEnabled ?? false;
-    validateLearningSettings(learningContainerId, skillDeliveryEnabled);
     const model =
       patch.model === undefined ? (current.model ?? null) : patch.model;
     const modelProviderId =
@@ -267,15 +259,13 @@ export class WorkspaceStore {
     try {
       this.db
         .prepare(
-          'UPDATE dots SET name=?, instructions=?, researchAllowed=?, memoryAllowed=?, learningContainerId=?, skillDeliveryEnabled=?, model=?, approvalMode=?, modelProviderId=? WHERE id=?',
+          'UPDATE dots SET name=?, instructions=?, researchAllowed=?, memoryAllowed=?, model=?, approvalMode=?, modelProviderId=? WHERE id=?',
         )
         .run(
           patch.name,
           patch.instructions,
           +patch.researchAllowed,
           +patch.memoryAllowed,
-          learningContainerId,
-          +skillDeliveryEnabled,
           model,
           approvalMode,
           modelProviderId,
@@ -294,10 +284,22 @@ export class WorkspaceStore {
     }
     return this.dot(id)!;
   }
+  /** Pauses or resumes one Dot: a paused Dot starts no turns and its background work waits. */
+  setDotPaused(id: string, paused: boolean): Dot {
+    if (!this.dot(id)) throw new Error('Dot not found.');
+    this.db.prepare('UPDATE dots SET paused=? WHERE id=?').run(+paused, id);
+    return this.dot(id)!;
+  }
+  pausedDotIds(): string[] {
+    return this.db
+      .prepare('SELECT id FROM dots WHERE paused=1')
+      .all()
+      .map((row) => String(row.id));
+  }
   conversations(): Conversation[] {
     return this.db
       .prepare(
-        'SELECT * FROM thread_bindings WHERE ownerId=? ORDER BY createdAt DESC',
+        'SELECT id, dotId, ownerId, title, createdAt FROM thread_bindings WHERE ownerId=? ORDER BY createdAt DESC',
       )
       .all(this.ownerId) as unknown as Conversation[];
   }
@@ -310,20 +312,12 @@ export class WorkspaceStore {
       ownerId: this.ownerId,
       title,
       createdAt: Date.now(),
-      learningContainerId: dot.learningContainerId ?? null,
     };
     this.db
       .prepare(
-        'INSERT INTO thread_bindings (id, dotId, ownerId, title, createdAt, learningContainerId) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO thread_bindings (id, dotId, ownerId, title, createdAt) VALUES (?, ?, ?, ?, ?)',
       )
-      .run(
-        id,
-        dotId,
-        this.ownerId,
-        title,
-        value.createdAt,
-        value.learningContainerId ?? null,
-      );
+      .run(id, dotId, this.ownerId, title, value.createdAt);
     return value;
   }
   requireThread(id: string, dotId?: string): Conversation {

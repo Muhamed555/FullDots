@@ -448,6 +448,11 @@ export function App() {
         }}
         onNewChat={startNewChat}
         onChooseDot={chooseDot}
+        onTogglePause={(target) =>
+          void mutate(`/dots/${target.id}/pause`, 'POST', {
+            paused: !target.paused,
+          })
+        }
         onSelectThread={selectThread}
         onRenameThread={renameThread}
         onDeleteThreads={deleteThreads}
@@ -566,7 +571,7 @@ export function App() {
                   calls={workspace.calls.filter(
                     (call) => call.threadId === thread.id,
                   )}
-                  paused={state.settings.paused}
+                  paused={state.settings.paused || !!dot.paused}
                   onSaved={refresh}
                   onComputer={() => setPane(true)}
                   onSchedule={() =>

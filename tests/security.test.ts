@@ -204,8 +204,6 @@ describe('planted secrets', () => {
       false,
       false,
       undefined,
-      null,
-      false,
       'provider-model',
       'sensitive',
       provider.id,

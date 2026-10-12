@@ -12,6 +12,25 @@ export interface Settings {
   researchAllowed: boolean;
   memoryAllowed: boolean;
 }
+export type DelegationStatus = 'running' | 'done' | 'failed';
+/** Work one Dot handed to a teammate, which runs in a new conversation of the teammate. */
+export interface Delegation {
+  id: string;
+  parentThreadId: string;
+  parentDotId: string;
+  childThreadId: string;
+  childDotId: string;
+  /** The background task the teammate's turn runs as. */
+  taskId: string;
+  /** 1 for a hand-off from an ordinary conversation, 2 for one handed on again. */
+  depth: number;
+  status: DelegationStatus;
+  brief: string;
+  deliverable: string;
+  result: string | null;
+  createdAt: number;
+  finishedAt: number | null;
+}
 export type TriggerKind = 'webhook' | 'poll';
 /** bearer: Authorization header; query: ?token= in the URL; hmac: a signature of the body. */
 export type TriggerAuth = 'bearer' | 'query' | 'hmac';
@@ -61,7 +80,7 @@ export interface DotUsage {
   days: UsageDay[];
 }
 /** once: a single run; repeat: every interval; goal: repeats until the Dot marks it done; event: started by a trigger. */
-export type TaskKind = 'once' | 'repeat' | 'goal' | 'event';
+export type TaskKind = 'once' | 'repeat' | 'goal' | 'event' | 'delegation';
 export interface Task {
   id: string;
   prompt: string;
@@ -145,8 +164,8 @@ export interface Dot {
   researchAllowed: boolean;
   memoryAllowed: boolean;
   createdAt: number;
-  learningContainerId?: string | null;
-  skillDeliveryEnabled?: boolean;
+  /** A paused Dot starts no turns; its scheduled and triggered work waits until it is resumed. */
+  paused?: boolean;
   /** Model identifier for this Dot; null uses the server default. */
   model?: string | null;
   /** Provider serving `model` (Settings → Models); null uses the default provider. */
@@ -160,8 +179,6 @@ export interface Conversation {
   ownerId: string;
   title: string;
   createdAt: number;
-  /** Frozen at creation; null means this conversation does not participate. */
-  learningContainerId?: string | null;
 }
 /** A conversation as the sidebar lists it, with activity facts from the server. */
 export interface ConversationSummary extends Conversation {

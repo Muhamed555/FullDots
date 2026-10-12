@@ -22,3 +22,9 @@ it('refuses a concurrency outside 1 to 8', () => {
     readIntegrationSettings({ BACKGROUND_CONCURRENCY: '0' }),
   ).toThrow();
 });
+
+it('reads the team depth, 2 by default and at most 5', () => {
+  expect(readIntegrationSettings({}).teamMaxDepth).toBe(2);
+  expect(readIntegrationSettings({ TEAM_MAX_DEPTH: '3' }).teamMaxDepth).toBe(3);
+  expect(() => readIntegrationSettings({ TEAM_MAX_DEPTH: '6' })).toThrow();
+});

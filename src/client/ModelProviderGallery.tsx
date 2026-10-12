@@ -153,7 +153,8 @@ export function providerStatus(
       tone: 'ok',
       label: `Ready · ${count} ${count === 1 ? 'model' : 'models'}`,
     };
-  if (view.lastTestedAt === null && !view.builtIn)
+  // Ready only after a test (or a model list) succeeded, the built-in .env provider included.
+  if (view.lastTestedAt === null)
     return { tone: 'neutral', label: 'Not tested yet' };
   return { tone: 'ok', label: 'Ready' };
 }

@@ -102,6 +102,22 @@ Tokens per Dot per day from the provider's own counts, a daily warning, and an o
 
 </td>
 </tr>
+<tr>
+<td valign="top">
+
+#### Teams of Dots
+
+A Dot hands part of a task to a teammate whose role fits it, and gets the result back in the same conversation. See [Teams](docs/TEAMS.md).
+
+</td>
+<td valign="top">
+
+#### Pause, backup, take back control
+
+Pause one Dot or all of them, and copy everything to a safe backup with `npm run backup`, even while FullDots runs.
+
+</td>
+</tr>
 </table>
 
 ### At a glance
@@ -188,6 +204,7 @@ All settings live in `.env`. [`.env.example`](.env.example) lists every variable
 | `NOTIFY_WEBHOOK_URL`                                | Optional. Receives a title, text and link for new approvals, handoffs and usage warnings.   |
 | `BACKGROUND_CONCURRENCY`                            | Background tasks running at once (different Dots). Default 2, at most 8.                    |
 | `DOT_DAILY_TOKEN_WARN`                              | Tokens per Dot per day before you are warned. Default 2,000,000.                            |
+| `TEAM_MAX_DEPTH`                                    | How many hand-offs between Dots may chain. Default 2.                                       |
 
 ## Security
 
@@ -207,6 +224,7 @@ npm run typecheck     # TypeScript, no emit
 npm run lint          # ESLint
 npm run check-format  # Prettier
 npm run build         # production build, then `npm start`
+npm run backup        # consistent copy of the database and its key
 ```
 
 <details>
@@ -255,6 +273,8 @@ docs/        Guides, brand assets and screenshots
 | [Connectors](docs/CONNECTORS.md)   | MCP connectors, browser sign-in and grants    |
 | [Approvals](docs/APPROVALS.md)     | Modes, what pauses, handoffs and resumes      |
 | [Automations](docs/AUTOMATIONS.md) | Goals, triggers, parallel work, token budgets |
+| [Teams](docs/TEAMS.md)             | Hand-offs between Dots                        |
+| [Roadmap](docs/ROADMAP.md)         | What is done and what is next                 |
 | [Computers](docs/COMPUTERS.md)     | A computer for each Dot                       |
 | [Brand](docs/brand/README.md)      | Logo, Dots and colours                        |
 | [Changelog](CHANGELOG.md)          | What changed in each release                  |

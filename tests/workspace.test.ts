@@ -67,8 +67,6 @@ it('stores a Dot model provider, keeps it on edits that leave it out, and clears
     false,
     true,
     [space.id],
-    null,
-    false,
     'llama-3.3-70b-versatile',
     'sensitive',
     'provider-1',

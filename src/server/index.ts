@@ -14,6 +14,7 @@ import { Platform } from './platform.js';
 import type { PlatformConfig } from './platform-config.js';
 import { TurnRegistry } from './turn-registry.js';
 import { goalRunPrompt } from './goal-tools.js';
+import { isDotBusy } from './turn-registry.js';
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 4310);
 const ownerToken = process.env.OWNER_TOKEN;
@@ -87,12 +88,31 @@ const runner = new Runner(
         ? `Working on the goal (run ${claim.runCount + 1}).`
         : 'Running this task in its conversation.',
     );
-    const text = await platform.turn(
-      threadId,
-      claim.kind === 'goal' ? goalRunPrompt(claim) : claim.prompt,
-      signal,
-      { source: claim.kind === 'event' ? 'trigger' : 'task', ref: claim.id },
-    );
+    const delegation =
+      claim.kind === 'delegation' ? workspace.team.byTask(claim.id) : undefined;
+    let text: string;
+    try {
+      text = await platform.turn(
+        threadId,
+        claim.kind === 'goal' ? goalRunPrompt(claim) : claim.prompt,
+        signal,
+        delegation
+          ? { source: 'delegation', ref: delegation.id }
+          : {
+              source: claim.kind === 'event' ? 'trigger' : 'task',
+              ref: claim.id,
+            },
+      );
+    } catch (error) {
+      // A busy Dot only postpones the hand-off; anything else is reported to the Dot that asked.
+      if (delegation && !isDotBusy(error))
+        platform.team.failed(
+          claim.id,
+          error instanceof Error ? error.message : 'The run failed.',
+        );
+      throw error;
+    }
+    if (delegation) platform.team.completed(claim.id, text);
     return { text, sources: [], sample: false };
   },
   config.limits!.taskTimeoutMs,
@@ -108,6 +128,7 @@ const runner = new Runner(
           ...dotIds,
           ...activeDotIds,
           ...workspace.usage.overBudgetDots(),
+          ...workspace.pausedDotIds(),
         ],
       });
     },

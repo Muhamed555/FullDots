@@ -44,6 +44,8 @@ export interface ResumeQueueDeps {
   backoffMs?: number[];
   /** A marker older than this is given up on (default 7 days). */
   maxAgeMs?: number;
+  /** A paused Dot gets no resume turns until it is resumed. */
+  isPaused?: (dotId: string) => boolean;
   /** Called once when a marker is removed without delivery (too many failures, or too old). */
   onGiveUp?: (marker: ResumeMarker, lastError: string) => void;
   /** Called after a marker's turn ran, with the text the turn returned. */
@@ -107,6 +109,7 @@ export class ResumeQueue {
       if (dotId === marker.dotId) return 'deferred';
     if (registry.isThreadRunning(marker.threadId)) return 'deferred';
     if (registry.isDotBusy(marker.dotId)) return 'deferred';
+    if (this.deps.isPaused?.(marker.dotId)) return 'deferred';
     const oldest = store.all().find((m) => m.threadId === marker.threadId);
     if (oldest && oldest.id !== marker.id) return 'deferred';
 

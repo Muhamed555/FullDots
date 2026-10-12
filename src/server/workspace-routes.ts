@@ -10,18 +10,15 @@ import {
   hasDefaultTitle,
 } from '../shared/conversation-title.js';
 import type { ConversationSummary } from '../shared/types.js';
-import {
-  learningContainerIdSchema,
-  validateLearningSettings,
-} from '../shared/learning.js';
 const dotSchema = z
   .object({
     name: z.string().trim().min(1).max(40),
     instructions: z.string().trim().min(3).max(2000),
     researchAllowed: z.boolean(),
     memoryAllowed: z.boolean(),
-    learningContainerId: learningContainerIdSchema.optional(),
-    skillDeliveryEnabled: z.boolean().optional(),
+    // Removed with Automatic Learning; still accepted from older clients and ignored.
+    learningContainerId: z.unknown().optional(),
+    skillDeliveryEnabled: z.unknown().optional(),
     spaceIds: z.array(z.string().min(1)).min(1).max(100).optional(),
     spaceId: z.string().min(1).optional(),
     model: z
@@ -223,22 +220,6 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       !platform.models.get(data.data.modelProviderId)
     )
       return c.json({ error: UNKNOWN_PROVIDER }, 400);
-    try {
-      validateLearningSettings(
-        data.data.learningContainerId ?? null,
-        data.data.skillDeliveryEnabled ?? false,
-      );
-    } catch (error) {
-      return c.json(
-        {
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Invalid Learning settings.',
-        },
-        400,
-      );
-    }
     return c.json(
       platform.workspace.createDot(
         data.data.spaceId,
@@ -247,8 +228,6 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         data.data.researchAllowed,
         data.data.memoryAllowed,
         data.data.spaceIds,
-        data.data.learningContainerId,
-        data.data.skillDeliveryEnabled,
         data.data.model ?? null,
         data.data.approvalMode ?? 'sensitive',
         data.data.modelProviderId ?? null,
@@ -267,25 +246,9 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       !platform.models.get(data.data.modelProviderId)
     )
       return c.json({ error: UNKNOWN_PROVIDER }, 400);
-    try {
-      validateLearningSettings(
-        data.data.learningContainerId === undefined
-          ? (current.learningContainerId ?? null)
-          : data.data.learningContainerId,
-        data.data.skillDeliveryEnabled ?? current.skillDeliveryEnabled ?? false,
-      );
-    } catch (error) {
-      return c.json(
-        {
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Invalid Learning settings.',
-        },
-        400,
-      );
-    }
-    return c.json(platform.workspace.updateDot(c.req.param('id'), data.data));
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { learningContainerId, skillDeliveryEnabled, ...patch } = data.data;
+    return c.json(platform.workspace.updateDot(c.req.param('id'), patch));
   });
   app.post('/conversations', async (c) => {
     const data = z
@@ -341,6 +304,8 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         return c.json({ error: error.message }, 409);
       throw error;
     }
+    // Hand-offs this conversation started have no one to report to any more.
+    platform.team.cancelFrom(id);
     platform.workspace.deleteThread(id);
     return c.json({ deleted: id });
   });

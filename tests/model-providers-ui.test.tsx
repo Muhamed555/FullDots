@@ -109,8 +109,16 @@ describe('provider status', () => {
     expect(
       providerStatus(view({ lastTestedAt: null }), preset('groq')).label,
     ).toBe('Not tested yet');
+    // The built-in provider is not Ready until it has been tested either.
     expect(providerStatus(envProvider, preset('openrouter')).label).toBe(
-      'Ready',
+      'Not tested yet',
+    );
+    expect(
+      providerStatus({ ...envProvider, lastTestedAt: 5 }, preset('openrouter'))
+        .label,
+    ).toBe('Ready');
+    expect(providerStatus(envProvider, preset('openrouter'), 12).label).toBe(
+      'Ready · 12 models',
     );
   });
 

@@ -46,6 +46,23 @@ Keys added in Settings → Models are encrypted with `CONNECTOR_SECRET_KEY` or `
 
 Any OpenAI-compatible provider works; for OpenRouter set `OPENAI_BASE_URL=https://openrouter.ai/api/v1`. Provider credentials belong in `.env`, not client-side variables or source code. Conversation history is stored in the same SQLite file (`chat_runs` and `chat_threads` tables), so backing up `DATABASE_PATH` backs up everything. Telemetry is disabled in code: FullDots sets CopilotKit's telemetry opt-out flags before anything loads.
 
+## Backup and restore
+
+One SQLite file (`DATABASE_PATH`, default `data/opendots.sqlite`) holds conversations, pages, settings, tasks, triggers and the audit trail. To copy it safely while FullDots runs:
+
+```sh
+npm run backup                # writes backups/fulldots-<time>.sqlite
+npm run backup -- /some/dir   # or somewhere else
+```
+
+The backup also copies `data/connector.key`, the key that encrypts saved model keys and connector sign-ins (unless you use `CONNECTOR_SECRET_KEY`; then keep that value). Without the key, a restored database cannot use those secrets.
+
+To restore: stop FullDots, copy the backup over the database file, put the key back as `data/connector.key` (or set the same `CONNECTOR_SECRET_KEY`), and start FullDots again. Keep backups private: they hold your conversations.
+
+## Pausing
+
+**Pause all Dots** in the top bar stops every Dot. To pause one Dot, use **Pause Dot** in its sidebar menu. A paused Dot starts no turns: chat shows that it is paused, its running turn is stopped, and its running background tasks are marked Interrupted. Its scheduled tasks, goals, trigger events, hand-offs and resumes wait until you resume it. Webhooks are still accepted and queued; polls wait.
+
 ## Pages and page conversations
 
 Select a Space to open its page library. Search for a document, switch between grid and list views, or create a new page. The visual editor supports formatting, headings, lists, checklists, tables, and slash commands. Use `/` to insert a block and Cmd/Ctrl+S to save immediately. Pages autosave after editing pauses; the save status tells you whether changes reached the server.

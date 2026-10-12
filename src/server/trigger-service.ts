@@ -49,6 +49,8 @@ export interface TriggerServiceDeps {
     connectorId: string,
     tool: ConnectorToolInfo,
   ) => boolean;
+  /** Polls of a paused Dot wait; its webhook events are still queued and run once it resumes. */
+  isPaused?: (dotId: string) => boolean;
   log?: (line: string) => void;
 }
 
@@ -255,7 +257,8 @@ export class TriggerService {
     this.polling = true;
     try {
       for (const record of this.deps.triggers.duePolls(now))
-        await this.pollOne(record, now);
+        if (!this.deps.isPaused?.(record.dotId))
+          await this.pollOne(record, now);
     } catch (error) {
       this.log(
         `Trigger polling failed: ${error instanceof Error ? error.message : 'unknown error'}`,

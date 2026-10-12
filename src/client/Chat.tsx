@@ -43,6 +43,7 @@ import { Mascot } from './Mascot';
 import { useVoice } from './useVoice';
 import { CallView } from './CallView';
 import { shouldSubmitComposerOnKeyDown } from './chat-composer';
+import { isBusyMessage, turnErrorMessage } from './chat-errors';
 // These tools draw no UI of their own, so their arguments are not inspected.
 const anyArguments = z.looseObject({});
 export function Chat({
@@ -156,30 +157,18 @@ export function Chat({
     agent.setMessages([]);
     return copilotkit.connectAgent({ agent });
   };
-  const send = async (text: string) => {
-    if (!text.trim() || running || !loaded || !contextReady || paused) return;
+  /** Runs the agent on the messages as they are: a new message, or the kept one after a refusal. */
+  const runTurn = async () => {
     setError('');
     runError.current = '';
     setRunning(true);
-    agent.addMessage({
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: contextualMessage(text, pageContext),
-    });
     followOutput.current = true;
     autoOpen.current.beginTurn(agent.messages);
-    setDraft('');
-    setSource('');
-    setSourceOpen(false);
     try {
       const result = await copilotkit.runAgent({ agent });
       if (!result.newMessages.some((message) => message.role === 'assistant'))
         // Keep the server's reason when it sent one; it is more useful than a generic line.
-        throw new Error(
-          runError.current
-            ? `The model could not answer: ${runError.current}`
-            : 'The current turn returned no response. Check the runtime connection and retry.',
-        );
+        throw new Error(turnErrorMessage(runError.current));
       onSaved();
     } catch (e) {
       setError(
@@ -191,6 +180,18 @@ export function Chat({
       autoOpen.current.endTurn();
       setRunning(false);
     }
+  };
+  const send = async (text: string) => {
+    if (!text.trim() || running || !loaded || !contextReady || paused) return;
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: contextualMessage(text, pageContext),
+    });
+    setDraft('');
+    setSource('');
+    setSourceOpen(false);
+    await runTurn();
   };
   useEffect(() => {
     if (loaded && contextReady && !paused && initialPrompt && !sent.current) {
@@ -311,11 +312,13 @@ export function Chat({
       clearInterval(timer);
     };
   }, [latestHandoff, dot.id, agent, copilotkit]);
-  const busyWithOther = /busy with/.test(error);
+  const busyWithOther = isBusyMessage(error);
+  // Stops the other turn, then sends the kept message once the Dot is free.
   const stopBackground = async () => {
     try {
       await api(`/dots/${dot.id}/turn/stop`, 'POST', {});
       setError('');
+      setTimeout(() => void runTurn(), 800);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'Could not stop the background work.',
@@ -373,7 +376,9 @@ export function Chat({
           <strong>{dot.name}</strong>
           <span>
             {paused
-              ? 'Paused'
+              ? dot.paused
+                ? 'Paused. Resume it from its menu in the sidebar.'
+                : 'Paused'
               : running
                 ? 'Thinking…'
                 : loaded && contextReady
@@ -512,9 +517,14 @@ export function Chat({
         <div className="chat-error" role="alert">
           {error || voice.error}
           {error && busyWithOther && (
-            <button onClick={() => void stopBackground()}>
-              Stop background work
-            </button>
+            <>
+              <button onClick={() => void runTurn()} disabled={running}>
+                Send again
+              </button>
+              <button onClick={() => void stopBackground()} disabled={running}>
+                Stop the other work and send
+              </button>
+            </>
           )}
           {error && !busyWithOther && (
             <button
