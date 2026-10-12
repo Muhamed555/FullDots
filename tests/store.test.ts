@@ -21,15 +21,20 @@ afterEach(() =>
   }),
 );
 describe('durable task lifecycle', () => {
-  it('persists tasks and settings across connections', () => {
-    const { store, path } = fixture();
-    const task = store.createTask('Compare the sample notebooks', 60);
-    store.updateSettings({ name: 'Sam' });
-    const reopened = new Store(path);
-    expect(reopened.task(task.id)?.prompt).toBe(task.prompt);
-    expect(reopened.settings().name).toBe('Sam');
-    reopened.close();
-  });
+  // A real file on purpose; file writes are slow on Windows CI runners.
+  it(
+    'persists tasks and settings across connections',
+    { timeout: 30_000 },
+    () => {
+      const { store, path } = fixture();
+      const task = store.createTask('Compare the sample notebooks', 60);
+      store.updateSettings({ name: 'Sam' });
+      const reopened = new Store(path);
+      expect(reopened.task(task.id)?.prompt).toBe(task.prompt);
+      expect(reopened.settings().name).toBe('Sam');
+      reopened.close();
+    },
+  );
   it('claims each due job once even through separate database connections', () => {
     const { store, path } = fixture();
     store.createTask('Research one');

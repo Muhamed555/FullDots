@@ -44,7 +44,8 @@ export class Store {
     this.db = new DatabaseSync(path);
     this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, status TEXT NOT NULL, intervalSeconds INTEGER, nextRunAt INTEGER, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, error TEXT, lease TEXT, leaseUntil INTEGER);
+      CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, status TEXT NOT NULL, intervalSeconds INTEGER, nextRunAt INTEGER, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, error TEXT, lease TEXT, leaseUntil INTEGER,
+        kind TEXT NOT NULL DEFAULT 'once', runCount INTEGER NOT NULL DEFAULT 0, maxRuns INTEGER, lastRunAt INTEGER, triggerId TEXT, summary TEXT);
       CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, taskId TEXT NOT NULL, status TEXT NOT NULL, startedAt INTEGER NOT NULL, finishedAt INTEGER, result TEXT, error TEXT);
       CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, taskId TEXT NOT NULL, runId TEXT, text TEXT NOT NULL, createdAt INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS memories (id TEXT PRIMARY KEY, text TEXT NOT NULL, createdAt INTEGER NOT NULL);
@@ -64,13 +65,17 @@ export class Store {
         }[]
       ).map((column) => column.name),
     );
-    for (const [name, type] of TASK_COLUMNS)
-      if (!present.has(name))
+    const missing = TASK_COLUMNS.filter(([name]) => !present.has(name));
+    if (!missing.length) return;
+    // A database from before these columns: add them in one write.
+    this.transaction(() => {
+      for (const [name, type] of missing)
         this.db.exec(`ALTER TABLE tasks ADD COLUMN ${name} ${type}`);
-    if (!present.has('kind'))
-      this.db.exec(
-        "UPDATE tasks SET kind='repeat' WHERE intervalSeconds IS NOT NULL",
-      );
+      if (!present.has('kind'))
+        this.db.exec(
+          "UPDATE tasks SET kind='repeat' WHERE intervalSeconds IS NOT NULL",
+        );
+    });
   }
   close() {
     this.db.close();
