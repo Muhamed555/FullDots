@@ -22,9 +22,9 @@ import type {
   HandoffResult,
   PausedResult,
   PendingApprovalResult,
-  ToolOverride,
   TurnSource,
 } from '../shared/types.js';
+import { RULE_LABELS, type DotRules } from '../shared/rules.js';
 import type { ApprovalService } from './approval-service.js';
 import { requestApprovalInput, requestHandoffInput } from './approval-tools.js';
 import {
@@ -32,7 +32,9 @@ import {
   intentHash,
   pickIntentArgs,
   redactArgs,
+  type Classification,
   type ElementIdentity,
+  type McpToolMeta,
 } from './approvals.js';
 import { selectInputSchema, type GateComputer } from './computer-agent.js';
 import { detectChallenge, detectTypeHandoff } from './handoff-detect.js';
@@ -67,13 +69,9 @@ export interface GateDeps {
   approvals: Pick<ApprovalService, 'request' | 'consume'>;
   handoffs: HandoffStarter;
   computer?: GateComputer;
-  mcpInfo: (toolName: string) =>
-    | {
-        readOnly: boolean;
-        destructive: boolean;
-        override?: ToolOverride;
-      }
-    | undefined;
+  mcpInfo: (toolName: string) => McpToolMeta | undefined;
+  /** The Dot's rules per category, read on every call so a change applies at once. */
+  rules?: () => Partial<DotRules>;
   /** Zod parse for computer tools (defaults applied), the raw object for the others. See {@link gateParse}. */
   parse: (toolName: string, args: unknown) => Record<string, unknown>;
 }
@@ -123,6 +121,11 @@ const PAGE_TOOLS = new Set([...REF_TOOLS, 'computer_key']);
 const UNKNOWN_REF =
   'That ref is not from this turn. Take a fresh snapshot and call request_approval again.';
 const DENIED = 'The owner denied this tool for this Dot.';
+/** A rule set to Never: the same refusal as a `deny` override, naming the rule. */
+const ruleDenied = (classification: Classification) =>
+  `The owner does not allow this Dot to do this (rule: ${
+    classification.category ? RULE_LABELS[classification.category] : 'unknown'
+  }: Never). Do not try another way; tell the owner what you could not do.`;
 
 const clip = (text: string, max: number) => {
   const flat = text.replace(/\s+/g, ' ').trim();
@@ -149,6 +152,8 @@ function describeAction(
       return 'create a page';
     case 'edit_space_page':
       return 'edit a page';
+    case 'delegate_to_dot':
+      return `hand work to ${clip(String(args.dot ?? 'a teammate'), 40)}`;
     case 'computer_click':
       return `click the ${target}`;
     case 'computer_select':
@@ -356,6 +361,19 @@ export function approvalGate(deps: GateDeps): {
       intent.tool === 'computer_key'
         ? deps.computer?.presumedFocus()
         : undefined;
+    const ruled = classify(
+      {
+        tool: intent.tool,
+        args: parsed,
+        element,
+        focus,
+        latestElements: deps.computer?.latestElements(),
+        mcp: deps.mcpInfo(intent.tool),
+      },
+      deps.mode,
+      deps.rules?.(),
+    );
+    if (ruled.denied) return skip({ error: ruleDenied(ruled) });
     const { hash, redacted } = fingerprint(intent.tool, parsed, element, focus);
     return pendApproval({
       toolCallId,
@@ -399,7 +417,7 @@ export function approvalGate(deps: GateDeps): {
       if (mcp?.override === 'deny') return skip({ error: DENIED });
       const focus =
         toolName === 'computer_key' ? computer?.presumedFocus() : undefined;
-      const { gated } = classify(
+      const classification = classify(
         {
           tool: toolName,
           args: parsed,
@@ -409,8 +427,12 @@ export function approvalGate(deps: GateDeps): {
           mcp,
         },
         deps.mode,
+        deps.rules?.(),
       );
-      if (!gated) return undefined;
+      // Never: refused before anything runs, and no approval can unlock it.
+      if (classification.denied)
+        return skip({ error: ruleDenied(classification) });
+      if (!classification.gated) return undefined;
 
       const { hash, redacted } = fingerprint(toolName, parsed, element, focus);
       // The owner approved exactly this action: it runs now, once, and only on the turn the

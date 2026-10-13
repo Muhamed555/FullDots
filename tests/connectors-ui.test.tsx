@@ -365,7 +365,7 @@ describe('ApprovalModeField', () => {
     );
     expect(html).toContain('Anything that changes data waits for you.');
     expect(html).toContain(
-      'The Dot acts without asking. Password and code steps still come to you.',
+      'The Dot acts without asking, except paying and deleting. Password and code steps still come to you.',
     );
   });
 
@@ -384,14 +384,14 @@ describe('ApprovalModeField', () => {
       <ApprovalModeField value="off" onChange={() => {}} />,
     );
     expect(off).toContain(
-      'The Dot will send, pay, delete and publish without asking. Handoff for passwords and codes still applies.',
+      'The Dot will send and publish without asking. Paying and deleting still ask; handoff for passwords and codes still applies.',
     );
     expect(off).toContain('dp-warning');
     const sensitive = renderToStaticMarkup(
       <ApprovalModeField value="sensitive" onChange={() => {}} />,
     );
     expect(sensitive).not.toContain('dp-warning');
-    expect(sensitive).not.toContain('will send, pay, delete');
+    expect(sensitive).not.toContain('will send and publish');
   });
 });
 
@@ -436,6 +436,6 @@ describe('WorkspaceDialog', () => {
     expect(html).toContain('id="dot-approval-mode"');
     expect(html).toContain('role="radiogroup"');
     expect(html).toMatch(/checked="" value="sensitive"/);
-    expect(html).not.toContain('will send, pay, delete');
+    expect(html).not.toContain('will send and publish');
   });
 });

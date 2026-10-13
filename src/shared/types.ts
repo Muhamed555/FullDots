@@ -1,3 +1,4 @@
+import type { RuleCategory } from './rules.js';
 export type Status =
   | 'queued'
   | 'running'
@@ -337,6 +338,8 @@ export interface DotConnectorGrant {
   /** '*' = every read-only tool (default); a list names tools explicitly (non-read-only tools must be listed). */
   tools: '*' | string[];
   overrides: Record<string, ToolOverride>;
+  /** "Treat as": tool name to the rule category it is pinned to; absent when none is pinned. */
+  categories?: Record<string, RuleCategory>;
 }
 
 export type ApprovalStatus =

@@ -9,6 +9,7 @@ import { ResumeStore } from './resume-store.js';
 import { UsageStore } from './usage-store.js';
 import { TriggerStore } from './trigger-store.js';
 import { TeamStore } from './team-store.js';
+import { RuleStore } from './rule-store.js';
 import { Pages } from './pages.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -43,6 +44,8 @@ export class WorkspaceStore {
   readonly usage: UsageStore;
   readonly triggers: TriggerStore;
   readonly team: TeamStore;
+  /** Rules per Dot (send messages, spend money, ...): see docs/APPROVALS.md. */
+  readonly rules: RuleStore;
   constructor(
     path: string,
     readonly ownerId: string,
@@ -101,6 +104,7 @@ export class WorkspaceStore {
     this.usage = new UsageStore(this.db);
     this.triggers = new TriggerStore(this.db, connectorKey);
     this.team = new TeamStore(this.db);
+    this.rules = new RuleStore(this.db);
     this.pages = new Pages(this.db, (id) =>
       this.spaces().some((space) => space.id === id),
     );

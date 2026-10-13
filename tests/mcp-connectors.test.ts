@@ -187,6 +187,7 @@ it('offers a write tool only after an explicit grant', async () => {
     readOnly: false,
     destructive: false,
     override: undefined,
+    name: 'create_issue',
   });
   store.setGrant('dot1', fix.id, ['delete_repo'], { delete_repo: 'ask' });
   expect(mcpToolInfo(registry, store, 'dot1', 'mcp__fix__delete_repo')).toEqual(
@@ -194,6 +195,7 @@ it('offers a write tool only after an explicit grant', async () => {
       readOnly: false,
       destructive: true,
       override: 'ask',
+      name: 'delete_repo',
     },
   );
   expect(

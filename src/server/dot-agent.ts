@@ -387,6 +387,7 @@ export class DotAgent extends AbstractAgent {
                     )
                   : undefined,
               parse: (name, args) => gateParse(name, args, computer.inputs),
+              rules: () => this.workspace.rules.get(dot.id),
             }).middleware
           : undefined;
         const computerGuide = computer.configured

@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
 import type { ApprovalMode, ToolOverride } from '../shared/types.js';
+import {
+  isLocked,
+  RULE_LABELS,
+  type DotRules,
+  type RuleCategory,
+} from '../shared/rules.js';
 import { SENSITIVE } from './computer-agent.js';
 
 export type ActionLevel = 'none' | 'write' | 'sensitive';
@@ -24,13 +30,28 @@ export interface ClassifyInput {
   focus?: ElementIdentity;
   /** Latest snapshot of this turn. */
   latestElements?: ElementIdentity[];
-  mcp?: { readOnly: boolean; destructive: boolean; override?: ToolOverride };
+  mcp?: McpToolMeta;
+}
+
+/** What the gate knows about a connector tool the Dot holds. */
+export interface McpToolMeta {
+  readOnly: boolean;
+  destructive: boolean;
+  override?: ToolOverride;
+  /** The owner's "Treat as" choice: replaces the name heuristics for this tool. */
+  category?: RuleCategory;
+  /** The raw MCP tool name, for the category name heuristics. */
+  name?: string;
 }
 
 export interface Classification {
   level: ActionLevel;
   gated: boolean;
   reason: string;
+  /** A rule set to `never` covers the action: refuse it like a `deny` override, before anything runs. */
+  denied?: true;
+  /** The category whose rule decided, when a rule decided. */
+  category?: RuleCategory;
 }
 
 const METHOD = '(POST|PUT|DELETE|PATCH|post|put|delete|patch)';
@@ -127,9 +148,16 @@ function stripPrefixes(segment: string): string {
   return rest.replace(/^["']?(?:[^\s"']*[\\/])+(?=[^\s"'\\/]+)/, '');
 }
 
-function matchesDestructive(text: string): boolean {
+/** A set of command patterns checked with the same splitting, unwrapping and quoting rules. */
+interface CommandFamily {
+  patterns: RegExp[];
+  /** `xargs` followed by one of these runs a command of the family. */
+  xargs: RegExp;
+}
+
+function matchesFamily(text: string, family: CommandFamily): boolean {
   const masked = maskQuotes(text);
-  return DESTRUCTIVE_EXEC.some((re) => re.test(masked));
+  return family.patterns.some((re) => re.test(masked));
 }
 
 /** Shells that run a command string: `sh -c '...'`, `cmd /c ...`, `pwsh -Command ...`. */
@@ -170,11 +198,15 @@ function commandText(
   return missing ? undefined : restored;
 }
 
-/** `sh -c '...'`, `eval '...'`, `xargs ...`: the wrapped command text is itself checked. */
-function wrapsDestructive(
+/**
+ * `sh -c '...'`, `eval '...'`, `xargs ...`: the wrapped command text is itself checked. A wrapped command
+ * that cannot be read counts as a match, so every family errs towards asking.
+ */
+function wrapsFamily(
   segment: string,
   quoted: string[],
   index: number,
+  family: CommandFamily,
 ): boolean {
   const stripped = stripPrefixes(segment);
   // Quoted strings consumed by the stripped prefixes (for example `A="x" sh -c ...`) shift the index.
@@ -198,7 +230,7 @@ function wrapsDestructive(
         quoted,
         indexAt(offset),
       );
-      return command === undefined || isDestructiveCommand(command);
+      return command === undefined || inFamily(command, family);
     }
   }
   const evaluated = /^eval(?=\s|$)/.exec(stripped);
@@ -210,13 +242,13 @@ function wrapsDestructive(
       quoted,
       indexAt(offset),
     );
-    return command === undefined || isDestructiveCommand(command);
+    return command === undefined || inFamily(command, family);
   }
   const xargs = XARGS.exec(stripped);
   if (xargs) {
     const offset = xargs.index + 'xargs'.length;
     const tail = xargs[1] ?? '';
-    if (XARGS_DESTRUCTIVE.test(tail)) return true;
+    if (family.xargs.test(tail)) return true;
     // Skip xargs's own options (and their values) to reach the command it runs.
     const tokens = /\S+/g;
     let cut = 0;
@@ -230,20 +262,23 @@ function wrapsDestructive(
     const command = tail.slice(cut);
     if (!command.trim()) return false;
     const text = commandText(command, quoted, indexAt(offset + cut));
-    return text === undefined || isDestructiveCommand(text);
+    return text === undefined || inFamily(text, family);
   }
   return false;
 }
 
-export function isDestructiveCommand(command: string): boolean {
+function inFamily(command: string, family: CommandFamily): boolean {
   const whole = command.trim();
   if (!whole) return false;
   // `$(...)` and backticks run even inside double quotes, so check their contents on the raw text.
   for (const sub of whole.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) {
-    if (isDestructiveCommand(sub[1] ?? sub[2] ?? '')) return true;
+    if (inFamily(sub[1] ?? sub[2] ?? '', family)) return true;
   }
   const { masked, quoted } = maskQuoted(whole);
-  if (matchesDestructive(masked) || matchesDestructive(stripPrefixes(masked)))
+  if (
+    matchesFamily(masked, family) ||
+    matchesFamily(stripPrefixes(masked), family)
+  )
     return true;
   let used = 0;
   return masked.split(/[;&|\n`(){}]+/).some((segment) => {
@@ -252,16 +287,56 @@ export function isDestructiveCommand(command: string): boolean {
     const trimmed = segment.trim();
     return (
       trimmed !== '' &&
-      (matchesDestructive(trimmed) ||
-        matchesDestructive(stripPrefixes(trimmed)) ||
-        wrapsDestructive(
+      (matchesFamily(trimmed, family) ||
+        matchesFamily(stripPrefixes(trimmed), family) ||
+        wrapsFamily(
           trimmed,
           quoted,
           index + countPlaceholders(segment.slice(0, segment.indexOf(trimmed))),
+          family,
         ))
     );
   });
 }
+
+const DESTRUCTIVE: CommandFamily = {
+  patterns: DESTRUCTIVE_EXEC,
+  xargs: XARGS_DESTRUCTIVE,
+};
+
+export function isDestructiveCommand(command: string): boolean {
+  return inFamily(command, DESTRUCTIVE);
+}
+
+/** HEURISTIC: the commands of the destructive list that delete (the `delete_things` rule category). */
+export const DELETE_EXEC: RegExp[] = [
+  /^(rm|rmdir|unlink|shred)\b/,
+  /^find\b.*\s-delete\b/,
+  /^find\b.*\s-(exec|execdir|ok|okdir)\s+(rm|rmdir|unlink|shred)\b/,
+  /^git\s+clean\b/,
+  /^(del|erase|rd)\b/i,
+  /^Remove-Item\b/i,
+];
+/** HEURISTIC: commands that publish (the `publish` rule category). */
+export const PUBLISH_EXEC: RegExp[] = [
+  /^git\s+push\b/,
+  /^(npm|pnpm|yarn)\s+publish\b/,
+  /^(cargo|gem|twine)\s+(publish|push|upload)\b/,
+  /^docker\s+push\b/,
+];
+/** HEURISTIC: commands that send mail (the `send_messages` rule category). */
+export const SEND_EXEC: RegExp[] = [/^(mail|mailx|sendmail)\b/];
+
+const NEVER = /(?!)/;
+const DELETE_COMMANDS: CommandFamily = {
+  patterns: DELETE_EXEC,
+  xargs: /\b(rm|rmdir|unlink|shred)\b/,
+};
+const PUBLISH_COMMANDS: CommandFamily = {
+  patterns: PUBLISH_EXEC,
+  xargs: NEVER,
+};
+const SEND_COMMANDS: CommandFamily = { patterns: SEND_EXEC, xargs: NEVER };
 
 const ENTER_KEY =
   /^(?:(?:ctrl|control|meta|cmd|command|shift|alt|option)\+)*(enter|numpadenter|return)$/i;
@@ -354,9 +429,148 @@ function baseLevel(
   return { level: 'none', reason: 'not a gated action' };
 }
 
+/**
+ * HEURISTIC words per rule category, matched as whole words in element names and in connector tool names
+ * (split at `_ - . : /` and camelCase first). Read-only connector tools get no category from their name.
+ */
+export const CATEGORY_WORDS: readonly [RuleCategory, RegExp][] = [
+  [
+    'send_messages',
+    /\b(send|sends|sending|reply|replies|forward|message|messages|dm|sms|notify|invite)\b/i,
+  ],
+  [
+    'spend_money',
+    /\b(buy|buys|purchase|purchases|pay|pays|payment|payments|checkout|check out|order|transfer|transfers|donate|charge|charges|refund|refunds)\b/i,
+  ],
+  [
+    'delete_things',
+    /\b(delete|deletes|remove|removes|destroy|erase|purge|trash|wipe|unlink)\b/i,
+  ],
+  ['publish', /\b(publish|publishes|post|posts|tweet|share|deploy)\b/i],
+];
+
+/** `create_issue`, `sendEmail`, `gh.post-comment`: words separated by spaces. */
+const nameWords = (name: string) =>
+  name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_\-.:/]+/g, ' ');
+
+const wordCategories = (text: string): RuleCategory[] =>
+  CATEGORY_WORDS.filter(([, words]) => words.test(text)).map(
+    ([category]) => category,
+  );
+
+/** The tool part of `mcp__<connector>__<tool>`, when the raw name is not known. */
+const connectorToolPart = (tool: string) =>
+  tool.slice('mcp__'.length).split('__').slice(1).join(' ');
+
+/** The names a page action is about: its target, and for an Enter press the sensitive controls it may reach. */
+function pageSubjects(input: ClassifyInput): string[] {
+  const { tool, args, element, focus, latestElements } = input;
+  const controls = () =>
+    (latestElements ?? [])
+      .filter(
+        (e) => ACTIONABLE_ROLE.test(e.role) && SENSITIVE_ACTION.test(e.name),
+      )
+      .map((e) => e.name);
+  switch (tool) {
+    case 'computer_click':
+    case 'computer_select':
+      return element ? [element.name] : [];
+    case 'computer_type':
+      if (args.submit !== true) return [];
+      return [...(element ? [element.name] : []), ...controls()];
+    case 'computer_key':
+      if (!ENTER_KEY.test(String(args.key ?? '').trim())) return [];
+      return [...(focus ? [focus.name] : []), ...controls()];
+    default:
+      return [];
+  }
+}
+
+/** The rule categories an action falls under (HEURISTIC; see docs/APPROVALS.md, "Rules per Dot"). */
+export function categoriesOf(input: ClassifyInput): RuleCategory[] {
+  const { tool, args, mcp } = input;
+  const found = new Set<RuleCategory>();
+  switch (tool) {
+    case 'computer_exec': {
+      const command = String(args.command ?? '');
+      found.add('run_shell');
+      if (inFamily(command, DELETE_COMMANDS)) found.add('delete_things');
+      if (inFamily(command, PUBLISH_COMMANDS)) found.add('publish');
+      if (inFamily(command, SEND_COMMANDS)) found.add('send_messages');
+      break;
+    }
+    case 'computer_files_write':
+      found.add('write_files');
+      break;
+    case 'create_space_page':
+      found.add('create_pages');
+      break;
+    case 'edit_space_page':
+      found.add('edit_pages');
+      break;
+    case 'delegate_to_dot':
+      found.add('hand_off_work');
+      break;
+    case 'computer_click':
+    case 'computer_select':
+    case 'computer_type':
+    case 'computer_key':
+      // Whatever sensitive mode would ask about, independent of the Dot's own mode.
+      if (baseLevel(input, 'sensitive').level === 'sensitive')
+        found.add('risky_clicks');
+      for (const name of pageSubjects(input))
+        for (const category of wordCategories(name)) found.add(category);
+      break;
+    default:
+      if (!tool.startsWith('mcp__')) break;
+      if (mcp?.category) return [mcp.category];
+      // A read-only tool cannot send, pay, delete or publish. Unknown annotations fall through (fail closed).
+      if (mcp?.readOnly && !mcp.destructive) break;
+      if (mcp?.destructive) found.add('delete_things');
+      for (const category of wordCategories(
+        nameWords(mcp?.name ?? connectorToolPart(tool)),
+      ))
+        found.add(category);
+  }
+  return [...found];
+}
+
+const STRICTNESS = { allow: 1, ask: 2, never: 3 } as const;
+type DecidingRule = keyof typeof STRICTNESS;
+
+/**
+ * The rule that decides among the action's categories: the strictest of never > ask > allow. `inherit`
+ * does not decide, except for the locked categories (spend money, delete things), where it asks.
+ */
+function decidingRule(
+  categories: RuleCategory[],
+  rules: Partial<DotRules>,
+): { category: RuleCategory; rule: DecidingRule } | undefined {
+  let decided: { category: RuleCategory; rule: DecidingRule } | undefined;
+  for (const category of categories) {
+    const stored = rules[category] ?? 'inherit';
+    // The API never stores `allow` for a locked category; a row that says so anyway still asks.
+    const rule: DecidingRule | undefined = isLocked(category)
+      ? stored === 'never'
+        ? 'never'
+        : 'ask'
+      : stored === 'inherit'
+        ? undefined
+        : stored;
+    if (rule && (!decided || STRICTNESS[rule] > STRICTNESS[decided.rule]))
+      decided = { category, rule };
+  }
+  return decided;
+}
+
+/**
+ * Order: a connector per-tool `deny`, then per-tool `ask` / `allow` (the most specific), then the Dot's
+ * rules per category, then the approval mode.
+ */
 export function classify(
   input: ClassifyInput,
   mode: ApprovalMode,
+  rules: Partial<DotRules> = {},
 ): Classification {
   const override = input.mcp?.override;
   if (override === 'deny')
@@ -367,7 +581,31 @@ export function classify(
     return base.level === 'none'
       ? { level: 'write', gated: true, reason: 'connector tool set to ask' }
       : { ...base, gated: true };
-  if (override === 'allow' || mode === 'off') return { ...base, gated: false };
+  if (override === 'allow') return { ...base, gated: false };
+  const decided = decidingRule(categoriesOf(input), rules);
+  if (decided) {
+    const { category, rule } = decided;
+    const level = base.level === 'none' ? 'write' : base.level;
+    const label = RULE_LABELS[category].toLowerCase();
+    if (rule === 'never')
+      return {
+        level,
+        gated: true,
+        denied: true,
+        category,
+        reason: `rule: never ${label}`,
+      };
+    if (rule === 'ask')
+      return {
+        level,
+        gated: true,
+        category,
+        reason:
+          base.level === 'none' ? `rule: ask before ${label}` : base.reason,
+      };
+    return { ...base, gated: false, category };
+  }
+  if (mode === 'off') return { ...base, gated: false };
   const gated =
     base.level === 'sensitive' || (mode === 'writes' && base.level === 'write');
   return { ...base, gated };
@@ -498,6 +736,10 @@ export function redactArgs(
       text = `press ${String(args.key ?? '')}${
         focus ? ` in ${describe(focus)}` : ' (focus unknown)'
       }`;
+      break;
+    case 'delegate_to_dot':
+      // The brief is what the teammate will act on, so the owner reads it in full.
+      text = `hand to ${String(args.dot ?? '')}: ${String(args.brief ?? '')}\nDeliverable: ${String(args.deliverable ?? '')}`;
       break;
     default:
       text = `${tool} ${JSON.stringify(mask(args))}`;

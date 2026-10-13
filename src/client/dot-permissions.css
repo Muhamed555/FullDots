@@ -356,6 +356,30 @@
 .dp-tool:hover {
   border-color: #cfcfcf;
 }
+.dp-tool-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+/* "Treat as": pins a granted tool to a rule category of the Dot's rules. */
+.dp-root .dp-treat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--dp-muted);
+}
+.dp-root .dp-treat select {
+  width: auto;
+  min-width: 0;
+  flex: 1;
+  padding: 3px 6px;
+  border-radius: 7px;
+  font-size: 11px;
+}
 .dp-tool:has(input:checked) {
   border-color: var(--dp-ink);
   background: var(--dp-soft);

@@ -7,6 +7,7 @@ import { approvalRoutes } from './approval-routes.js';
 import { usageRoutes } from './usage-routes.js';
 import { hookRoutes, triggerRoutes } from './trigger-routes.js';
 import { teamRoutes } from './team-routes.js';
+import { ruleRoutes } from './rule-routes.js';
 import { turnRoutes } from './turn-routes.js';
 import { liveRoutes, workspaceChanges } from './live-routes.js';
 import { Hono } from 'hono';
@@ -194,6 +195,7 @@ export function createApp({
       }),
     );
   if (platform) app.route('/api', teamRoutes(platform.workspace));
+  if (platform) app.route('/api', ruleRoutes(platform.workspace));
   if (platform)
     app.route(
       '/api',

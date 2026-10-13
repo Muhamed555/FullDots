@@ -121,7 +121,8 @@ describe('classify: exec, files, pages', () => {
   it('classifies exec by command', () => {
     expect(run(rm, 'sensitive')).toEqual({ level: 'sensitive', gated: true });
     expect(run(rm, 'writes')).toEqual({ level: 'sensitive', gated: true });
-    expect(run(rm, 'off')).toEqual({ level: 'sensitive', gated: false });
+    // Deleting asks even in mode off (Rules per Dot: delete things never runs without the owner).
+    expect(run(rm, 'off')).toEqual({ level: 'sensitive', gated: true });
     expect(run(ls, 'sensitive')).toEqual({ level: 'write', gated: false });
     expect(run(ls, 'writes')).toEqual({ level: 'write', gated: true });
     expect(run(ls, 'off')).toEqual({ level: 'write', gated: false });
@@ -205,9 +206,10 @@ describe('classify: MCP', () => {
       level: 'sensitive',
       gated: true,
     });
+    // A destructive tool falls under "delete things", which asks even in mode off.
     expect(run(mcp(false, true), 'off')).toEqual({
       level: 'sensitive',
-      gated: false,
+      gated: true,
     });
   });
   it('treats a tool without hints as a write', () => {
@@ -232,10 +234,12 @@ describe('classify: MCP', () => {
         reason: 'denied',
       });
   });
-  it('mode off silences everything except per-tool ask and deny', () => {
+  it('mode off silences everything except per-tool ask and deny, and deleting', () => {
     expect(run(mcp(false, true, 'ask'), 'off').gated).toBe(true);
     expect(run(mcp(true, false, 'ask'), 'off').gated).toBe(true);
-    expect(run(mcp(false, true), 'off').gated).toBe(false);
+    expect(run(mcp(false, false), 'off').gated).toBe(false);
+    expect(run(mcp(false, true), 'off').gated).toBe(true);
+    expect(run(mcp(false, true, 'allow'), 'off').gated).toBe(false);
   });
 });
 

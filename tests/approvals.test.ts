@@ -997,7 +997,7 @@ describe('approval gate', () => {
     expect(r.handoffs.start).not.toHaveBeenCalled();
   });
 
-  it('gates nothing in mode off except a deny override, and still honours an ask override', async () => {
+  it('gates nothing in mode off except a deny override and deleting, and still honours an ask override', async () => {
     const r = rig({
       mode: 'off',
       mcp: {
@@ -1017,7 +1017,9 @@ describe('approval gate', () => {
         },
       },
     });
-    expect(await r.before('computer_exec', rm)).toBe(undefined);
+    expect(
+      await r.before('computer_exec', { command: 'git push origin main' }),
+    ).toBe(undefined);
     expect(
       await r.before('create_space_page', { title: 'T', content: 'C' }),
     ).toBe(undefined);
@@ -1029,6 +1031,11 @@ describe('approval gate', () => {
     });
     expect(r.svc.approvals.list({})).toHaveLength(0);
     expect(r.gate.paused).toBeUndefined();
+    // Deleting asks even in mode off.
+    const deleting = rig({ mode: 'off' });
+    expect(resultOf(await deleting.before('computer_exec', rm)).status).toBe(
+      'pending_approval',
+    );
     // An `ask` override is more specific than the Dot's mode.
     const asked = resultOf(await r.before('mcp__gh__merge', { pr: 1 }));
     expect(asked.status).toBe('pending_approval');
@@ -1457,12 +1464,18 @@ describe('approval gate inside a DotAgent turn', () => {
     expect(f.svc.notify).not.toHaveBeenCalled();
   });
 
-  it('runs a destructive command in mode off', async () => {
+  it('runs a destructive command that does not delete in mode off', async () => {
     const f = e2e(
-      [() => toolCall('c1', 'computer_exec', rm), () => text('Gone.')],
+      [
+        () =>
+          toolCall('c1', 'computer_exec', {
+            command: 'git push origin main',
+          }),
+        () => text('Pushed.'),
+      ],
       { mode: 'off' },
     );
-    expect(await f.turn('Clean up.')).toBe('Gone.');
+    expect(await f.turn('Push it.')).toBe('Pushed.');
     expect(f.fake.count_of('exec')).toBe(1);
     expect(f.svc.approvals.list({})).toHaveLength(0);
   });

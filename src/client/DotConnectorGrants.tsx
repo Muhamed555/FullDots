@@ -14,6 +14,12 @@ import type {
   ConnectorView,
   ToolOverride,
 } from '../shared/types';
+import {
+  isRuleCategory,
+  RULE_CATEGORIES,
+  RULE_LABELS,
+  type RuleCategory,
+} from '../shared/rules';
 import { ConnectorLogo } from './connector-logos';
 import './dot-permissions.css';
 import { connectorTitle } from './ConnectorGallery';
@@ -23,6 +29,8 @@ export interface GrantInput {
   /** '*' = every read-only tool; a list names tools explicitly. */
   tools: '*' | string[];
   overrides?: Record<string, ToolOverride>;
+  /** "Treat as": tool name to the rule category the Dot's rules use for it. */
+  categories?: Record<string, RuleCategory>;
 }
 
 export const WRITE_WARNING = 'This can change things outside FullDots';
@@ -69,6 +77,20 @@ export function toggleTool(
   if (on) next.add(tool);
   else next.delete(tool);
   return grantFromNames(grant, tools, next);
+}
+
+/** The grant with one tool pinned to a rule category, or back to automatic (`''`). */
+export function setTreatAs(
+  grant: GrantInput,
+  tool: string,
+  category: string,
+): GrantInput {
+  const next = { ...grant.categories };
+  if (isRuleCategory(category)) next[tool] = category;
+  else delete next[tool];
+  const rest: GrantInput = { ...grant };
+  delete rest.categories;
+  return Object.keys(next).length ? { ...rest, categories: next } : rest;
 }
 
 /** The grant after ticking every read-only tool, keeping whatever else is ticked. */
@@ -142,29 +164,54 @@ function ToolGroup({
       </div>
       <div className="dp-tool-grid">
         {tools.map((tool) => (
-          <label
-            className="dp-tool"
-            data-kind={kind}
-            key={`${connectorId}:${tool.toolName}`}
-            title={tool.description || undefined}
-          >
-            <input
-              type="checkbox"
-              className="dp-check"
-              checked={names.has(tool.name)}
-              onChange={(event) =>
-                onChange(
-                  toggleTool(grant, allTools, tool.name, event.target.checked),
-                )
-              }
-            />
-            <span className="dp-tool-text">
-              <code>{tool.name}</code>
-              {tool.description && (
-                <span className="dp-tool-desc">{tool.description}</span>
-              )}
-            </span>
-          </label>
+          <div className="dp-tool-cell" key={`${connectorId}:${tool.toolName}`}>
+            <label
+              className="dp-tool"
+              data-kind={kind}
+              title={tool.description || undefined}
+            >
+              <input
+                type="checkbox"
+                className="dp-check"
+                checked={names.has(tool.name)}
+                onChange={(event) =>
+                  onChange(
+                    toggleTool(
+                      grant,
+                      allTools,
+                      tool.name,
+                      event.target.checked,
+                    ),
+                  )
+                }
+              />
+              <span className="dp-tool-text">
+                <code>{tool.name}</code>
+                {tool.description && (
+                  <span className="dp-tool-desc">{tool.description}</span>
+                )}
+              </span>
+            </label>
+            {names.has(tool.name) && (
+              <label className="dp-treat">
+                <span>Treat as</span>
+                <select
+                  value={grant.categories?.[tool.name] ?? ''}
+                  aria-label={`Treat ${tool.name} as`}
+                  onChange={(event) =>
+                    onChange(setTreatAs(grant, tool.name, event.target.value))
+                  }
+                >
+                  <option value="">Automatic</option>
+                  {RULE_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {RULE_LABELS[category]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
         ))}
       </div>
     </div>
@@ -343,7 +390,7 @@ const APPROVAL_OPTIONS: {
     value: 'off',
     title: 'Never ask',
     description:
-      'The Dot acts without asking. Password and code steps still come to you.',
+      'The Dot acts without asking, except paying and deleting. Password and code steps still come to you.',
     icon: ShieldOff,
   },
 ];
@@ -411,8 +458,8 @@ export function ApprovalModeField({
         <p className="dp-warning" role="alert">
           <TriangleAlert size={16} strokeWidth={1.9} aria-hidden="true" />
           <span>
-            The Dot will send, pay, delete and publish without asking. Handoff
-            for passwords and codes still applies.
+            The Dot will send and publish without asking. Paying and deleting
+            still ask; handoff for passwords and codes still applies.
           </span>
         </p>
       )}

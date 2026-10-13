@@ -10,6 +10,7 @@ import {
   Cpu,
   FolderLock,
   Info,
+  ListChecks,
   Plug,
   Users,
   Settings2,
@@ -26,6 +27,7 @@ import {
   type GrantInput,
 } from './DotConnectorGrants';
 import { DotColorPicker } from './DotColorPicker';
+import { DotRulesEditor } from './DotRulesEditor';
 import { Mascot } from './Mascot';
 import { ModelPicker, modelFields, type ModelChoice } from './ModelPicker';
 import { ModelProvidersSettings } from './ModelProvidersSettings';
@@ -39,6 +41,7 @@ import type {
   State,
   WorkspaceState,
 } from '../shared/types';
+import { emptyRules, type DotRules } from '../shared/rules';
 import './dialog.css';
 export type Dialog =
   | { type: 'space' }
@@ -245,12 +248,17 @@ export function WorkspaceDialog({
   const [grantsDirty, setGrantsDirty] = useState(false);
   const [teamIds, setTeamIds] = useState<string[]>([]);
   const [teamDirty, setTeamDirty] = useState(false);
+  const [rules, setRules] = useState<DotRules>(emptyRules);
+  const [rulesDirty, setRulesDirty] = useState(false);
   const savedDotId = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (dialog.type !== 'dot' || !dialog.dot) return;
     let active = true;
     void api<{ delegateIds: string[] }>(`/dots/${dialog.dot.id}/team`)
       .then((team) => active && setTeamIds(team.delegateIds))
+      .catch(() => {});
+    void api<{ rules: DotRules }>(`/dots/${dialog.dot.id}/rules`)
+      .then((saved) => active && setRules(saved.rules))
       .catch(() => {});
     return () => {
       active = false;
@@ -277,6 +285,7 @@ export function WorkspaceDialog({
             ...(Object.keys(grant.overrides ?? {}).length
               ? { overrides: grant.overrides }
               : {}),
+            ...(grant.categories ? { categories: grant.categories } : {}),
           })),
         );
       })
@@ -461,7 +470,10 @@ export function WorkspaceDialog({
               };
             }
             let saved: boolean;
-            if (dialog.type === 'dot' && (grantsDirty || teamDirty)) {
+            if (
+              dialog.type === 'dot' &&
+              (grantsDirty || teamDirty || rulesDirty)
+            ) {
               try {
                 // A new Dot needs its id before the grants can be saved. The
                 // last step goes through mutate so the workspace refreshes.
@@ -481,6 +493,10 @@ export function WorkspaceDialog({
                 if (saved && teamDirty)
                   saved = await mutate(`/dots/${dotId}/team`, 'PUT', {
                     delegateIds: teamIds,
+                  });
+                if (saved && rulesDirty)
+                  saved = await mutate(`/dots/${dotId}/rules`, 'PUT', {
+                    rules,
                   });
               } catch (e) {
                 setError(e instanceof Error ? e.message : 'Could not save.');
@@ -651,6 +667,21 @@ export function WorkspaceDialog({
                   <ApprovalModeField
                     value={approvalMode}
                     onChange={setApprovalMode}
+                  />
+                </DotSection>
+                <DotSection
+                  id="rules"
+                  icon={ListChecks}
+                  title="Rules"
+                  description="What this Dot may do on its own, must ask about first, or never does."
+                >
+                  <DotRulesEditor
+                    value={rules}
+                    mode={approvalMode}
+                    onChange={(next) => {
+                      setRules(next);
+                      setRulesDirty(true);
+                    }}
                   />
                 </DotSection>
                 <DotSection

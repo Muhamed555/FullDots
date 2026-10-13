@@ -1,6 +1,6 @@
 # Approvals
 
-Approvals stop a Dot before an action that could be hard to undo. You decide on a card in the conversation, or in the Approvals view. This page covers which actions pause, how an approval applies, how a Dot resumes afterwards, and how handoffs work when a page needs a person. Connector grants are described in [Connectors](CONNECTORS.md).
+Approvals stop a Dot before an action that could be hard to undo. You decide on a card in the conversation, or in the Approvals view. This page covers which actions pause, the rules you can set per Dot, how an approval applies, how a Dot resumes afterwards, and how handoffs work when a page needs a person. Connector grants are described in [Connectors](CONNECTORS.md).
 
 ## Approval modes
 
@@ -10,7 +10,7 @@ Set **Approvals** in the Dot form. The default is `sensitive`.
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `sensitive` (default) | Sensitive actions: destructive shell commands, clicks and selections on sensitive elements, submitting forms that look sensitive, Enter presses in sensitive places, and connector tools marked destructive. |
 | `writes`              | Everything in `sensitive`, plus anything that changes data: every shell command, file writes, creating or editing Space pages, connector tools that can change data, and every Enter key press.              |
-| `off`                 | Nothing, except connector tools you set to `ask`. Handoffs still apply. `deny` overrides still refuse the tool.                                                                                              |
+| `off`                 | Nothing, except paying and deleting, connector tools you set to `ask`, and rules you set to Ask me first. Handoffs still apply. `deny` overrides and Never rules still refuse the action.                    |
 
 In `sensitive` mode, the Dot does not ask before ordinary clicks, typing without submit, file writes, shell commands outside the destructive list, read-only connector tools, or connector tools that change data but are not marked destructive.
 
@@ -60,11 +60,54 @@ FullDots does not read the browser's focus. It assumes the focus is the element 
 | Read-only                        | Does not ask     | Does not ask  |
 | Unknown (connector reconnecting) | Asks             | Asks          |
 
-A per-tool override replaces these rules for that tool. `allow` never asks, even for a destructive tool. `ask` asks in every mode, including `off`. `deny` refuses the tool in every mode, including `off`.
+A per-tool override replaces these rules for that tool, and it is more specific than the [rules per Dot](#rules-per-dot). `allow` never asks, even for a destructive tool. `ask` asks in every mode, including `off`. `deny` refuses the tool in every mode, including `off`.
 
 ### Files and Space pages
 
 Writing a file, creating a Space page and editing a Space page count as changes to data. They ask in `writes` mode only.
+
+## Rules per Dot
+
+The **Rules** section of the Dot form sets, for each kind of action, what the Dot does:
+
+- **Inherit** (the default): follow the approval mode. The form shows what Inherit means under the mode you picked.
+- **Allow**: run without asking, in every mode.
+- **Ask me first**: ask, in every mode, including `off`.
+- **Never**: refuse before anything runs. The Dot gets the same kind of refusal as a `deny` override, and no approval can unlock it.
+
+**Spend money** and **Delete things** offer only Inherit, Ask me first and Never. Their Inherit asks in every mode, including `off`, so no setting lets a Dot pay or delete without your click. The API refuses `allow` for them.
+
+Rules take effect at once, also in a turn that is already running, and also over an approval you already gave.
+
+### The order of the checks
+
+1. A connector per-tool `deny` refuses the tool.
+2. A connector per-tool `ask` or `allow` decides for that tool (it is the most specific setting).
+3. The rules per Dot. When an action falls under several categories, the strictest rule wins: Never, then Ask me first, then Allow. Inherit has no opinion, except for Spend money and Delete things, where it means Ask me first.
+4. The approval mode.
+
+### Categories
+
+The categories are heuristics, with the same limits as the checks above. Connector tools only tell FullDots whether they are read-only or destructive, so for connector tools the categories for sending, paying, deleting and publishing come from words in the tool name (split at `_`, `-`, `.` and capital letters). A read-only connector tool gets no category from its name. Words match whole words in any letter case, so "Border" is not "order".
+
+| Category (id)                            | Covers                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Send messages (`send_messages`)          | Page actions and connector tools named with `send`, `reply`, `forward`, `message`, `dm`, `sms`, `notify` or `invite`; the shell commands `mail`, `mailx` and `sendmail`.                                                                                                                                 |
+| Spend money (`spend_money`)              | Page actions and connector tools named with `buy`, `purchase`, `pay`, `payment`, `checkout`, `check out`, `order`, `transfer`, `donate`, `charge` or `refund`.                                                                                                                                           |
+| Delete things (`delete_things`)          | Page actions and connector tools named with `delete`, `remove`, `destroy`, `erase`, `purge`, `trash`, `wipe` or `unlink`; connector tools marked destructive; the shell commands `rm`, `rmdir`, `unlink`, `shred`, `find -delete`, `find -exec rm`, `git clean`, `del`, `erase`, `rd` and `Remove-Item`. |
+| Publish (`publish`)                      | Page actions and connector tools named with `publish`, `post`, `tweet`, `share` or `deploy`; the shell commands `git push`, `npm`/`pnpm`/`yarn publish`, `cargo`/`gem`/`twine` publish, push or upload, and `docker push`.                                                                               |
+| Run shell commands (`run_shell`)         | Every `computer_exec` command.                                                                                                                                                                                                                                                                           |
+| Write files (`write_files`)              | Writing a file on the Dot's computer.                                                                                                                                                                                                                                                                    |
+| Create pages (`create_pages`)            | Creating a Space page.                                                                                                                                                                                                                                                                                   |
+| Edit pages (`edit_pages`)                | Editing a Space page.                                                                                                                                                                                                                                                                                    |
+| Risky clicks (`risky_clicks`)            | Every click, choice, typing with submit or Enter press that `sensitive` mode asks about (see [Names of buttons, links and fields](#names-of-buttons-links-and-fields)), whatever the Dot's mode.                                                                                                         |
+| Hand work to teammates (`hand_off_work`) | `delegate_to_dot`. No approval mode asks about it, so teams stay fast by default. Under Ask me first the card's exact action is the brief and the deliverable, and the hand-off is created only after you approve that exact brief.                                                                      |
+
+For page actions, the words are read in the name of the element clicked, chosen or typed into, and for typing with submit and Enter presses also in the names of the sensitive buttons, links and menu items on the page, because Enter can reach them. A shell command is read the same way as for the destructive list: each part, inside `sh -c`, `eval` and `xargs`, with quoted text ignored. A wrapped command that cannot be read counts under Send messages, Delete things and Publish.
+
+**Treat as.** In the Dot's connector list, each allowed tool has a **Treat as** choice. Pick a category to pin the tool to it: the tool then falls under that category only, and the name words and hints no longer count for it. **Automatic** goes back to the heuristics.
+
+Passwords, two-factor codes and verification challenges are not a category. [Handoffs](#handoffs-when-you-take-over-the-computer) for them always apply, whatever the rules say.
 
 ## Intent binding
 
@@ -125,7 +168,7 @@ A handoff pauses the Dot where a person has to act. The Dot does not type the se
 | `captcha`    | A verification challenge appears on the page after an action.                                                                                                                                                                                                                              |
 | `other`      | The Dot calls `request_handoff` because it needs you for something else.                                                                                                                                                                                                                   |
 
-Handoffs apply in every approval mode, including `off`.
+Handoffs apply in every approval mode, including `off`, and no rule changes them.
 
 When a handoff starts:
 
@@ -152,7 +195,8 @@ Set `NOTIFY_WEBHOOK_URL` to receive a POST for each new approval (title "Approva
 
 - **Focus is inferred.** If you click or type on the live screen, or the page moves focus on its own, FullDots can guess wrong about which element an Enter key will reach. In `sensitive` mode, a wrong guess can let an Enter press run without a prompt.
 - **The patterns are heuristics.** They miss obfuscated commands, actions done through other tools, and sensitive actions with names they do not list. They also ask about harmless things, such as every `mv`.
-- **`sensitive` mode does not review ordinary shell commands or file writes.** Use `writes` if you want those checked.
+- **`sensitive` mode does not review ordinary shell commands or file writes.** Use `writes`, or set Run shell commands and Write files to Ask me first, if you want those checked.
+- **Rule categories are heuristics too.** A connector tool whose name does not say what it does falls under no category: pin it with **Treat as**.
 - **Approve consciously.** You approve the exact action text, not the Dot's description. If you do not understand the exact action, deny it.
 - **One turn per Dot.** While a Dot runs background work (a scheduled task or a resume), a chat message to it is refused with "busy with …" and a Stop button. The refused message stays in the conversation without a reply; send it again after stopping or waiting.
 - **Resumes give up.** A resume that keeps failing (for example with a broken model key) is retried for a while and then dropped, so it never repeats forever. The approval stays decided; ask the Dot again.

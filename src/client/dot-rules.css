@@ -1,0 +1,194 @@
+/* Dot form: rules per category. Scoped under .dr-root so they win over the global input/label rules. */
+.dr-root {
+  --dr-ink: #242424;
+  --dr-muted: #707070;
+  --dr-line: #e7e7e7;
+  --dr-soft: #f6f6f5;
+  --dr-accent: #5867e0;
+  --dr-accent-bg: #f4f5fe;
+  --dr-amber: #b97a0d;
+  --dr-amber-bg: #fff8e8;
+  --dr-red: #c4352c;
+  --dr-red-bg: #fdeeec;
+  --dr-green: #2f7d4f;
+  --dr-green-bg: #eef8f2;
+  container-type: inline-size;
+}
+.dr-intro {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dr-muted);
+}
+.dr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dr-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'icon text segments'
+    'icon inherit inherit'
+    'icon warning warning';
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--dr-line);
+  border-radius: 12px;
+  background: #fff;
+}
+.dr-icon {
+  grid-area: icon;
+  align-self: start;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--dr-soft);
+  color: var(--dr-ink);
+}
+.dr-row[data-rule='never'] .dr-icon {
+  background: var(--dr-red-bg);
+  color: var(--dr-red);
+}
+.dr-row[data-rule='ask'] .dr-icon {
+  background: var(--dr-accent-bg);
+  color: var(--dr-accent);
+}
+.dr-row[data-rule='allow'] .dr-icon {
+  background: var(--dr-green-bg);
+  color: var(--dr-green);
+}
+.dr-text {
+  grid-area: text;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dr-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dr-ink);
+}
+.dr-example {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--dr-muted);
+}
+.dr-segments {
+  grid-area: segments;
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--dr-soft);
+  box-shadow: inset 0 0 0 1px var(--dr-line);
+}
+.dr-root .dr-segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dr-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+.dr-root .dr-segment:hover {
+  color: var(--dr-ink);
+}
+.dr-root .dr-segment[data-checked='true'] {
+  background: #fff;
+  color: var(--dr-ink);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+}
+.dr-root .dr-segment[data-value='never'][data-checked='true'] {
+  color: var(--dr-red);
+}
+.dr-root .dr-segment[data-value='ask'][data-checked='true'] {
+  color: var(--dr-accent);
+}
+.dr-root .dr-segment[data-value='allow'][data-checked='true'] {
+  color: var(--dr-green);
+}
+.dr-root .dr-segment:has(input:focus-visible) {
+  outline: 2px solid var(--dr-accent);
+  outline-offset: 1px;
+}
+/* visually hidden but focusable radios */
+.dr-root input.dr-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  opacity: 0;
+}
+.dr-inherit {
+  grid-area: inherit;
+  font-size: 11px;
+  color: var(--dr-muted);
+}
+.dr-row[data-rule='inherit'] .dr-inherit {
+  color: var(--dr-ink);
+}
+.dr-root .dr-warning {
+  grid-area: warning;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--dr-red-bg);
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--dr-red);
+}
+.dr-warning svg {
+  flex-shrink: 0;
+}
+
+@container (max-width: 560px) {
+  .dr-row {
+    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-areas:
+      'icon text'
+      'segments segments'
+      'inherit inherit'
+      'warning warning';
+  }
+  .dr-segments {
+    display: flex;
+    margin-top: 6px;
+  }
+  .dr-root .dr-segment {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dr-root * {
+    transition: none !important;
+  }
+}

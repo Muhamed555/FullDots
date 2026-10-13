@@ -8,6 +8,7 @@ import type {
   DotConnectorGrant,
   ToolOverride,
 } from '../shared/types.js';
+import { isRuleCategory, type RuleCategory } from '../shared/rules.js';
 
 type Row = Record<string, unknown>;
 
@@ -32,6 +33,13 @@ function toConnector(row: Row): Connector {
 }
 
 function toGrant(row: Row): DotConnectorGrant {
+  const categories = Object.fromEntries(
+    Object.entries(
+      JSON.parse(String(row.categories ?? '{}')) as Record<string, unknown>,
+    ).filter((entry): entry is [string, RuleCategory] =>
+      isRuleCategory(entry[1]),
+    ),
+  );
   return {
     dotId: String(row.dotId),
     connectorId: String(row.connectorId),
@@ -40,6 +48,8 @@ function toGrant(row: Row): DotConnectorGrant {
       string,
       ToolOverride
     >,
+    // Only present when the owner pinned a tool to a rule category ("Treat as").
+    ...(Object.keys(categories).length ? { categories } : {}),
   };
 }
 
@@ -75,6 +85,16 @@ CREATE TABLE IF NOT EXISTS dot_connectors(dotId TEXT NOT NULL, connectorId TEXT 
     )
       db.exec(
         "ALTER TABLE connectors ADD COLUMN auth TEXT NOT NULL DEFAULT 'token'",
+      );
+    // "Treat as" categories per tool, stored next to the per-tool overrides.
+    if (
+      !db
+        .prepare('PRAGMA table_info(dot_connectors)')
+        .all()
+        .some((field) => field.name === 'categories')
+    )
+      db.exec(
+        "ALTER TABLE dot_connectors ADD COLUMN categories TEXT NOT NULL DEFAULT '{}'",
       );
     db.exec(CONNECTOR_AUTH_SCHEMA);
   }
@@ -202,16 +222,18 @@ CREATE TABLE IF NOT EXISTS dot_connectors(dotId TEXT NOT NULL, connectorId TEXT 
     connectorId: string,
     tools: '*' | string[],
     overrides: Record<string, ToolOverride> = {},
+    categories: Record<string, RuleCategory> = {},
   ): DotConnectorGrant {
     this.db
       .prepare(
-        'INSERT INTO dot_connectors(dotId,connectorId,tools,overrides) VALUES (?,?,?,?) ON CONFLICT(dotId,connectorId) DO UPDATE SET tools=excluded.tools, overrides=excluded.overrides',
+        'INSERT INTO dot_connectors(dotId,connectorId,tools,overrides,categories) VALUES (?,?,?,?,?) ON CONFLICT(dotId,connectorId) DO UPDATE SET tools=excluded.tools, overrides=excluded.overrides, categories=excluded.categories',
       )
       .run(
         dotId,
         connectorId,
         JSON.stringify(tools),
         JSON.stringify(overrides),
+        JSON.stringify(categories),
       );
     return this.grant(dotId, connectorId)!;
   }

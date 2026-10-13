@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { validateConnectorConfig } from '../shared/connector-config.js';
 import { connectorPresets } from '../shared/connector-presets.js';
 import type { Connector, ConnectorConfig } from '../shared/types.js';
+import { RULE_CATEGORIES } from '../shared/rules.js';
 import type { ConnectorAuthStore } from './connector-auth-store.js';
 import type { ConnectorStore } from './connector-store.js';
 import type { ConnectorRegistry } from './connectors.js';
@@ -47,6 +48,13 @@ const grantsBody = z
               .record(toolName, z.enum(['allow', 'ask', 'deny']))
               .refine((all) => Object.keys(all).length <= MAX_TOOLS, {
                 error: `at most ${MAX_TOOLS} overrides`,
+              })
+              .optional(),
+            // "Treat as": pins a tool to a rule category for the Dot's rules.
+            categories: z
+              .record(toolName, z.enum(RULE_CATEGORIES))
+              .refine((all) => Object.keys(all).length <= MAX_TOOLS, {
+                error: `at most ${MAX_TOOLS} categories`,
               })
               .optional(),
           })
@@ -259,6 +267,7 @@ export function connectorRoutes(deps: ConnectorRoutesDeps) {
       const named = [
         ...(grant.tools === '*' ? [] : grant.tools),
         ...Object.keys(grant.overrides ?? {}),
+        ...Object.keys(grant.categories ?? {}),
       ];
       const missing = named.find((name) => !known.has(name));
       if (missing !== undefined)
@@ -272,7 +281,13 @@ export function connectorRoutes(deps: ConnectorRoutesDeps) {
       if (!seen.has(current.connectorId))
         store.revoke(dotId, current.connectorId);
     for (const grant of grants)
-      store.setGrant(dotId, grant.connectorId, grant.tools, grant.overrides);
+      store.setGrant(
+        dotId,
+        grant.connectorId,
+        grant.tools,
+        grant.overrides,
+        grant.categories,
+      );
     return send(c, { grants: store.grants(dotId) }, 200);
   });
 

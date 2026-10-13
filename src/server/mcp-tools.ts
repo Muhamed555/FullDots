@@ -3,8 +3,8 @@ import type {
   ActionAuditEntry,
   ConnectorToolInfo,
   DotConnectorGrant,
-  ToolOverride,
 } from '../shared/types.js';
+import type { McpToolMeta } from './approvals.js';
 import type { ConnectorStore } from './connector-store.js';
 // Type-only: connectors.ts imports `mcpToolName` from this file at runtime.
 import type { ConnectorRegistry } from './connectors.js';
@@ -119,18 +119,19 @@ export function mcpToolInfo(
   store: ConnectorStore,
   dotId: string,
   toolName: string,
-):
-  | { readOnly: boolean; destructive: boolean; override?: ToolOverride }
-  | undefined {
+): McpToolMeta | undefined {
   for (const grant of store.grants(dotId)) {
     const found = registry
       .toolsCached(grant.connectorId)
       .find((tool) => tool.toolName === toolName);
     if (!found) continue;
+    const category = grant.categories?.[found.name];
     return {
       readOnly: found.readOnly,
       destructive: found.destructive,
       override: grant.overrides[found.name],
+      name: found.name,
+      ...(category ? { category } : {}),
     };
   }
   return undefined;
