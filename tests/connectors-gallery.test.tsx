@@ -934,12 +934,12 @@ describe('Settings dialog tabs', () => {
       />,
     );
 
-  it('renders the four tabs, General selected, with Save on General only', () => {
+  it('renders the five tabs, General selected, with Save on General only', () => {
     const html = render();
     expect(html).toContain('modal modal-settings');
     expect(html).toContain('role="tablist"');
-    expect(countOf(html, 'role="tab"')).toBe(4);
-    for (const label of ['General', 'Models', 'Connectors', 'About'])
+    expect(countOf(html, 'role="tab"')).toBe(5);
+    for (const label of ['General', 'Models', 'Connectors', 'Prompts', 'About'])
       expect(html).toContain(label);
     expect(html).toMatch(/id="settings-tab-general"[^>]*aria-selected="true"/);
     expect(html).toMatch(

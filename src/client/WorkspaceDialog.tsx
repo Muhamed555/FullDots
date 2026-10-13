@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  Bookmark,
   CircleAlert,
   Cpu,
   FolderLock,
@@ -31,6 +32,7 @@ import { DotRulesEditor } from './DotRulesEditor';
 import { Mascot } from './Mascot';
 import { ModelPicker, modelFields, type ModelChoice } from './ModelPicker';
 import { ModelProvidersSettings } from './ModelProvidersSettings';
+import { PromptsSettings } from './palette/PromptsSettings';
 import type {
   ApprovalMode,
   ConnectorView,
@@ -49,11 +51,13 @@ export type Dialog =
   | { type: 'settings'; tab?: SettingsTab }
   | { type: 'memory'; memory?: Memory }
   | { type: 'schedule'; threadId: string };
-export type SettingsTab = 'general' | 'models' | 'connectors' | 'about';
+export type SettingsTab =
+  'general' | 'models' | 'connectors' | 'prompts' | 'about';
 const SETTINGS_TABS: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: 'general', label: 'General', icon: Settings2 },
   { id: 'models', label: 'Models', icon: Cpu },
   { id: 'connectors', label: 'Connectors', icon: Plug },
+  { id: 'prompts', label: 'Prompts', icon: Bookmark },
   { id: 'about', label: 'About', icon: Info },
 ];
 const TAB_STORAGE_KEY = 'fulldots-settings-tab';
@@ -304,10 +308,12 @@ export function WorkspaceDialog({
   // progress (or a half-typed key) survives a tab switch.
   const [connectorsSeen, setConnectorsSeen] = useState(tab === 'connectors');
   const [modelsSeen, setModelsSeen] = useState(tab === 'models');
+  const [promptsSeen, setPromptsSeen] = useState(tab === 'prompts');
   const selectTab = (next: SettingsTab) => {
     setTab(next);
     if (next === 'connectors') setConnectorsSeen(true);
     if (next === 'models') setModelsSeen(true);
+    if (next === 'prompts') setPromptsSeen(true);
     storeTab(next);
   };
   const onTabKeyDown = (event: ReactKeyboardEvent) => {
@@ -970,6 +976,15 @@ export function WorkspaceDialog({
                     hidden={tab !== 'connectors'}
                   >
                     {connectorsSeen && <ConnectorsSettings />}
+                  </div>
+                  <div
+                    className="ss-panel"
+                    role="tabpanel"
+                    id="settings-panel-prompts"
+                    aria-labelledby="settings-tab-prompts"
+                    hidden={tab !== 'prompts'}
+                  >
+                    {promptsSeen && <PromptsSettings dots={workspace.dots} />}
                   </div>
                   <div
                     className="ss-panel"

@@ -11,6 +11,8 @@ import { UsageStore } from './usage-store.js';
 import { TriggerStore } from './trigger-store.js';
 import { TeamStore } from './team-store.js';
 import { RuleStore } from './rule-store.js';
+import { PromptStore } from './prompt-store.js';
+import { SearchStore } from './search-store.js';
 import { Pages } from './pages.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -49,6 +51,8 @@ export class WorkspaceStore {
   readonly team: TeamStore;
   /** Rules per Dot (send messages, spend money, ...): see docs/APPROVALS.md. */
   readonly rules: RuleStore;
+  readonly prompts: PromptStore;
+  readonly search: SearchStore;
   constructor(
     path: string,
     readonly ownerId: string,
@@ -112,6 +116,8 @@ export class WorkspaceStore {
     this.pages = new Pages(this.db, (id) =>
       this.spaces().some((space) => space.id === id),
     );
+    this.prompts = new PromptStore(this.db);
+    this.search = new SearchStore(this.db, ownerId);
     if (
       !this.db
         .prepare('PRAGMA table_info(calls)')

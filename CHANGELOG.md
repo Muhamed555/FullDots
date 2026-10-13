@@ -6,6 +6,7 @@ All notable changes to FullDots are listed here. The project follows [Semantic V
 
 ### Added
 
+- **Command palette and saved prompts.** Ctrl+K (Cmd+K) opens a keyboard-driven palette that searches chats, messages, pages, Dots and prompts (`GET /api/search`) and runs actions such as New chat with a Dot or Pause a Dot. Saved prompts live in Settings > Prompts (`/api/prompts`); deleting archives them.
 - **Teams of Dots.** A Dot hands work to a teammate with `delegate_to_dot`; the teammate works in its own conversation and the result comes back as a new turn. Team grants per Dot, a depth limit (`TEAM_MAX_DEPTH`), loop protection and at most three hand-offs per turn ([`docs/TEAMS.md`](docs/TEAMS.md)).
 - **Fast hand-offs.** Teammates start as soon as work is handed over, the results of one turn's hand-offs come back to the lead in one reply (`TEAM_RESULT_BATCH_MS`), a teammate's turn may take up to `DELEGATION_TIMEOUT` (300 s), teammates reply with the deliverable only, and child chats are named "Lead → Member: brief". `npm run bench:team` times it.
 - **Pause a single Dot** from its sidebar menu. Its turns stop and its background work waits until it is resumed.

@@ -1,0 +1,439 @@
+/*
+ * Command palette (Ctrl+K) and the saved prompts settings. Every selector starts with `pal-` or
+ * `pr-`. Colours follow the sidebar and dialogs: ink #242424, muted #707070, line #e7e7e7, accent
+ * green #2f6b5f. Custom properties have fallbacks so the file works before shared tokens exist.
+ */
+.pal-backdrop,
+.pr {
+  --pal-ink: var(--ink, #242424);
+  --pal-muted: #6b6b6b;
+  --pal-line: var(--line, #e7e7e7);
+  --pal-soft: #f7f7f6;
+  --pal-active: #e8eeeb;
+  --pal-accent: #2f6b5f;
+  --pal-accent-soft: #438c81;
+  --pal-mark: #fff0b3;
+  --pal-danger: #b3382c;
+}
+
+/* ---- Palette shell ---------------------------------------------------- */
+.pal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+  background: #24242438;
+  backdrop-filter: blur(3px);
+  animation: pal-fade 0.14s ease-out;
+}
+.pal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 640px;
+  max-height: min(560px, 76vh);
+  overflow: hidden;
+  background: #fff;
+  color: var(--pal-ink);
+  border: 1px solid var(--pal-line);
+  border-radius: 18px;
+  box-shadow:
+    0 24px 80px #24242430,
+    0 2px 8px #2424240d;
+  transform-origin: 50% 0;
+  animation: pal-pop 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.pal-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 0 16px;
+  border-bottom: 1px solid var(--pal-line);
+}
+.pal-brand {
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.pal .pal-input {
+  flex: 1;
+  min-width: 0;
+  height: 54px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--pal-ink);
+  font-size: 16px;
+  outline: none;
+}
+.pal .pal-input::placeholder {
+  color: #9a9a9a;
+}
+.pal-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--pal-line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--pal-soft);
+  color: var(--pal-muted);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+}
+.pal-note {
+  margin: 0;
+  padding: 8px 18px;
+  background: #fbf3e4;
+  color: #7a5a14;
+  font-size: 12.5px;
+}
+
+/* ---- Results ----------------------------------------------------------- */
+.pal-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 8px 8px;
+}
+.pal-group + .pal-group {
+  margin-top: 4px;
+}
+.pal-group-label {
+  padding: 8px 10px 4px;
+  color: #8a8a8a;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pal-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.pal-item.active {
+  background: var(--pal-active);
+}
+.pal-item.active::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--pal-accent);
+}
+.pal-lead {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  color: var(--pal-accent);
+}
+.pal-lead .mascot {
+  width: 26px;
+  height: 26px;
+}
+.pal-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+.pal-title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pal-snippet {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--pal-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.pal-sub {
+  flex: none;
+  max-width: 30%;
+  overflow: hidden;
+  color: #8a8a8a;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pal-enter {
+  flex: none;
+  color: var(--pal-accent);
+  animation: pal-nudge 0.16s ease-out;
+}
+.pal mark {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--pal-mark);
+  color: inherit;
+}
+
+/* ---- Empty state and footer ------------------------------------------- */
+.pal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 24px 22px;
+  color: var(--pal-muted);
+  text-align: center;
+}
+.pal-empty .mascot {
+  width: 84px;
+  height: 84px;
+  opacity: 0.9;
+}
+.pal-empty strong {
+  color: var(--pal-ink);
+  font-size: 15px;
+}
+.pal-empty span {
+  font-size: 13px;
+}
+.pal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--pal-line);
+  background: var(--pal-soft);
+  color: var(--pal-muted);
+  font-size: 12px;
+}
+.pal-foot .pal-key + .pal-key {
+  margin-left: 2px;
+}
+.pal-foot-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+.pal-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes pal-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+}
+@keyframes pal-nudge {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+@media (max-width: 700px) {
+  .pal-backdrop {
+    padding: 8px 8px 8px;
+  }
+  .pal-foot {
+    display: none;
+  }
+  .pal-sub {
+    display: none;
+  }
+}
+
+/* ---- Saved prompts (Settings) ----------------------------------------- */
+.pr {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--pal-ink);
+}
+.pr-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pr-head h3 {
+  margin: 0 0 2px;
+  font-size: 15px;
+}
+.pr-head p,
+.pr-hint {
+  margin: 0;
+  color: var(--pal-muted);
+  font-size: 13px;
+}
+.pr .pr-add {
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--pal-accent);
+  border-radius: 9px;
+  background: var(--pal-accent);
+  color: #fff;
+  font-weight: 560;
+  white-space: nowrap;
+}
+.pr .pr-add:hover:not(:disabled) {
+  background: var(--pal-accent-soft);
+}
+.pr-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pr-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--pal-line);
+  border-radius: 12px;
+  background: #fff;
+}
+.pr-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+.pr-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.pr-scope {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--pal-active);
+  color: var(--pal-accent);
+  font-size: 11px;
+  font-weight: 560;
+}
+.pr-body {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--pal-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.pr-row-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+.pr .pr-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pal-muted);
+}
+.pr .pr-icon:hover:not(:disabled) {
+  background: var(--pal-soft);
+  color: var(--pal-ink);
+}
+.pr-form {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--pal-line);
+  border-radius: 12px;
+  background: var(--pal-soft);
+}
+.pr-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 560;
+}
+.pr-form input,
+.pr-form textarea,
+.pr-form select {
+  padding: 9px 10px;
+  border: 1px solid #dcdcd8;
+  border-radius: 9px;
+  background: #fff;
+  font-weight: 400;
+}
+.pr-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.pr-count {
+  color: #8a8a8a;
+  font-size: 11.5px;
+  font-weight: 400;
+  text-align: right;
+}
+.pr-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.pr-error {
+  margin: 0;
+  color: var(--pal-danger);
+  font-size: 13px;
+}
+.pr-empty {
+  padding: 24px 12px;
+  border: 1px dashed #d8d8d4;
+  border-radius: 12px;
+  color: var(--pal-muted);
+  text-align: center;
+}
+.pr-empty strong {
+  display: block;
+  color: var(--pal-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pal-backdrop,
+  .pal,
+  .pal-enter {
+    animation: none;
+  }
+}

@@ -9,6 +9,7 @@ import {
   BookOpen,
   ChevronRight,
   Clock3,
+  Command,
   PanelLeftClose,
   PanelLeftOpen,
   Pause,
@@ -31,6 +32,7 @@ import { MOBILE_QUERY, useMediaQuery, useStoredFlag } from './hooks';
 import { RowMenu } from './RowMenu';
 import '../sidebar.css';
 import { BrandMark } from '../DotCharacter';
+import { shortcutLabel } from '../palette/palette-model';
 
 export type NavView = 'chat' | 'tasks' | 'memories' | 'space' | 'approvals';
 
@@ -63,6 +65,8 @@ export interface SidebarProps {
   onOpenPage: (spaceId: string, pageId?: string) => void;
   onView: (view: 'tasks' | 'memories' | 'approvals') => void;
   onDialog: (dialog: Dialog) => void;
+  /** Opens the Ctrl+K palette, optionally with the text typed in the title filter. */
+  onOpenPalette?: (query?: string) => void;
 }
 
 function Section({
@@ -144,6 +148,7 @@ export function Sidebar({
   onOpenPage,
   onView,
   onDialog,
+  onOpenPalette,
 }: SidebarProps) {
   const phone = useMediaQuery(MOBILE_QUERY);
   const collapsed = collapsedPreference && !phone;
@@ -188,6 +193,8 @@ export function Sidebar({
         ),
       )[0]?.items[0];
       if (first && query.trim()) onSelectThread(first.id);
+      // Nothing in the chat titles: hand the text to the palette, which searches everything.
+      else if (query.trim()) onOpenPalette?.(query.trim());
     } else if (event.key === 'ArrowDown') {
       const row = aside.current?.querySelector<HTMLElement>('.sb-chat-main');
       if (row) {
@@ -292,12 +299,34 @@ export function Sidebar({
             </button>
           )}
         </label>
+        {onOpenPalette && (
+          <button
+            type="button"
+            className="sb-row sb-search-all"
+            aria-keyshortcuts="Control+K Meta+K"
+            onClick={() => onOpenPalette(query.trim() || undefined)}
+          >
+            <Command size={15} aria-hidden />
+            <span className="sb-text">
+              {query.trim()
+                ? `Search everywhere for “${query.trim()}”`
+                : 'Search everywhere'}
+            </span>
+            <kbd className="sb-kbd" aria-hidden>
+              {shortcutLabel()}
+            </kbd>
+          </button>
+        )}
         <button
           type="button"
           className="sb-row sb-search-icon"
-          aria-label="Search chats"
-          title="Search chats"
+          aria-label={onOpenPalette ? 'Search everywhere' : 'Search chats'}
+          title={onOpenPalette ? 'Search everywhere' : 'Search chats'}
           onClick={() => {
+            if (onOpenPalette) {
+              onOpenPalette();
+              return;
+            }
             focusSearch.current = true;
             onToggleCollapsed();
           }}

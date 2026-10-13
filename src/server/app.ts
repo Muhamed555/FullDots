@@ -9,6 +9,8 @@ import { usageRoutes } from './usage-routes.js';
 import { hookRoutes, triggerRoutes } from './trigger-routes.js';
 import { teamRoutes } from './team-routes.js';
 import { ruleRoutes } from './rule-routes.js';
+import { promptRoutes } from './prompt-routes.js';
+import { searchRoutes } from './search-routes.js';
 import { turnRoutes } from './turn-routes.js';
 import { liveRoutes, workspaceChanges } from './live-routes.js';
 import { Hono } from 'hono';
@@ -198,6 +200,10 @@ export function createApp({
     );
   if (platform) app.route('/api', teamRoutes(platform.workspace));
   if (platform) app.route('/api', ruleRoutes(platform.workspace));
+  if (platform) {
+    app.route('/api', promptRoutes(platform.workspace));
+    app.route('/api', searchRoutes(platform.workspace, platform.runner));
+  }
   if (platform)
     app.route(
       '/api',

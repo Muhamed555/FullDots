@@ -57,6 +57,8 @@ const STARTERS = [
   'Research a public page',
   'Make a plan I can follow',
 ];
+import { PaletteHost } from './palette/PaletteHost';
+import { useCommandPalette } from './palette/useCommandPalette';
 
 function describeFailure(error: unknown, fallback: string) {
   return {
@@ -169,6 +171,7 @@ export function App() {
   const [pendingPrompt, setPendingPrompt] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState('');
+  const palette = useCommandPalette();
   const [taskDetail, setTaskDetail] = useState<Detail>();
   const [pendingApprovals, setPendingApprovals] = useState<Approval[]>([]);
   const [waitingHandoffs, setWaitingHandoffs] = useState<Handoff[]>([]);
@@ -260,16 +263,20 @@ export function App() {
   };
   // A new chat is only a fresh composer: the conversation is created, already
   // titled, when the first message is sent, so abandoned chats leave nothing behind.
-  const startNewChat = (target: Dot = dot!) => {
+  const startNewChat = (target: Dot = dot!, text = '') => {
     if (!configured) return;
     setSelectedDot(target.id);
     setSelectedThread(undefined);
     setPendingPrompt(undefined);
-    setPrompt('');
+    setPrompt(text);
     setView('chat');
     setMobile(false);
     requestAnimationFrame(() => composer.current?.focus());
   };
+  const togglePause = (target: Dot) =>
+    void mutate(`/dots/${target.id}/pause`, 'POST', {
+      paused: !target.paused,
+    });
   const selectThread = (id: string) => {
     const conversation = workspace?.conversations.find(
       (item) => item.id === id,
@@ -450,11 +457,7 @@ export function App() {
         }}
         onNewChat={startNewChat}
         onChooseDot={chooseDot}
-        onTogglePause={(target) =>
-          void mutate(`/dots/${target.id}/pause`, 'POST', {
-            paused: !target.paused,
-          })
-        }
+        onTogglePause={togglePause}
         onSelectThread={selectThread}
         onRenameThread={renameThread}
         onDeleteThreads={deleteThreads}
@@ -467,6 +470,7 @@ export function App() {
           setDialog(next);
           setMobile(false);
         }}
+        onOpenPalette={palette.show}
       />
       <div className="workspace" inert={mobile}>
         <header className="topbar">
@@ -900,6 +904,27 @@ export function App() {
           onCreated={() => setAutomations((value) => value + 1)}
         />
       )}
+      <PaletteHost
+        palette={palette}
+        workspace={workspace}
+        dot={dot}
+        configured={configured}
+        view={view}
+        selectedThread={selectedThread}
+        spaceId={spaceId}
+        pageId={pageId}
+        onSelectThread={selectThread}
+        onOpenPage={openPage}
+        onChooseDot={chooseDot}
+        onNewChat={startNewChat}
+        onTogglePause={togglePause}
+        onView={(next) => {
+          setView(next);
+          setMobile(false);
+        }}
+        onDialog={setDialog}
+        onError={setError}
+      />
     </div>
   );
   return configured ? (
