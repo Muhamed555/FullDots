@@ -24,6 +24,38 @@ The lead's reply starts as soon as its conversation is free: the end of any turn
 
 Each hand-off records when the teammate started (`startedAt`) and when its result reached the Dot that asked (`deliveredAt`); both are in `GET /api/conversations/:id/delegations`.
 
+## Watching teammates work
+
+Where a Dot hands work over, the chat shows a **work band**: one lane per teammate, in the teammate's colour. A small packet in the lead's colour flies to each lane as the work is handed over.
+
+Each lane shows the teammate's character, its name, the first line of the brief (**Whole brief** opens the rest), what it is doing right now ("Opening website", "Using github", "Thinking"), the last two lines it wrote, how long it has worked and how many tokens it used. Every state is written out as well as shown:
+
+| Lane says                                | Meaning                                                                                              |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Queued                                   | The hand-off waits for a free background slot.                                                       |
+| Working, or the current step             | The teammate is working on it.                                                                       |
+| Waiting: _Scout_ is busy in another chat | The teammate finishes a turn elsewhere first. Nothing there is interrupted.                          |
+| Waiting: daily budget reached            | The teammate spent its token budget for today (UTC).                                                 |
+| Waiting: _Scout_ is paused               | Resume the Dot to let it start.                                                                      |
+| Waiting for your approval                | The approval card is in the lane: approve or deny it there.                                          |
+| Your turn on the computer                | **Take over** opens the teammate's chat and its computer.                                            |
+| Failed                                   | The error, with **Try again** (the same brief to the same teammate, as a new hand-off) and **Skip**. |
+| Stopped by you                           | You stopped it. **Try again** is offered here too.                                                   |
+
+A teammate that stops to wait for you (an approval, a takeover, a question) does not report back yet: its result is the reply it gives after you answered.
+
+**Watching the chat itself.** The chevron on a lane opens the teammate's chat inside the lane and streams it live; **Open chat** goes to it. At most two lanes stream at once (opening a third closes the oldest), so the browser keeps connections free for the rest of the app.
+
+**Stopping.** **Stop** on a lane, or **Stop everything** in the chat header, cancels the hand-off and anything it handed on. A teammate's turn is stopped only when it runs in that hand-off's own chat: a Dot that is busy in another chat keeps going there. The lead hears which work you stopped, together with the results that still come back, and is told not to redo it unless you ask.
+
+**When the results return** the band folds into one chip per teammate (**Show the work** opens it again), the **Delegated work** turn shows a card per teammate with a summary and **Show full result**, and the lead's combined answer below it says which teammates it was **Built from**.
+
+**Sidebar.** A teammate's chat sits under the chat that handed the work over (the arrow folds it), with the teammate's character. A small pulse marks any chat with work running in it or under it, and each Dot row says whether the Dot is **Working** or **Needs you**.
+
+**Keyboard and screen readers.** Each lane is a focusable group named after its teammate and its state. On a focused lane, Enter opens or closes its chat, S stops it, and A moves to its approval buttons. Lane changes are announced politely, at most once every two seconds per lane. With reduced motion the packet, the pulses and the bobbing are off and every change is instant, still in words.
+
+The lanes read `GET /api/conversations/:id/delegations/progress` (owner only) and fetch it again when the live feed reports a change for the chat or its teammates' chats, and every 1.5 seconds while a teammate works. The other lane routes are `POST /api/conversations/:id/delegations/stop`, `POST /api/delegations/:id/stop`, `POST /api/delegations/:id/retry` and `GET /api/delegations/:id` (the whole result).
+
 ## Time limit
 
 A teammate's turn on handed-over work may take `DELEGATION_TIMEOUT` seconds (default 300) instead of the usual `AGENT_TURN_TIMEOUT` (90 seconds plus grace). Shortly before the limit it is asked to wrap up; at the limit it stops and the Dot that asked receives what it has, with a note that it ran out of time. Other turns keep their usual limits.
@@ -39,6 +71,7 @@ A teammate's turn on handed-over work may take `DELEGATION_TIMEOUT` seconds (def
 - **Per turn:** a turn can hand over at most three pieces of work.
 - **Usual rules:** hand-off tasks wait like any other background work, for paused Dots, busy Dots, pending approvals and spent budgets.
 - **Deleted conversation:** if you delete the conversation that asked, its running hand-offs are cancelled.
+- **Try again:** one hand-off can be tried at most five times in all; after that, ask the lead to hand it over again.
 
 ## Group chats
 

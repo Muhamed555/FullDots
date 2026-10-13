@@ -94,6 +94,10 @@ export function wireLiveEvents(
   };
   tap(workspace.team, 'create', (created) => delegation(created.id));
   tap(workspace.team, 'finish', (_, id) => delegation(id));
+  // The teammate started: its lane turns from queued to working.
+  tap(workspace.team, 'markStarted', (_, id) => delegation(id));
+  // The results reached the Dot that asked: the lanes fold them into its reply.
+  tap(workspace.team, 'markDelivered', (_, ids) => ids.forEach(delegation));
 
   const handoff = (row: { id: string; threadId: string }) =>
     bus.emit('handoff.changed', { id: row.id, threadId: row.threadId });

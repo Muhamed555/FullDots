@@ -13,7 +13,8 @@ export interface Settings {
   researchAllowed: boolean;
   memoryAllowed: boolean;
 }
-export type DelegationStatus = 'running' | 'done' | 'failed';
+/** stopped: the owner stopped it (Stop on its lane, or Stop everything). */
+export type DelegationStatus = 'running' | 'done' | 'failed' | 'stopped';
 /** Work one Dot handed to a teammate, which runs in a new conversation of the teammate. */
 export interface Delegation {
   id: string;
@@ -40,6 +41,8 @@ export interface Delegation {
   startedAt: number | null;
   /** When the result reached the Dot that asked (its resume turn ran). */
   deliveredAt: number | null;
+  /** The hand-off this one tries again (the owner's Try again on a failed or stopped lane). */
+  retryOf: string | null;
 }
 export type TriggerKind = 'webhook' | 'poll';
 /** bearer: Authorization header; query: ?token= in the URL; hmac: a signature of the body. */
@@ -216,6 +219,10 @@ export interface ConversationSummary extends Conversation {
   empty: boolean;
   /** Group chat: the Dots added besides the host (`dotId`), in the order they joined. */
   participantIds?: string[];
+  /** A teammate's chat: the chat (and Dot) that handed the work over. The sidebar nests it there. */
+  handedBy?: { threadId: string; dotId: string };
+  /** A turn is running in it right now. */
+  running?: boolean;
 }
 export interface CallReceipt {
   anchorMessageId?: string | null;

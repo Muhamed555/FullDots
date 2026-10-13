@@ -31,6 +31,7 @@ import type { Dialog } from '../WorkspaceDialog';
 import { filterChats, groupChats, listableChats } from './chat-groups';
 import { MOBILE_QUERY, useMediaQuery, useStoredFlag } from './hooks';
 import { RowMenu } from './RowMenu';
+import type { DotLiveState } from './useDotLive';
 import '../sidebar.css';
 import { BrandMark } from '../DotCharacter';
 import { shortcutLabel } from '../palette/palette-model';
@@ -69,6 +70,8 @@ export interface SidebarProps {
   onDialog: (dialog: Dialog) => void;
   /** Opens the Ctrl+K palette, optionally with the text typed in the title filter. */
   onOpenPalette?: (query?: string) => void;
+  /** What each Dot is doing right now (useDotLive): working, or waiting for the owner. */
+  dotStates?: ReadonlyMap<string, DotLiveState>;
 }
 
 function Section({
@@ -151,6 +154,7 @@ export function Sidebar({
   onView,
   onDialog,
   onOpenPalette,
+  dotStates,
 }: SidebarProps) {
   const phone = useMediaQuery(MOBILE_QUERY);
   const collapsed = collapsedPreference && !phone;
@@ -159,6 +163,7 @@ export function Sidebar({
   const search = useRef<HTMLInputElement>(null);
   const focusSearch = useRef(false);
   const several = workspace.dots.length > 1;
+  const live = dotStates ?? new Map<string, DotLiveState>();
   // Label helper: when text is hidden (slim mode) the button needs a name and a tooltip.
   const tip = (label: string) =>
     collapsed ? { 'aria-label': label, title: label } : {};
@@ -350,6 +355,7 @@ export function Sidebar({
           <nav aria-label="Dots" className="sb-list">
             {workspace.dots.map((item) => {
               const active = dot.id === item.id && view === 'chat';
+              const now = item.paused ? undefined : live.get(item.id);
               return (
                 <div className="sb-row-wrap" key={item.id}>
                   <button
@@ -366,10 +372,19 @@ export function Sidebar({
                         name={item.name}
                         small
                         decorative
-                        {...(item.paused ? { state: 'paused' } : {})}
+                        {...(item.paused
+                          ? { state: 'paused' }
+                          : now
+                            ? { state: now }
+                            : {})}
                       />
                     </span>
                     <span className="sb-text">{item.name}</span>
+                    {now && (
+                      <span className={`sb-text sb-dot-live ${now}`}>
+                        {now === 'working' ? 'Working' : 'Needs you'}
+                      </span>
+                    )}
                     {item.paused && (
                       <span className="sb-badge-paused">Paused</span>
                     )}

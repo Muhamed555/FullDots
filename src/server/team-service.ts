@@ -101,6 +101,10 @@ export class TeamService {
     deliverable: string;
     /** The run of the turn that hands the work over; its hand-offs report back together. */
     runId?: string;
+    /** In place of the key `runId` makes (the owner's Try again joins a batch still running). */
+    batchKey?: string | null;
+    /** The hand-off this one tries again. */
+    retryOf?: string;
   }): Delegation {
     const { workspace, store } = this.deps;
     const from = workspace.dot(input.fromDotId);
@@ -145,7 +149,13 @@ export class TeamService {
       depth,
       brief: input.brief,
       deliverable: input.deliverable,
-      batchKey: input.runId ? `${input.threadId}:${input.runId}` : null,
+      batchKey:
+        input.batchKey !== undefined
+          ? input.batchKey
+          : input.runId
+            ? `${input.threadId}:${input.runId}`
+            : null,
+      ...(input.retryOf ? { retryOf: input.retryOf } : {}),
     });
   }
 
@@ -171,7 +181,24 @@ export class TeamService {
         team
           .inBatch(batchKey)
           .every((delegation) => delegation.status !== 'running'),
-      prompt: (markers) => this.batchPrompt(of(markers)),
+      prompt: (markers) => {
+        const results = of(markers);
+        // Hand-offs of the batch the owner stopped: the Dot that asked hears they will not come.
+        const stopped = [
+          ...new Set(markers.map((marker) => marker.batchKey)),
+        ].flatMap((key) =>
+          key
+            ? team
+                .inBatch(key)
+                .filter(
+                  (delegation) =>
+                    delegation.status === 'stopped' &&
+                    !results.some((result) => result.id === delegation.id),
+                )
+            : [],
+        );
+        return this.batchPrompt([...results, ...stopped]);
+      },
       delivered: (markers, now) =>
         team.markDelivered(
           of(markers).map((delegation) => delegation.id),
@@ -187,12 +214,17 @@ export class TeamService {
     const sections = delegations.map((delegation) =>
       delegation.status === 'done'
         ? `## ${name(delegation)}: done\n\nBrief: ${delegation.brief}\n\nResult:\n${delegation.result ?? ''}`
-        : `## ${name(delegation)}: could not finish\n\nBrief: ${delegation.brief}\n\nWhat went wrong: ${(delegation.result ?? 'unknown error').slice(0, 300)}`,
+        : delegation.status === 'stopped'
+          ? `## ${name(delegation)}: stopped by the owner\n\nBrief: ${delegation.brief}`
+          : `## ${name(delegation)}: could not finish\n\nBrief: ${delegation.brief}\n\nWhat went wrong: ${(delegation.result ?? 'unknown error').slice(0, 300)}`,
     );
     const failed = delegations.some(
-      (delegation) => delegation.status !== 'done',
+      (delegation) => delegation.status === 'failed',
     );
-    return `Your teammates finished the work you handed over (${delegations.length} results).\n\n${sections.join('\n\n')}\n\nContinue from here: use the results together and tell the owner what they mean for their request.${failed ? ' For the work that could not be finished, do it yourself or tell the owner.' : ''}`;
+    const stopped = delegations.some(
+      (delegation) => delegation.status === 'stopped',
+    );
+    return `Your teammates finished the work you handed over (${delegations.length} results).\n\n${sections.join('\n\n')}\n\nContinue from here: use the results together and tell the owner what they mean for their request.${failed ? ' For the work that could not be finished, do it yourself or tell the owner.' : ''}${stopped ? ' Do not redo the work the owner stopped unless they ask.' : ''}`;
   }
 
   private report(delegation: Delegation, prompt: string) {
@@ -232,6 +264,19 @@ export class TeamService {
       delegation,
       `${name} could not finish the work you handed over (${error.slice(0, 300)}).\n\nBrief: ${delegation.brief}\n\nDecide what to do next: do it yourself, or tell the owner.`,
     );
+  }
+
+  /**
+   * A resume turn ran in a teammate's chat that had stopped to wait for the owner (an approval, a
+   * takeover, a question). Its reply is the result, unless the teammate waits for the owner again.
+   */
+  resumed(threadId: string, text: string, waiting: boolean) {
+    const delegation = this.deps.workspace.team.byChildThread(threadId);
+    if (!delegation || delegation.status !== 'running' || waiting) return;
+    const task = this.deps.store.task(delegation.taskId);
+    // Its own task is still to run (or running): that run reports.
+    if (task && (task.status === 'queued' || task.status === 'running')) return;
+    this.completed(delegation.taskId, text);
   }
 
   /** Cancels the hand-offs still running from a conversation (when it is deleted). */

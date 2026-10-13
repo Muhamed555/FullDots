@@ -16,6 +16,7 @@ import {
   type PendingApprovalResult,
   type TurnSource,
 } from '../shared/types';
+import { isLaneTool } from '../shared/lanes';
 
 export function isComputerTool(name: string): boolean {
   return name.startsWith('computer_');
@@ -90,9 +91,18 @@ export type TranscriptItem =
       /** The same owner message again, addressed to the next mentioned Dot. */
       repeat?: boolean;
     }
-  | { kind: 'event'; key: string; source: TurnSource; content: string }
+  | {
+      kind: 'event';
+      key: string;
+      source: TurnSource;
+      content: string;
+      /** What started the turn: the delegation whose result it delivers, the approval, ... */
+      ref?: string;
+    }
   | { kind: 'activity'; key: string; calls: ToolCall[] }
   | { kind: 'tools'; key: string; message: AssistantMessage }
+  /** A turn's hand-offs to teammates (delegate_to_dot, check_delegation): the work band. */
+  | { kind: 'band'; key: string; calls: ToolCall[] }
   | {
       kind: 'approval';
       key: string;
@@ -124,7 +134,11 @@ function assistantItems(
   const actions: TranscriptItem[] = [];
   for (const call of message.toolCalls ?? []) {
     const last = actions.at(-1);
-    if (isActivityTool(call.function.name)) {
+    if (isLaneTool(call.function.name)) {
+      if (last?.kind === 'band') last.calls.push(call);
+      else
+        actions.push({ kind: 'band', key: `band:${call.id}`, calls: [call] });
+    } else if (isActivityTool(call.function.name)) {
       if (last?.kind === 'activity') last.calls.push(call);
       else
         actions.push({
@@ -164,9 +178,14 @@ function assistantItems(
   // An intermediate message's text is what the assistant said before acting.
   if (!final) return [bubble, ...actions];
   // The last message of a turn: actions first, the reply below them. Other
-  // tools' own UI (for example a page review waiting for the user) stays last.
+  // tools' own UI (for example a page review waiting for the user) and the
+  // work band of its hand-offs stay last.
   let end = actions.length;
-  while (end > 0 && actions[end - 1].kind === 'tools') end--;
+  while (
+    end > 0 &&
+    (actions[end - 1].kind === 'tools' || actions[end - 1].kind === 'band')
+  )
+    end--;
   return [...actions.slice(0, end), bubble, ...actions.slice(end)];
 }
 
@@ -181,12 +200,30 @@ export function addressedTo(message: Message): string | undefined {
     : undefined;
 }
 
+/** The id a server-started turn carries in its metadata (`ref`), if any. */
+export function turnRef(message: Message): string | undefined {
+  const metadata: unknown = message.metadata;
+  return metadata &&
+    typeof metadata === 'object' &&
+    'ref' in metadata &&
+    typeof metadata.ref === 'string'
+    ? metadata.ref
+    : undefined;
+}
+
 /** A text message: the owner's bubble, or an event line when the server started the turn. */
 function textItem(message: Message, content: string): TranscriptItem {
   const source = turnSource(message);
   const to = message.role === 'user' ? addressedTo(message) : undefined;
+  const ref = source ? turnRef(message) : undefined;
   return source
-    ? { kind: 'event', key: `${message.id}:text`, source, content }
+    ? {
+        kind: 'event',
+        key: `${message.id}:text`,
+        source,
+        content,
+        ...(ref ? { ref } : {}),
+      }
     : {
         kind: 'bubble',
         key: `${message.id}:text`,
@@ -217,6 +254,8 @@ export function buildTranscriptItems(
     for (const item of incoming) {
       const last = items.at(-1);
       if (item.kind === 'activity' && last?.kind === 'activity')
+        last.calls.push(...item.calls);
+      else if (item.kind === 'band' && last?.kind === 'band')
         last.calls.push(...item.calls);
       else {
         // One message to several Dots is stored once per Dot; show it once.

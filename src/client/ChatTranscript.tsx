@@ -14,6 +14,8 @@ import { AddressedLine, AuthoredBubble } from './room/AuthorBubble';
 import { EarlierAttempts } from './message-actions/EarlierAttempts';
 import { foldRetries } from './message-actions/retries';
 import type { BubbleInfo } from './message-actions/useMessageActions';
+import { WorkBand } from './lanes/WorkBand';
+import { BuiltFrom, DelegatedWork } from './lanes/DelegatedResults';
 // These markers only control rendering; they do not confer trust or permissions.
 export function isInternalVoiceReceipt(message: Message): boolean {
   const metadata = message.metadata;
@@ -150,6 +152,19 @@ export function ChatTranscript({
     (item) =>
       item.kind === 'event' || (item.kind === 'bubble' && item.role === 'user'),
   );
+  // The reply that follows a "Delegated work" turn is built from those results.
+  const builtFrom = new Map<number, string>();
+  let delivered: string | undefined;
+  items.forEach((item, index) => {
+    if (item.kind === 'event')
+      delivered = item.source === 'delegation' ? item.ref : undefined;
+    else if (item.kind === 'bubble' && item.role === 'user')
+      delivered = undefined;
+    else if (item.kind === 'bubble' && delivered) {
+      builtFrom.set(index, delivered);
+      delivered = undefined;
+    }
+  });
   return (
     <>
       {items.map((item, index) => {
@@ -181,6 +196,9 @@ export function ChatTranscript({
                 ) : (
                   bubble
                 )}
+                {builtFrom.has(index) && (
+                  <BuiltFrom refId={builtFrom.get(index)!} />
+                )}
                 {earlier && (
                   <EarlierAttempts count={earlier.length}>
                     {earlier.map((attempt) => (
@@ -201,8 +219,8 @@ export function ChatTranscript({
               </Fragment>
             );
           }
-          case 'event':
-            return (
+          case 'event': {
+            const line = (
               <div
                 key={item.key}
                 className="chat-event"
@@ -213,6 +231,17 @@ export function ChatTranscript({
                 </span>
                 <Markdown content={item.content} />
               </div>
+            );
+            // Teammates' results show as their cards, when the lanes know them.
+            return item.source === 'delegation' && item.ref ? (
+              <DelegatedWork key={item.key} refId={item.ref} fallback={line} />
+            ) : (
+              line
+            );
+          }
+          case 'band':
+            return (
+              <WorkBand key={item.key} calls={item.calls} results={results} />
             );
           case 'tools':
             return (

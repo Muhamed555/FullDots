@@ -80,7 +80,13 @@ export function createBackgroundRunner(platform: Platform, research: Config) {
           );
         throw error;
       }
-      if (delegation) platform.team.completed(claim.id, text);
+      if (delegation) {
+        // A teammate that stopped to wait for the owner (an approval, a takeover, a question) is
+        // resumed in its own chat by the owner's answer, and that turn's reply is the result
+        // (TeamService.resumed). Its lane shows what it waits for meanwhile.
+        if (!platform.waitsForOwner(threadId))
+          platform.team.completed(claim.id, text);
+      }
       // The owner's inbox gets the result of their own background work; a teammate's goes to its lead.
       else
         platform.finishedWork(

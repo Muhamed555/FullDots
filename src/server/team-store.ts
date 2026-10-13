@@ -19,6 +19,7 @@ const toDelegation = (row: Record<string, unknown>): Delegation => ({
   batchKey: row.batchKey == null ? null : String(row.batchKey),
   startedAt: row.startedAt == null ? null : Number(row.startedAt),
   deliveredAt: row.deliveredAt == null ? null : Number(row.deliveredAt),
+  retryOf: row.retryOf == null ? null : String(row.retryOf),
 });
 
 // Columns added after the first release; ALTER TABLE keeps existing rows (they read as null).
@@ -26,6 +27,7 @@ const DELEGATION_COLUMNS: [string, string][] = [
   ['batchKey', 'TEXT'],
   ['startedAt', 'INTEGER'],
   ['deliveredAt', 'INTEGER'],
+  ['retryOf', 'TEXT'],
 ];
 
 /** Teams of Dots: who may hand work to whom, and every hand-off with its result. */
@@ -88,14 +90,15 @@ export class TeamStore {
       | 'batchKey'
       | 'startedAt'
       | 'deliveredAt'
-    > & { batchKey?: string | null },
+      | 'retryOf'
+    > & { batchKey?: string | null; retryOf?: string | null },
     now = Date.now(),
   ): Delegation {
     const id = randomUUID();
     this.db
       .prepare(
         `INSERT INTO delegations(id, parentThreadId, parentDotId, childThreadId, childDotId, taskId, depth, status,
-          brief, deliverable, result, createdAt, finishedAt, batchKey) VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, NULL, ?, NULL, ?)`,
+          brief, deliverable, result, createdAt, finishedAt, batchKey, retryOf) VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, NULL, ?, NULL, ?, ?)`,
       )
       .run(
         id,
@@ -109,6 +112,7 @@ export class TeamStore {
         input.deliverable,
         now,
         input.batchKey ?? null,
+        input.retryOf ?? null,
       );
     return this.get(id)!;
   }
@@ -153,6 +157,34 @@ export class TeamStore {
         'UPDATE delegations SET status=?, result=?, finishedAt=? WHERE id=?',
       )
       .run(status, result.slice(0, 20_000), now, id);
+  }
+
+  /** The hand-off that tried this one again, if any. */
+  retryOfThis(id: string): Delegation | undefined {
+    const row = this.db
+      .prepare(
+        'SELECT * FROM delegations WHERE retryOf=? ORDER BY createdAt LIMIT 1',
+      )
+      .get(id);
+    return row ? toDelegation(row) : undefined;
+  }
+
+  /** Every conversation a hand-off created, with the conversation and Dot that handed it over. */
+  parents(): Map<string, { threadId: string; dotId: string }> {
+    return new Map(
+      this.db
+        .prepare(
+          'SELECT childThreadId, parentThreadId, parentDotId FROM delegations',
+        )
+        .all()
+        .map((row) => [
+          String(row.childThreadId),
+          {
+            threadId: String(row.parentThreadId),
+            dotId: String(row.parentDotId),
+          },
+        ]),
+    );
   }
 
   /** The hand-offs made in one turn (see Delegation.batchKey), oldest first. */

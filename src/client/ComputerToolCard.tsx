@@ -21,22 +21,8 @@ import {
   TextCursorInput,
   type LucideIcon,
 } from 'lucide-react';
+import { computerStepText } from '../shared/step-label';
 
-const labels: Record<string, string> = {
-  navigate: 'Opening website',
-  snapshot: 'Inspecting browser',
-  read: 'Reading page',
-  screenshot: 'Viewing browser',
-  click: 'Clicking in browser',
-  type: 'Typing in browser',
-  select: 'Choosing an option',
-  key: 'Using keyboard',
-  scroll: 'Scrolling page',
-  files_write: 'Saving file',
-  files_read: 'Reading file',
-  files_list: 'Listing files',
-  exec: 'Running terminal command',
-};
 const icons: Record<string, LucideIcon> = {
   navigate: Globe,
   snapshot: ScanSearch,
@@ -63,9 +49,7 @@ export function mcpToolParts(
   return match ? { connector: match[1], tool: match[2] } : undefined;
 }
 export function computerStepLabel(toolName: string): string {
-  const mcp = mcpToolParts(toolName);
-  if (mcp) return `Using ${mcp.connector}`;
-  return labels[computerActionName(toolName)] ?? 'Using computer';
+  return computerStepText(toolName);
 }
 export function computerStepIcon(toolName: string): LucideIcon {
   if (mcpToolParts(toolName)) return Plug;

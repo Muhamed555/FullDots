@@ -29,6 +29,8 @@ interface ActiveRun {
   agent?: AbstractAgent;
   runId: string;
   stopRequested: boolean;
+  /** The run's events so far (work lanes read the live step and text from them). */
+  events: BaseEvent[];
 }
 
 /** A stored run, reported once its events are saved and the thread is no longer running. */
@@ -142,6 +144,7 @@ export class SqliteAgentRunner extends AgentRunner {
       agent,
       runId: input.runId,
       stopRequested: false,
+      events,
     };
     this.active.set(threadId, state);
     const emit = (event: BaseEvent) => {
@@ -235,6 +238,30 @@ export class SqliteAgentRunner extends AgentRunner {
       });
     else subject.complete();
     return subject.asObservable();
+  }
+
+  /** The running run of a thread: its id and its events so far. Undefined while idle. */
+  liveRun(
+    threadId: string,
+  ): { runId: string; events: readonly BaseEvent[] } | undefined {
+    const running = this.active.get(threadId);
+    return running && { runId: running.runId, events: running.events };
+  }
+
+  /** Stored runs of a thread after a row id, oldest first (lane progress reads them as they come). */
+  runsAfter(
+    threadId: string,
+    afterId: number,
+  ): { id: number; events: BaseEvent[] }[] {
+    return this.db
+      .prepare(
+        'SELECT id, events FROM chat_runs WHERE threadId=? AND id>? ORDER BY id',
+      )
+      .all(threadId, afterId)
+      .map((row) => ({
+        id: Number(row.id),
+        events: JSON.parse(String(row.events)) as BaseEvent[],
+      }));
   }
 
   /** Called once per run, after it is stored and the thread is no longer running. */

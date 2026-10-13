@@ -1,16 +1,20 @@
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { GitBranch, Pencil, Trash2 } from 'lucide-react';
+import { ChevronRight, GitBranch, Pencil, Trash2 } from 'lucide-react';
 import type { ConversationSummary, Dot } from '../shared/types';
 import { MAX_CONVERSATION_TITLE_LENGTH } from '../shared/conversation-title';
 import { Mascot } from './Mascot';
 import { RowMenu } from './sidebar/RowMenu';
 import { filterChats, groupChats, listableChats } from './sidebar/chat-groups';
+import { nestChats, workRunning, type ChatTree } from './sidebar/chat-tree';
+import './sidebar/chat-tree.css';
 
 type Mode = 'idle' | 'rename' | 'confirm';
 
@@ -23,6 +27,8 @@ function ChatRow({
   onRename,
   onDelete,
   onDeleted,
+  nest,
+  pulse = false,
 }: {
   chat: ConversationSummary;
   /** Set only when the workspace has several Dots, so the row can say which. */
@@ -35,6 +41,10 @@ function ChatRow({
   onDelete: () => Promise<boolean>;
   /** The row is gone: let the list put keyboard focus somewhere sensible. */
   onDeleted: () => void;
+  /** Teammates' chats nested under this one: how deep it sits, and its own nested chats. */
+  nest?: { depth: number; count: number; open: boolean; onToggle: () => void };
+  /** Work is running in it, or in a chat nested under it. */
+  pulse?: boolean;
 }) {
   const [mode, setMode] = useState<Mode>('idle');
   const [draft, setDraft] = useState(chat.title);
@@ -147,22 +157,41 @@ function ChatRow({
         </button>
       </li>
     );
+  const depth = nest?.depth ?? 0;
   return (
     <li
-      className={`sb-chat ${active ? 'active' : ''} ${menuOpen ? 'menu-open' : ''}`}
+      className={`sb-chat ${active ? 'active' : ''} ${menuOpen ? 'menu-open' : ''} ${depth ? 'sb-chat-nested' : ''} ${nest?.count ? 'sb-chat-parent' : ''}`}
+      style={depth ? ({ '--sb-depth': depth } as CSSProperties) : undefined}
     >
+      {!!nest?.count && (
+        <button
+          type="button"
+          className="sb-chat-twisty"
+          aria-expanded={nest.open}
+          aria-label={`${nest.open ? 'Hide' : 'Show'} ${nest.count} teammate ${nest.count === 1 ? 'chat' : 'chats'} of ${chat.title}`}
+          title={nest.open ? 'Hide teammates’ chats' : 'Show teammates’ chats'}
+          onClick={nest.onToggle}
+        >
+          <ChevronRight
+            size={12}
+            aria-hidden
+            className={nest.open ? 'turned' : ''}
+          />
+        </button>
+      )}
       <button
         ref={main}
         type="button"
         className="sb-chat-main"
         title={chat.title}
         aria-label={
-          dot || chat.branchedFrom
+          dot || chat.branchedFrom || pulse
             ? [
                 chat.title,
                 dot?.name,
                 chat.branchedFrom &&
                   (branchOf ? `branch of ${branchOf}` : 'branch'),
+                pulse && 'work running',
               ]
                 .filter(Boolean)
                 .join(', ')
@@ -192,6 +221,7 @@ function ChatRow({
             from {branchOf}
           </span>
         )}
+        {pulse && <span className="sb-chat-pulse" aria-hidden="true" />}
       </button>
       <RowMenu
         label={`Actions for ${chat.title}`}
@@ -238,12 +268,54 @@ export function ThreadList({
   const [busy, setBusy] = useState(false);
   const list = useRef<HTMLDivElement>(null);
   const shown = filterChats(listableChats(chats, selectedId), query);
-  const groups = groupChats(shown);
   const emptyIds = chats
     .filter((chat) => chat.empty && chat.id !== selectedId)
     .map((chat) => chat.id);
   const searching = query.trim().length > 0;
   const many = dots.length > 1;
+  // Teammates' chats sit under the chat that handed the work over (a flat list while searching).
+  const tree: ChatTree<ConversationSummary> = searching
+    ? { roots: shown, children: new Map() }
+    : nestChats(shown);
+  const groups = groupChats(tree.roots);
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const fold = (id: string) =>
+    setFolded((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const row = (chat: ConversationSummary, depth: number): ReactNode => {
+    const children = tree.children.get(chat.id) ?? [];
+    const open = !folded.has(chat.id);
+    const member = dots.find((item) => item.id === chat.dotId);
+    return (
+      <Fragment key={chat.id}>
+        <ChatRow
+          chat={chat}
+          // A teammate's chat always shows its Dot; the others only when there are several.
+          dot={many || depth ? member : undefined}
+          branchOf={
+            chat.branchedFrom &&
+            chats.find((item) => item.id === chat.branchedFrom?.threadId)?.title
+          }
+          active={selectedId === chat.id}
+          onSelect={() => onSelect(chat.id)}
+          onRename={(title) => onRename(chat.id, title)}
+          onDelete={() => onDelete([chat.id])}
+          onDeleted={refocus}
+          nest={{
+            depth,
+            count: children.length,
+            open,
+            onToggle: () => fold(chat.id),
+          }}
+          pulse={workRunning(chat, tree)}
+        />
+        {open && children.map((child) => row(child, Math.min(depth + 1, 3)))}
+      </Fragment>
+    );
+  };
   // After a delete the focused row disappears; hand focus to the list's first row.
   const refocus = () =>
     setTimeout(
@@ -274,25 +346,7 @@ export function ThreadList({
       <div className="sb-group" key={group.id}>
         <h3 className="sb-group-label">{group.label}</h3>
         <ul className="sb-chat-list">
-          {group.items.map((chat) => (
-            <ChatRow
-              key={chat.id}
-              chat={chat}
-              dot={
-                many ? dots.find((item) => item.id === chat.dotId) : undefined
-              }
-              branchOf={
-                chat.branchedFrom &&
-                chats.find((item) => item.id === chat.branchedFrom?.threadId)
-                  ?.title
-              }
-              active={selectedId === chat.id}
-              onSelect={() => onSelect(chat.id)}
-              onRename={(title) => onRename(chat.id, title)}
-              onDelete={() => onDelete([chat.id])}
-              onDeleted={refocus}
-            />
-          ))}
+          {group.items.map((chat) => row(chat, 0))}
         </ul>
       </div>
     ));

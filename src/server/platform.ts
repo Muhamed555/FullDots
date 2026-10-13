@@ -140,6 +140,17 @@ export class Platform {
             work: marker.kind,
             text,
           });
+        // A teammate that waited for the owner reports once its resumed turn is done.
+        if (
+          marker.kind === 'approval' ||
+          marker.kind === 'handoff' ||
+          marker.kind === 'question'
+        )
+          this.team.resumed(
+            marker.threadId,
+            text,
+            this.waitsForOwner(marker.threadId),
+          );
         const taskId = workspace.threadTask(marker.threadId);
         if (taskId)
           store.event(

@@ -45,6 +45,7 @@ import { useDesktopNotifications } from './inbox/notifications';
 import { MissionPage } from './mission/MissionView';
 import type { InboxSection } from '../shared/inbox';
 import { Sidebar } from './sidebar/Sidebar';
+import { useDotLive } from './sidebar/useDotLive';
 import { readFlag, writeFlag } from './sidebar/hooks';
 import { latestChat } from './sidebar/chat-groups';
 import { ResultPane } from './ResultPane';
@@ -217,6 +218,7 @@ export function App() {
   }, []);
   // Live events refetch at once; polling stays as a fallback (15 s, or 3 s while the feed is down).
   useLiveRefresh(refresh);
+  const dotStates = useDotLive();
   const { inbox, refresh: refreshInbox } = useInbox();
   const needsYou =
     inbox?.counts.needsYou ?? pendingApprovals.length + waitingHandoffs.length;
@@ -489,6 +491,7 @@ export function App() {
           setMobile(false);
         }}
         onOpenPalette={palette.show}
+        dotStates={dotStates}
       />
       <div className="workspace" inert={mobile}>
         <header className="topbar">

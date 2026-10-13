@@ -8,6 +8,8 @@ import { approvalRoutes } from './approval-routes.js';
 import { usageRoutes } from './usage-routes.js';
 import { hookRoutes, triggerRoutes } from './trigger-routes.js';
 import { teamRoutes } from './team-routes.js';
+import { laneRoutes } from './lane-routes.js';
+import { LaneService } from './lanes.js';
 import { groupRoutes } from './group-routes.js';
 import { ruleRoutes } from './rule-routes.js';
 import { promptRoutes } from './prompt-routes.js';
@@ -225,6 +227,21 @@ export function createApp({
     );
   }
   if (platform) app.route('/api', teamRoutes(platform.workspace));
+  if (platform)
+    app.route(
+      '/api',
+      laneRoutes(
+        new LaneService({
+          workspace: platform.workspace,
+          store,
+          turns: platform.turns,
+          runner: platform.runner,
+          team: platform.team,
+          abortTask: (taskId) => runner.abort(taskId),
+        }),
+        platform.workspace,
+      ),
+    );
   if (platform) app.route('/api', groupRoutes(platform));
   if (platform) app.route('/api', ruleRoutes(platform.workspace));
   if (platform) {

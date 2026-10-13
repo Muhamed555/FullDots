@@ -48,6 +48,10 @@ import type { Message } from '@ag-ui/core';
 import { useMessageActions } from './message-actions/useMessageActions';
 import { retryMessage } from './message-actions/retries';
 import { branchDraft } from './message-actions/branch-drafts';
+import { LanesContext, useLanes } from './lanes/useLanes';
+import { StopEverything } from './lanes/StopEverything';
+import { isOwnAgentError } from './lanes/lane-model';
+import { isLaneTool } from '../shared/lanes';
 // These tools draw no UI of their own, so their arguments are not inspected.
 const anyArguments = z.looseObject({});
 export function Chat({
@@ -93,6 +97,14 @@ export function Chat({
     host: dot,
     dots: dots ?? [],
   });
+  // Work lanes: the teammates working on this chat's hand-offs.
+  const lanes = useLanes({
+    threadId: thread.id,
+    hostDot: dot,
+    dots: dots ?? [dot],
+    onOpenThread,
+    onComputer,
+  });
   const [pageContext, setPageContext] = useState<PageContext | null>();
   const [contextError, setContextError] = useState('');
   const [contextAttempt, setContextAttempt] = useState(0);
@@ -134,7 +146,11 @@ export function Chat({
   const runError = useRef('');
   useEffect(() => {
     const subscription = copilotkit.subscribe({
-      onError: ({ error }) => setError(error.message),
+      // Lanes connect agents of their own; their errors are not this chat's.
+      onError: (event) => {
+        if (isOwnAgentError(event, agent.agentId))
+          setError(event.error.message);
+      },
     });
     const events = agent.subscribe({
       onRunErrorEvent: ({ event }) => {
@@ -383,11 +399,13 @@ export function Chat({
       name: pageReviewTool.name,
       description: pageReviewTool.description,
       parameters: pageReviewSchema,
+      // Only this chat's agent: a lane's live view must not answer a teammate's review.
+      agentId: agent.agentId,
       render: (props) => (
         <PageReviewCard {...props} threadId={thread.id} onSaved={onSaved} />
       ),
     },
-    [thread.id, onSaved],
+    [thread.id, onSaved, agent.agentId],
   );
   // Computer calls are drawn by ChatTranscript as one compact activity block;
   // this keeps every other tool without its own renderer from being reported
@@ -414,6 +432,7 @@ export function Chat({
           message.toolCalls?.some(
             (call) =>
               isActivityTool(call.function.name) ||
+              isLaneTool(call.function.name) ||
               call.function.name === 'request_approval' ||
               call.function.name === 'request_handoff' ||
               call.function.name === pageReviewTool.name,
@@ -449,7 +468,15 @@ export function Chat({
           color={dot.color}
           name={dot.name}
           small
-          state={working ? 'working' : paused ? 'paused' : 'idle'}
+          state={
+            lanes.handingOff
+              ? 'handing-off'
+              : working
+                ? 'working'
+                : paused
+                  ? 'paused'
+                  : 'idle'
+          }
         />
         <div>
           <strong>{dot.name}</strong>
@@ -467,6 +494,7 @@ export function Chat({
         </div>
         {room.strip}
         <div className="chat-persona-actions">
+          <StopEverything lanes={lanes.value} running={lanes.running} />
           <button
             className="icon-button"
             aria-label="Save conversation as page"
@@ -561,29 +589,32 @@ export function Chat({
             </p>
           </div>
         )}
-        <ChatTranscript
-          messages={visible}
-          calls={calls}
-          allMessages={agent.messages}
-          running={running}
-          dotName={dot.name}
-          onViewComputer={onComputer}
-          onTakeOver={
-            onComputer
-              ? () => takeOverHere({ dotId: dot.id, open: onComputer })
-              : undefined
-          }
-          approvals={approvals}
-          onDecide={decide}
-          group={room.group}
-          bubbleActions={actions.bubbleActions}
-          renderTools={(message) => (
-            <CopilotChatToolCallsView
-              message={message}
-              messages={agent.messages}
-            />
-          )}
-        />
+        <LanesContext.Provider value={lanes.value}>
+          <ChatTranscript
+            messages={visible}
+            calls={calls}
+            allMessages={agent.messages}
+            running={running}
+            dotName={dot.name}
+            onViewComputer={onComputer}
+            onTakeOver={
+              onComputer
+                ? () => takeOverHere({ dotId: dot.id, open: onComputer })
+                : undefined
+            }
+            approvals={approvals}
+            onDecide={decide}
+            group={room.group}
+            bubbleActions={actions.bubbleActions}
+            renderTools={(message) => (
+              <CopilotChatToolCallsView
+                message={message}
+                messages={agent.messages}
+              />
+            )}
+          />
+        </LanesContext.Provider>
+        {lanes.announcer}
         {working && (
           <div className="thinking">
             <span />

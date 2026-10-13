@@ -70,19 +70,24 @@ async function conversationSummaries(
   );
   const linked = platform.workspace.linkedThreadIds();
   const participants = platform.workspace.participants.byThread();
+  const handedBy = platform.workspace.team.parents();
   return Promise.all(
     platform.workspace.conversations().map(async (conversation) => {
       const updatedAt = activity.get(conversation.id) ?? null;
+      const running = await platform.runner.isRunning({
+        threadId: conversation.id,
+      });
       // A reply that is still streaming is not stored until it finishes.
       const empty =
-        updatedAt === null &&
-        !linked.has(conversation.id) &&
-        !(await platform.runner.isRunning({ threadId: conversation.id }));
+        updatedAt === null && !linked.has(conversation.id) && !running;
+      const parent = handedBy.get(conversation.id);
       return {
         ...conversation,
         updatedAt,
         empty,
         participantIds: participants.get(conversation.id) ?? [],
+        running,
+        ...(parent ? { handedBy: parent } : {}),
       };
     }),
   );
