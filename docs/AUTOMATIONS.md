@@ -22,7 +22,7 @@ A run that is cut off by a restart, a settings change or an expired lease is mar
 
 ## Parallel background work
 
-Several Dots can work in the background at the same time. `BACKGROUND_CONCURRENCY` sets how many (default 2, at most 8). A Dot never runs two turns at once, so two tasks of the same Dot still wait for each other. Tasks of a conversation that waits for your approval or handoff are skipped until you decide.
+Several Dots can work in the background at the same time. `BACKGROUND_CONCURRENCY` sets how many (default 4, at most 8). A Dot never runs two turns at once, so two tasks of the same Dot still wait for each other. Tasks of a conversation that waits for your approval or handoff are skipped until you decide.
 
 ## Triggers
 
@@ -63,7 +63,7 @@ FullDots records the tokens each Dot uses per UTC day, from the usage the model 
 
 | Variable                 | Default   | Purpose                                          |
 | ------------------------ | --------- | ------------------------------------------------ |
-| `BACKGROUND_CONCURRENCY` | 2         | Background tasks running at once (1 to 8).       |
+| `BACKGROUND_CONCURRENCY` | 4         | Background tasks running at once (1 to 8).       |
 | `DOT_DAILY_TOKEN_WARN`   | 2,000,000 | Tokens per Dot per day before the warning.       |
 | `NOTIFY_WEBHOOK_URL`     | none      | Where warnings, approvals and handoffs are sent. |
 | `APP_ORIGIN`             | none      | The address used in webhook URLs.                |

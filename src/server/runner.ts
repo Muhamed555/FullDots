@@ -1,5 +1,5 @@
 import { Store } from './store.js';
-import type { Result, Memory } from '../shared/types.js';
+import type { Result, Memory, TaskKind } from '../shared/types.js';
 import type { Claim } from './store.js';
 import { research, type Config } from './research.js';
 import { isDotBusy } from './turn-registry.js';
@@ -15,7 +15,8 @@ export class Runner {
       signal: AbortSignal,
       progress: (text: string) => void,
     ) => Promise<Result>,
-    private timeoutMs = 90_000,
+    /** One limit for every run, or one per claim kind (a delegation runs longer than a task). */
+    private timeoutMs: number | ((kind: TaskKind) => number) = 90_000,
     private options: {
       /** Task ids to skip; gets the Dots of the runs this runner has in flight. */
       excluded?: (activeDotIds: string[]) => string[];
@@ -26,6 +27,11 @@ export class Runner {
     } = {},
   ) {}
   private activeDots = new Map<string, string>();
+  private timeoutFor(kind: TaskKind): number {
+    return typeof this.timeoutMs === 'number'
+      ? this.timeoutMs
+      : this.timeoutMs(kind);
+  }
   private exclusionsFailed = false;
   private wakeQueued = false;
   // Set while this runner puts a claim back because the Dot was busy: that requeue must not wake
@@ -111,7 +117,7 @@ export class Runner {
         // The lease must outlive the run so a slow task is never claimed twice.
         const claim = this.store.claim(
           Date.now(),
-          this.timeoutMs + 90_000,
+          (task) => this.timeoutFor(task.kind) + 90_000,
           this.excludedTaskIds(),
         );
         if (!claim) break;
@@ -140,14 +146,15 @@ export class Runner {
         controller.abort(new Error('Run ownership check failed.'));
       }
     }, 100);
+    const timeoutMs = this.timeoutFor(claim.kind);
     const timeout = setTimeout(
       () =>
         controller.abort(
           new Error(
-            `Research exceeded the ${Math.round(this.timeoutMs / 1000)} second time limit.`,
+            `Research exceeded the ${Math.round(timeoutMs / 1000)} second time limit.`,
           ),
         ),
-      this.timeoutMs,
+      timeoutMs,
     );
     try {
       const settings = this.store.settings();

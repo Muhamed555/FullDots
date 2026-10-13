@@ -17,16 +17,34 @@ export interface ResumeMarker {
   nextAt: number;
   createdAt: number;
   lastError: string | null;
+  /**
+   * Markers with the same key are delivered together, in one turn (the results of the hand-offs
+   * one turn made). Null for a marker delivered on its own.
+   */
+  batchKey: string | null;
+  /** When the first marker of the batch was stored; the batch waits for its siblings from here. */
+  firstResultAt: number | null;
 }
 
 export type NewResumeMarker = Omit<
   ResumeMarker,
-  'id' | 'attempts' | 'nextAt' | 'createdAt' | 'lastError'
->;
+  | 'id'
+  | 'attempts'
+  | 'nextAt'
+  | 'createdAt'
+  | 'lastError'
+  | 'batchKey'
+  | 'firstResultAt'
+> & { batchKey?: string | null };
 
 const MAX_ERROR_CHARS = 500;
 const COLUMNS =
-  'id,kind,refId,threadId,dotId,prompt,source,attempts,nextAt,createdAt,lastError';
+  'id,kind,refId,threadId,dotId,prompt,source,attempts,nextAt,createdAt,lastError,batchKey,firstResultAt';
+// Columns added after the first release; ALTER TABLE keeps existing markers (they read as null).
+const ADDED_COLUMNS: [string, string][] = [
+  ['batchKey', 'TEXT'],
+  ['firstResultAt', 'INTEGER'],
+];
 // rowid breaks ties between markers created in the same millisecond, so "oldest first" is stable.
 const ORDER = 'ORDER BY createdAt ASC, rowid ASC';
 
@@ -35,10 +53,28 @@ export class ResumeStore {
     db.exec(`CREATE TABLE IF NOT EXISTS resume_markers(id TEXT PRIMARY KEY, kind TEXT NOT NULL, refId TEXT NOT NULL, threadId TEXT NOT NULL,
       dotId TEXT NOT NULL, prompt TEXT NOT NULL, source TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, nextAt INTEGER NOT NULL,
       createdAt INTEGER NOT NULL, lastError TEXT);`);
+    const present = new Set(
+      db
+        .prepare('PRAGMA table_info(resume_markers)')
+        .all()
+        .map((column) => String(column.name)),
+    );
+    for (const [name, type] of ADDED_COLUMNS)
+      if (!present.has(name))
+        db.exec(`ALTER TABLE resume_markers ADD COLUMN ${name} ${type}`);
   }
 
   add(input: NewResumeMarker): ResumeMarker {
     const now = Date.now();
+    const batchKey = input.batchKey ?? null;
+    // A batch keeps the time its first marker arrived, across restarts.
+    const first = batchKey
+      ? this.db
+          .prepare(
+            'SELECT MIN(firstResultAt) AS first FROM resume_markers WHERE batchKey=?',
+          )
+          .get(batchKey)?.first
+      : null;
     const marker: ResumeMarker = {
       id: randomUUID(),
       kind: input.kind,
@@ -51,10 +87,16 @@ export class ResumeStore {
       nextAt: now,
       createdAt: now,
       lastError: null,
+      batchKey,
+      firstResultAt: batchKey
+        ? typeof first === 'number'
+          ? first
+          : now
+        : null,
     };
     this.db
       .prepare(
-        `INSERT INTO resume_markers(${COLUMNS}) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO resume_markers(${COLUMNS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
       .run(
         marker.id,
@@ -68,6 +110,8 @@ export class ResumeStore {
         marker.nextAt,
         marker.createdAt,
         marker.lastError,
+        marker.batchKey,
+        marker.firstResultAt,
       );
     return marker;
   }
@@ -103,5 +147,19 @@ export class ResumeStore {
 
   remove(id: string): void {
     this.db.prepare('DELETE FROM resume_markers WHERE id=?').run(id);
+  }
+
+  /** Removes delivered markers and runs `alongside` in the same transaction. */
+  removeAll(ids: string[], alongside?: () => void): void {
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      const remove = this.db.prepare('DELETE FROM resume_markers WHERE id=?');
+      for (const id of ids) remove.run(id);
+      alongside?.();
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
   }
 }

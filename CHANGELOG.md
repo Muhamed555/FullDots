@@ -7,13 +7,14 @@ All notable changes to FullDots are listed here. The project follows [Semantic V
 ### Added
 
 - **Teams of Dots.** A Dot hands work to a teammate with `delegate_to_dot`; the teammate works in its own conversation and the result comes back as a new turn. Team grants per Dot, a depth limit (`TEAM_MAX_DEPTH`), loop protection and at most three hand-offs per turn ([`docs/TEAMS.md`](docs/TEAMS.md)).
+- **Fast hand-offs.** Teammates start as soon as work is handed over, the results of one turn's hand-offs come back to the lead in one reply (`TEAM_RESULT_BATCH_MS`), a teammate's turn may take up to `DELEGATION_TIMEOUT` (300 s), teammates reply with the deliverable only, and child chats are named "Lead → Member: brief". `npm run bench:team` times it.
 - **Pause a single Dot** from its sidebar menu. Its turns stop and its background work waits until it is resumed.
 - **`npm run backup`** writes a consistent copy of the database (and the connector key) while FullDots runs.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md).
 - **Deploy on Dokploy** with [`compose.dokploy.yml`](compose.dokploy.yml) and [`docs/DOKPLOY.md`](docs/DOKPLOY.md): HTTPS through Dokploy's Traefik, a health check, and `scripts/backup.mjs` in the app image.
 
 - **Standing goals.** A goal runs on a schedule until the Dot calls `mark_goal_done`, with an optional run limit. Repeats get run limits too ([`docs/AUTOMATIONS.md`](docs/AUTOMATIONS.md)).
-- **Parallel background work.** `BACKGROUND_CONCURRENCY` (default 2) tasks run at once on different Dots.
+- **Parallel background work.** `BACKGROUND_CONCURRENCY` (default 4) tasks run at once on different Dots.
 - **Triggers.** Webhooks with bearer, URL or HMAC secrets (hashed or sealed, shown once, rotatable), dedupe, rate and size limits; and polls of read-only connector tools that fire when the answer changes. Events become tasks in the trigger's conversation.
 - **Token use and budgets.** Provider-reported tokens per Dot per UTC day, a once-a-day warning (`DOT_DAILY_TOKEN_WARN`), and an optional daily budget that pauses a Dot's background work.
 

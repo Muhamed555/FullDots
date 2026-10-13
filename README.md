@@ -202,9 +202,11 @@ All settings live in `.env`. [`.env.example`](.env.example) lists every variable
 | `CONNECTORS_ALLOW_STDIO`                            | Lets connectors start local programs. Off by default.                                       |
 | `AGENT_TURN_TIMEOUT`, `AGENT_MAX_STEPS`             | How long and how many steps a Dot may take in one turn. Defaults: 90 seconds and 8 steps.   |
 | `NOTIFY_WEBHOOK_URL`                                | Optional. Receives a title, text and link for new approvals, handoffs and usage warnings.   |
-| `BACKGROUND_CONCURRENCY`                            | Background tasks running at once (different Dots). Default 2, at most 8.                    |
+| `BACKGROUND_CONCURRENCY`                            | Background tasks running at once (different Dots). Default 4, at most 8.                    |
 | `DOT_DAILY_TOKEN_WARN`                              | Tokens per Dot per day before you are warned. Default 2,000,000.                            |
 | `TEAM_MAX_DEPTH`                                    | How many hand-offs between Dots may chain. Default 2.                                       |
+| `DELEGATION_TIMEOUT`                                | Seconds a teammate's turn on handed-over work may take. Default 300.                        |
+| `TEAM_RESULT_BATCH_MS`                              | How long hand-off results of one turn wait for each other. Default 1500 ms.                 |
 
 ## Security
 

@@ -72,7 +72,7 @@ describe('handing work to a teammate', () => {
     const child = workspace.requireThread(delegation.childThreadId);
     expect(child).toMatchObject({
       dotId: scout.id,
-      title: `From ${lead.name}: Find three competitors of FullDots and what they charge.`,
+      title: `${lead.name} → Scout: Find three competitors of FullDots and what they charge.`,
     });
     const task = store.task(delegation.taskId)!;
     expect(task).toMatchObject({ kind: 'delegation', status: 'queued' });

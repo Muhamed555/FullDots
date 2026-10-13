@@ -83,9 +83,18 @@ export class Platform {
       allowStdio: !!config.connectorsAllowStdio,
       resultMaxChars: config.connectorResultMaxChars ?? 20_000,
     });
+    this.team = new TeamService({
+      workspace,
+      store,
+      resume: (marker) => void this.resumes.enqueue(marker),
+      maxDepth: config.teamMaxDepth ?? 2,
+    });
     this.resumes = new ResumeQueue({
       store: workspace.resumes,
       registry: turns,
+      onTurnFinished: (listener) =>
+        this.events.subscribe('turn.finished', listener),
+      batches: this.team.batches(config.teamResultBatchMs ?? 1500),
       isPaused: (dotId) => !!workspace.dot(dotId)?.paused,
       turn: (threadId, prompt, signal, metadata) =>
         this.turn(threadId, prompt, signal, metadata),
@@ -130,12 +139,6 @@ export class Platform {
       audit: workspace.computers,
       notify,
     });
-    this.team = new TeamService({
-      workspace,
-      store,
-      resume: (marker) => void this.resumes.enqueue(marker),
-      maxDepth: config.teamMaxDepth ?? 2,
-    });
     this.triggers = new TriggerService({
       triggers: workspace.triggers,
       createEventTask: (trigger, prompt) => {
@@ -161,6 +164,9 @@ export class Platform {
       turns,
       runner: this.runner,
     });
+    this.events.subscribe('turn.started', ({ threadId, source }) =>
+      this.team.started(threadId, source),
+    );
     this.pages = new PageService(workspace, () => {
       this.requireReady();
       return {

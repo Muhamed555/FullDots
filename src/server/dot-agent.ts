@@ -17,7 +17,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { tanstackTools, type ServerTool } from './tanstack-tools.js';
 import { goalSystemPrompt, goalTools, type GoalService } from './goal-tools.js';
 import { teamPrompt, teamTools, type TeamService } from './team-service.js';
-import { defaultLimits, hasTimeLimit } from './limits.js';
+import { defaultLimits } from './limits.js';
+import { turnTimers } from './turn-limit.js';
 import { AgentComputer, withoutBinary } from './computer-agent.js';
 import {
   approvalGate,
@@ -169,15 +170,17 @@ export class DotAgent extends AbstractAgent {
       let release = () => {};
       let lapse = () => {};
       const timers: ReturnType<typeof setTimeout>[] = [];
-      if (hasTimeLimit(limits.agentTurnMs))
+      // A delegation turn carries its own limit (DELEGATION_TIMEOUT); see turn-limit.ts.
+      const turnLimit = turnTimers(limits, input.messages);
+      if (turnLimit)
         timers.push(
           setTimeout(() => {
             budget.wrapUp ??= 'time';
-          }, limits.agentTurnMs),
+          }, turnLimit.wrapUpMs),
           setTimeout(() => {
             timedOut = true;
             this.abortRun();
-          }, limits.agentTurnMs + limits.agentGraceMs),
+          }, turnLimit.stopMs),
         );
       try {
         const dot = this.workspace.dot(this.dotId);
@@ -362,7 +365,11 @@ export class DotAgent extends AbstractAgent {
           ...(gated ? [requestApprovalTool(), requestHandoffTool()] : []),
           ...(goalId && goals ? goalTools(goals, goalId) : []),
           ...(team && teammates.length
-            ? teamTools(team, { dotId: dot.id, threadId: input.threadId })
+            ? teamTools(team, {
+                dotId: dot.id,
+                threadId: input.threadId,
+                runId: input.runId,
+              })
             : []),
         ];
         const gate = gated
@@ -478,7 +485,7 @@ export class DotAgent extends AbstractAgent {
               // The time limit stopped the turn mid-flight. Say so, rather than leave a cut-off reply.
               if (timedOut && !ended) {
                 for (const event of messages.notice(
-                  `I stopped because this turn reached its time limit (${Math.round(limits.agentTurnMs / 1000)} seconds) before I could finish. What I did so far is in the actions above. Ask me to continue and I will pick up from there.`,
+                  `I stopped because this turn reached its time limit (${Math.round((turnLimit?.limitMs ?? limits.agentTurnMs) / 1000)} seconds) before I could finish. What I did so far is in the actions above. Ask me to continue and I will pick up from there.`,
                 ))
                   subscriber.next(event);
                 subscriber.next({

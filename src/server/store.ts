@@ -260,7 +260,8 @@ export class Store {
    */
   claim(
     now = Date.now(),
-    leaseMs = 180_000,
+    /** A number, or the lease for the task about to be claimed (it depends on the task's kind). */
+    leaseMs: number | ((task: Task) => number) = 180_000,
     excludeTaskIds: string[] = [],
   ): Claim | null {
     const excludedSet = new Set(excludeTaskIds);
@@ -301,7 +302,12 @@ export class Store {
         .prepare(
           "UPDATE tasks SET status='running', lease=?, leaseUntil=?, nextRunAt=NULL, error=NULL, updatedAt=? WHERE id=?",
         )
-        .run(lease, now + leaseMs, now, task.id);
+        .run(
+          lease,
+          now + (typeof leaseMs === 'number' ? leaseMs : leaseMs(task)),
+          now,
+          task.id,
+        );
       this.db
         .prepare(
           "INSERT INTO runs VALUES (?, ?, 'running', ?, NULL, NULL, NULL)",

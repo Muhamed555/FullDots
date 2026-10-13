@@ -21,6 +21,8 @@ export interface Limits extends ComputerInputLimits {
   agentMaxSteps: number;
   agentMaxTokens: number;
   taskTimeoutMs: number;
+  /** A teammate's turn on handed-over work, wrap-up and stop included; replaces agentTurnMs there. */
+  delegationTimeoutMs: number;
   computerRequestMs: number;
   computerResponseBytes: number;
 }
@@ -32,6 +34,7 @@ export const defaultLimits: Limits = {
   agentMaxSteps: 8,
   agentMaxTokens: 2200,
   taskTimeoutMs: 90_000,
+  delegationTimeoutMs: 300_000,
   computerRequestMs: 70_000,
   computerResponseBytes: 4_000_000,
 };
@@ -92,6 +95,11 @@ export function readLimits(env: Env = process.env): Limits {
       defaultLimits.taskTimeoutMs,
       7200,
     ),
+    delegationTimeoutMs: unlimitedSeconds(
+      'DELEGATION_TIMEOUT',
+      defaultLimits.delegationTimeoutMs,
+      7200,
+    ),
     execMaxMs,
     commandChars: number(
       env,
@@ -139,6 +147,8 @@ export interface IntegrationSettings {
   dailyTokenWarn: number;
   /** How many hand-offs between Dots may chain. */
   teamMaxDepth: number;
+  /** How long the results of one turn's hand-offs wait for each other before going back. */
+  teamResultBatchMs: number;
 }
 
 /** Connector, approval and notification settings from the environment. */
@@ -162,8 +172,9 @@ export function readIntegrationSettings(
     ),
     approvalTtlMs:
       number(env, 'APPROVAL_TTL', 7 * 24 * 3600, 60, 31_536_000) * 1000,
-    backgroundConcurrency: number(env, 'BACKGROUND_CONCURRENCY', 2, 1, 8),
+    backgroundConcurrency: number(env, 'BACKGROUND_CONCURRENCY', 4, 1, 8),
     teamMaxDepth: number(env, 'TEAM_MAX_DEPTH', 2, 1, 5),
+    teamResultBatchMs: number(env, 'TEAM_RESULT_BATCH_MS', 1500, 0, 60_000),
     dailyTokenWarn: number(
       env,
       'DOT_DAILY_TOKEN_WARN',

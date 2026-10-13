@@ -4,10 +4,15 @@
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@copilotkit/runtime/v2';
 import { z } from 'zod';
-import type { Delegation, Dot } from '../shared/types.js';
+import type { Delegation, Dot, TurnSource } from '../shared/types.js';
+import {
+  deriveTitle,
+  MAX_CONVERSATION_TITLE_LENGTH,
+} from '../shared/conversation-title.js';
 import type { Store } from './store.js';
 import type { WorkspaceStore } from './workspace.js';
-import type { NewResumeMarker } from './resume-store.js';
+import type { NewResumeMarker, ResumeMarker } from './resume-store.js';
+import type { ResumeBatches } from './resume-queue.js';
 
 /** Hand-offs per turn, so one turn cannot fan out without bound. */
 export const DELEGATIONS_PER_TURN = 3;
@@ -36,6 +41,19 @@ export class TeamService {
 
   get(id: string): Delegation | undefined {
     return this.deps.workspace.team.get(id);
+  }
+
+  /** The child conversation's title: "Lead → Member: first line of the brief". */
+  static title(lead: string, member: string, brief: string): string {
+    const head = `${lead} → ${member}: `;
+    const room = Math.max(
+      20,
+      Math.min(60, MAX_CONVERSATION_TITLE_LENGTH - head.length),
+    );
+    return `${head}${deriveTitle(brief, 'Handed-over work', room)}`.slice(
+      0,
+      MAX_CONVERSATION_TITLE_LENGTH,
+    );
   }
 
   /** The Dots this Dot may hand work to. */
@@ -76,6 +94,8 @@ export class TeamService {
     to: string;
     brief: string;
     deliverable: string;
+    /** The run of the turn that hands the work over; its hand-offs report back together. */
+    runId?: string;
   }): Delegation {
     const { workspace, store } = this.deps;
     const from = workspace.dot(input.fromDotId);
@@ -106,9 +126,9 @@ export class TeamService {
     const child = workspace.bindThread(
       randomUUID(),
       target.id,
-      `From ${from.name}: ${firstLine(input.brief).slice(0, 60)}`,
+      TeamService.title(from.name, target.name, input.brief),
     );
-    const prompt = `${from.name} handed you this work.\n\nBrief: ${input.brief}\n\nWhat to deliver: ${input.deliverable}\n\nDo the work, then end with the deliverable. Your final answer is sent back to ${from.name}.`;
+    const prompt = `${from.name} handed you this work.\n\nBrief: ${input.brief}\n\nWhat to deliver: ${input.deliverable}\n\nDo the work, then reply with the deliverable only: no preamble, no plan, no "I am ready", no notes about what you are about to do. Your final reply goes to ${from.name} exactly as you write it.`;
     const task = store.createTask(prompt, { kind: 'delegation' });
     workspace.bindTask(task.id, child.id);
     return workspace.team.create({
@@ -120,7 +140,54 @@ export class TeamService {
       depth,
       brief: input.brief,
       deliverable: input.deliverable,
+      batchKey: input.runId ? `${input.threadId}:${input.runId}` : null,
     });
+  }
+
+  /** A turn started: a delegation turn in a hand-off's conversation is the teammate starting. */
+  started(threadId: string, source: TurnSource | 'chat') {
+    if (source !== 'delegation') return;
+    const delegation = this.deps.workspace.team.byChildThread(threadId);
+    if (delegation?.status === 'running' && delegation.startedAt === null)
+      this.deps.workspace.team.markStarted(delegation.id);
+  }
+
+  /** How the resume queue delivers the results of one turn's hand-offs together. */
+  batches(windowMs: number): ResumeBatches {
+    const { team } = this.deps.workspace;
+    const of = (markers: ResumeMarker[]) =>
+      markers
+        .filter((marker) => marker.kind === 'delegation')
+        .map((marker) => team.get(marker.refId))
+        .filter((delegation): delegation is Delegation => !!delegation);
+    return {
+      windowMs,
+      settled: (batchKey) =>
+        team
+          .inBatch(batchKey)
+          .every((delegation) => delegation.status !== 'running'),
+      prompt: (markers) => this.batchPrompt(of(markers)),
+      delivered: (markers, now) =>
+        team.markDelivered(
+          of(markers).map((delegation) => delegation.id),
+          now,
+        ),
+    };
+  }
+
+  /** One message with every result of a batch, a section per teammate. */
+  batchPrompt(delegations: Delegation[]): string {
+    const name = (delegation: Delegation) =>
+      this.deps.workspace.dot(delegation.childDotId)?.name ?? 'Your teammate';
+    const sections = delegations.map((delegation) =>
+      delegation.status === 'done'
+        ? `## ${name(delegation)}: done\n\nBrief: ${delegation.brief}\n\nResult:\n${delegation.result ?? ''}`
+        : `## ${name(delegation)}: could not finish\n\nBrief: ${delegation.brief}\n\nWhat went wrong: ${(delegation.result ?? 'unknown error').slice(0, 300)}`,
+    );
+    const failed = delegations.some(
+      (delegation) => delegation.status !== 'done',
+    );
+    return `Your teammates finished the work you handed over (${delegations.length} results).\n\n${sections.join('\n\n')}\n\nContinue from here: use the results together and tell the owner what they mean for their request.${failed ? ' For the work that could not be finished, do it yourself or tell the owner.' : ''}`;
   }
 
   private report(delegation: Delegation, prompt: string) {
@@ -131,6 +198,8 @@ export class TeamService {
       dotId: delegation.parentDotId,
       prompt,
       source: 'delegation',
+      // Null (a hand-off made outside a run) goes back on its own.
+      batchKey: delegation.batchKey,
     });
   }
 
@@ -204,7 +273,7 @@ export const delegateInput = z
 /** The tools a Dot gets when it has teammates: hand work over, and check on it. */
 export function teamTools(
   team: TeamService,
-  context: { dotId: string; threadId: string },
+  context: { dotId: string; threadId: string; runId?: string },
 ) {
   let handed = 0;
   return [
@@ -226,6 +295,7 @@ export function teamTools(
             to: dot,
             brief,
             deliverable,
+            ...(context.runId ? { runId: context.runId } : {}),
           });
           handed++;
           return {

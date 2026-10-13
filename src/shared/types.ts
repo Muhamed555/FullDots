@@ -31,6 +31,15 @@ export interface Delegation {
   result: string | null;
   createdAt: number;
   finishedAt: number | null;
+  /**
+   * `parentThreadId:parentRunId`: the hand-offs of one turn, whose results go back together.
+   * Null for hand-offs made before batching existed.
+   */
+  batchKey: string | null;
+  /** When the teammate's turn started. */
+  startedAt: number | null;
+  /** When the result reached the Dot that asked (its resume turn ran). */
+  deliveredAt: number | null;
 }
 export type TriggerKind = 'webhook' | 'poll';
 /** bearer: Authorization header; query: ?token= in the URL; hmac: a signature of the body. */
@@ -245,6 +254,11 @@ export interface TurnMetadata {
   ref?: string;
   /** Kept for existing voice receipts. */
   opendotsSource?: 'voice_receipt';
+  /**
+   * A teammate's turn on handed-over work: its whole time limit (wrap-up and stop included), used
+   * in place of AGENT_TURN_TIMEOUT plus grace. Honoured only with source 'delegation'.
+   */
+  turnLimitMs?: number;
 }
 export type ApprovalMode = 'sensitive' | 'writes' | 'off';
 

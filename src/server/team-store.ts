@@ -16,7 +16,17 @@ const toDelegation = (row: Record<string, unknown>): Delegation => ({
   result: row.result === null ? null : String(row.result),
   createdAt: Number(row.createdAt),
   finishedAt: row.finishedAt === null ? null : Number(row.finishedAt),
+  batchKey: row.batchKey == null ? null : String(row.batchKey),
+  startedAt: row.startedAt == null ? null : Number(row.startedAt),
+  deliveredAt: row.deliveredAt == null ? null : Number(row.deliveredAt),
 });
+
+// Columns added after the first release; ALTER TABLE keeps existing rows (they read as null).
+const DELEGATION_COLUMNS: [string, string][] = [
+  ['batchKey', 'TEXT'],
+  ['startedAt', 'INTEGER'],
+  ['deliveredAt', 'INTEGER'],
+];
 
 /** Teams of Dots: who may hand work to whom, and every hand-off with its result. */
 export class TeamStore {
@@ -30,6 +40,18 @@ export class TeamStore {
       CREATE INDEX IF NOT EXISTS delegations_child ON delegations(childThreadId);
       CREATE INDEX IF NOT EXISTS delegations_task ON delegations(taskId);
       CREATE INDEX IF NOT EXISTS delegations_parent ON delegations(parentThreadId);`);
+    const present = new Set(
+      db
+        .prepare('PRAGMA table_info(delegations)')
+        .all()
+        .map((column) => String(column.name)),
+    );
+    for (const [name, type] of DELEGATION_COLUMNS)
+      if (!present.has(name))
+        db.exec(`ALTER TABLE delegations ADD COLUMN ${name} ${type}`);
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS delegations_batch ON delegations(batchKey)',
+    );
   }
 
   delegates(dotId: string): string[] {
@@ -58,15 +80,22 @@ export class TeamStore {
   create(
     input: Omit<
       Delegation,
-      'id' | 'status' | 'result' | 'createdAt' | 'finishedAt'
-    >,
+      | 'id'
+      | 'status'
+      | 'result'
+      | 'createdAt'
+      | 'finishedAt'
+      | 'batchKey'
+      | 'startedAt'
+      | 'deliveredAt'
+    > & { batchKey?: string | null },
     now = Date.now(),
   ): Delegation {
     const id = randomUUID();
     this.db
       .prepare(
         `INSERT INTO delegations(id, parentThreadId, parentDotId, childThreadId, childDotId, taskId, depth, status,
-          brief, deliverable, result, createdAt, finishedAt) VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, NULL, ?, NULL)`,
+          brief, deliverable, result, createdAt, finishedAt, batchKey) VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, NULL, ?, NULL, ?)`,
       )
       .run(
         id,
@@ -79,6 +108,7 @@ export class TeamStore {
         input.brief,
         input.deliverable,
         now,
+        input.batchKey ?? null,
       );
     return this.get(id)!;
   }
@@ -123,6 +153,33 @@ export class TeamStore {
         'UPDATE delegations SET status=?, result=?, finishedAt=? WHERE id=?',
       )
       .run(status, result.slice(0, 20_000), now, id);
+  }
+
+  /** The hand-offs made in one turn (see Delegation.batchKey), oldest first. */
+  inBatch(batchKey: string): Delegation[] {
+    return this.db
+      .prepare(
+        'SELECT * FROM delegations WHERE batchKey=? ORDER BY createdAt, rowid',
+      )
+      .all(batchKey)
+      .map(toDelegation);
+  }
+
+  /** Records when the teammate's turn started; the first start counts. */
+  markStarted(id: string, now = Date.now()) {
+    this.db
+      .prepare(
+        'UPDATE delegations SET startedAt=? WHERE id=? AND startedAt IS NULL',
+      )
+      .run(now, id);
+  }
+
+  /** Records that these results reached the Dot that asked. */
+  markDelivered(ids: string[], now = Date.now()) {
+    const update = this.db.prepare(
+      'UPDATE delegations SET deliveredAt=? WHERE id=? AND deliveredAt IS NULL',
+    );
+    for (const id of ids) update.run(now, id);
   }
 
   /** Forgets a Dot's team when its grants change hands (not used for history). */

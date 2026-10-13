@@ -396,7 +396,10 @@ describe('approvals with the server wired in', () => {
   });
 
   /** The owner approves while another turn runs on the thread: the resume is deferred, untouched. */
-  async function approveWhileRunning(f: ReturnType<typeof rig>) {
+  async function approveWhileRunning(
+    f: ReturnType<typeof rig>,
+    beforeFinish?: () => void,
+  ) {
     await f.platform.start();
     const pending = await askForApproval(f);
     const gate = deferred();
@@ -417,6 +420,7 @@ describe('approvals with the server wired in', () => {
       lastError: null,
     });
     expect(f.fake.count_of('exec')).toBe(0);
+    beforeFinish?.();
     gate.resolve();
     expect(await running).toBe('Still here.');
     return pending;
@@ -436,7 +440,10 @@ describe('approvals with the server wired in', () => {
 
   it('defers the resume of an approval given mid-run and delivers it once the thread is free', async () => {
     const f = rig();
-    const pending = await approveWhileRunning(f);
+    // Only the explicit attempt below may deliver it (no kick from the end of the running turn).
+    const pending = await approveWhileRunning(f, () =>
+      f.platform.resumes.stop(),
+    );
     const [marker] = f.workspace.resumes.all();
     expect(await f.platform.resumes.attempt(marker.id)).toBe('delivered');
     expectResumed(f, pending.id);
@@ -444,7 +451,7 @@ describe('approvals with the server wired in', () => {
 
   // The Dot lock is released in DotAgent's teardown, a moment before SqliteAgentRunner.run() clears its
   // own "active" entry for the thread, so the release-triggered attempt can see "Thread already
-  // running". ResumeQueue retries such a deferral shortly instead of waiting for the 30 second sweep.
+  // running". The turn.finished event of that run kicks the marker again, without the 30 second sweep.
   it('delivers that resume on the release of the lock, without waiting for the sweep', async () => {
     const f = rig();
     const pending = await approveWhileRunning(f);

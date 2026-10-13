@@ -5,7 +5,6 @@ import { createShutdown } from './shutdown.js';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Store } from './store.js';
-import { Runner } from './runner.js';
 import { createApp } from './app.js';
 import { attachComputerStream, type UpgradeServer } from './computer-stream.js';
 import { WorkspaceStore } from './workspace.js';
@@ -13,8 +12,7 @@ import { loadConnectorKey } from './connector-crypto.js';
 import { Platform } from './platform.js';
 import type { PlatformConfig } from './platform-config.js';
 import { TurnRegistry } from './turn-registry.js';
-import { goalRunPrompt } from './goal-tools.js';
-import { isDotBusy } from './turn-registry.js';
+import { createBackgroundRunner } from './task-executor.js';
 import { wakeOnWork } from './live-wiring.js';
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 4310);
@@ -75,66 +73,7 @@ const researchConfig = {
   browserUrl: config.browserUrl,
   browserSecret: config.browserSecret,
 };
-const runner = new Runner(
-  store,
-  researchConfig,
-  async (claim, _memories, signal, progress) => {
-    const threadId = workspace.taskThread(claim.id);
-    if (!threadId)
-      throw new Error(
-        'This legacy task has no conversation. Create a new scheduled task from a conversation.',
-      );
-    progress(
-      claim.kind === 'goal'
-        ? `Working on the goal (run ${claim.runCount + 1}).`
-        : 'Running this task in its conversation.',
-    );
-    const delegation =
-      claim.kind === 'delegation' ? workspace.team.byTask(claim.id) : undefined;
-    let text: string;
-    try {
-      text = await platform.turn(
-        threadId,
-        claim.kind === 'goal' ? goalRunPrompt(claim) : claim.prompt,
-        signal,
-        delegation
-          ? { source: 'delegation', ref: delegation.id }
-          : {
-              source: claim.kind === 'event' ? 'trigger' : 'task',
-              ref: claim.id,
-            },
-      );
-    } catch (error) {
-      // A busy Dot only postpones the hand-off; anything else is reported to the Dot that asked.
-      if (delegation && !isDotBusy(error))
-        platform.team.failed(
-          claim.id,
-          error instanceof Error ? error.message : 'The run failed.',
-        );
-      throw error;
-    }
-    if (delegation) platform.team.completed(claim.id, text);
-    return { text, sources: [], sample: false };
-  },
-  config.limits!.taskTimeoutMs,
-  {
-    concurrency: config.backgroundConcurrency,
-    dotOf: (taskId) => workspace.taskDot(taskId),
-    excluded: (activeDotIds) => {
-      const { threadIds, dotIds } = turns.exclusions();
-      return workspace.taskIdsFor({
-        threadIds,
-        // Dots over today's token budget wait for tomorrow.
-        dotIds: [
-          ...dotIds,
-          ...activeDotIds,
-          ...workspace.usage.overBudgetDots(),
-          ...workspace.pausedDotIds(),
-        ],
-      });
-    },
-  },
-);
+const runner = createBackgroundRunner(platform, researchConfig);
 wakeOnWork(platform.events, turns, runner);
 const app = createApp({
   store,
