@@ -36,10 +36,7 @@
   height: 22px;
   margin-left: 22px;
   width: 2px;
-  background: linear-gradient(
-    var(--lane, var(--line)),
-    color-mix(in srgb, var(--lane, var(--line)) 30%, transparent)
-  );
+  background: color-mix(in srgb, var(--lane, var(--line)) 55%, transparent);
   color: var(--muted);
   position: relative;
 }

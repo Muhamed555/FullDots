@@ -282,109 +282,124 @@ export function TeamBuilder({
                 onCreated={(made) => (onTemplate ?? onSaved)(made)}
               />
             )}
-            <div className="tb-identity">
-              <span className="tb-badge" aria-hidden>
-                {draft.emoji || '✨'}
-              </span>
-              <div className="tb-field tb-name">
-                <label htmlFor="tb-name">Team name</label>
-                <input
-                  id="tb-name"
-                  className="dlg-input dlg-input-lg"
-                  value={draft.name}
-                  maxLength={60}
-                  placeholder="Launch crew"
-                  aria-invalid={!!errors.name}
-                  aria-describedby={errors.name ? 'tb-name-error' : undefined}
-                  onChange={(event) =>
-                    setDraft({ ...draft, name: event.target.value })
-                  }
-                />
-                {errors.name && (
-                  <p className="tb-invalid" id="tb-name-error" role="alert">
-                    {errors.name}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="tb-field">
-              <span className="tb-label" id="tb-emoji-label">
-                Emoji
-              </span>
-              <div className="tb-emoji-row">
-                <ChoiceGroup
-                  label="Team emoji"
-                  value={
-                    (TEAM_EMOJI as readonly string[]).includes(draft.emoji)
-                      ? draft.emoji
-                      : ''
-                  }
-                  onChange={(emoji) => setDraft({ ...draft, emoji })}
-                  className="tb-emoji-grid"
-                  optionClassName="tb-emoji"
-                  options={TEAM_EMOJI.map((emoji) => ({
-                    value: emoji,
-                    label: emoji,
-                    content: <span aria-hidden>{emoji}</span>,
-                  }))}
-                />
-                <label className="tb-emoji-own">
-                  <span>Or your own</span>
+            <section className="tb-section" aria-labelledby="tb-identity-title">
+              <header className="tb-section-head">
+                <span className="tb-eyebrow">Identity</span>
+                <h3 id="tb-identity-title">Name and look</h3>
+              </header>
+              <div className="tb-identity">
+                <span className="tb-badge" aria-hidden>
+                  {draft.emoji || '✨'}
+                </span>
+                <div className="tb-field tb-name">
+                  <label htmlFor="tb-name">Team name</label>
                   <input
-                    className="dlg-input tb-emoji-input"
-                    value={draft.emoji}
-                    maxLength={16}
-                    aria-label="Type your own emoji"
-                    aria-invalid={!!errors.emoji}
-                    aria-describedby={
-                      errors.emoji ? 'tb-emoji-error' : undefined
-                    }
+                    id="tb-name"
+                    className="dlg-input dlg-input-lg"
+                    value={draft.name}
+                    maxLength={60}
+                    placeholder="Launch crew"
+                    aria-invalid={!!errors.name}
+                    aria-describedby={errors.name ? 'tb-name-error' : undefined}
                     onChange={(event) =>
-                      setDraft({ ...draft, emoji: event.target.value.trim() })
+                      setDraft({ ...draft, name: event.target.value })
                     }
                   />
-                </label>
+                  {errors.name && (
+                    <p className="tb-invalid" id="tb-name-error" role="alert">
+                      {errors.name}
+                    </p>
+                  )}
+                </div>
               </div>
-              {errors.emoji && (
-                <p className="tb-invalid" id="tb-emoji-error" role="alert">
-                  {errors.emoji}
-                </p>
-              )}
-            </div>
-            <div className="tb-field">
-              <span className="tb-label">Colour</span>
-              <div className="dot-color-picker">
-                <TeamColorPicker
-                  value={draft.color}
-                  onChange={(color) => setDraft({ ...draft, color })}
+              <div className="tb-look">
+                <div className="tb-field">
+                  <span className="tb-label" id="tb-emoji-label">
+                    Emoji
+                  </span>
+                  <div className="tb-emoji-row">
+                    <ChoiceGroup
+                      label="Team emoji"
+                      value={
+                        (TEAM_EMOJI as readonly string[]).includes(draft.emoji)
+                          ? draft.emoji
+                          : ''
+                      }
+                      onChange={(emoji) => setDraft({ ...draft, emoji })}
+                      className="tb-emoji-grid"
+                      optionClassName="tb-emoji"
+                      options={TEAM_EMOJI.map((emoji) => ({
+                        value: emoji,
+                        label: emoji,
+                        content: <span aria-hidden>{emoji}</span>,
+                      }))}
+                    />
+                    <label className="tb-emoji-own">
+                      <span>Or your own</span>
+                      <input
+                        className="dlg-input tb-emoji-input"
+                        value={draft.emoji}
+                        maxLength={16}
+                        aria-label="Type your own emoji"
+                        aria-invalid={!!errors.emoji}
+                        aria-describedby={
+                          errors.emoji ? 'tb-emoji-error' : undefined
+                        }
+                        onChange={(event) =>
+                          setDraft({
+                            ...draft,
+                            emoji: event.target.value.trim(),
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                  {errors.emoji && (
+                    <p className="tb-invalid" id="tb-emoji-error" role="alert">
+                      {errors.emoji}
+                    </p>
+                  )}
+                </div>
+                <div className="tb-field">
+                  <span className="tb-label">Colour</span>
+                  <div className="dot-color-picker">
+                    <TeamColorPicker
+                      value={draft.color}
+                      onChange={(color) => setDraft({ ...draft, color })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="tb-field">
+                <label htmlFor="tb-description">
+                  What is this team for? <small>(optional)</small>
+                </label>
+                <textarea
+                  id="tb-description"
+                  className="dlg-input dlg-textarea tb-desc"
+                  rows={2}
+                  maxLength={500}
+                  value={draft.description}
+                  placeholder="Plans and ships our product launches."
+                  onChange={(event) =>
+                    setDraft({ ...draft, description: event.target.value })
+                  }
                 />
               </div>
-            </div>
-            <div className="tb-field">
-              <label htmlFor="tb-description">
-                What is this team for? <small>(optional)</small>
-              </label>
-              <textarea
-                id="tb-description"
-                className="dlg-input dlg-textarea tb-desc"
-                rows={2}
-                maxLength={500}
-                value={draft.description}
-                placeholder="Plans and ships our product launches."
-                onChange={(event) =>
-                  setDraft({ ...draft, description: event.target.value })
-                }
-              />
-            </div>
+            </section>
 
-            <section className="tb-cast" aria-labelledby="tb-cast-title">
-              <div className="tb-cast-head">
+            <section
+              className="tb-section tb-cast"
+              aria-labelledby="tb-cast-title"
+            >
+              <header className="tb-section-head">
+                <span className="tb-eyebrow">Members</span>
                 <h3 id="tb-cast-title">Who is on the team</h3>
                 <p>
                   Drag Dots onto the stage or press Add. The first one leads; up
                   to {MAX_TEAM_MEMBERS} more orbit around it.
                 </p>
-              </div>
+              </header>
               <div className="tb-cast-grid">
                 <div
                   className={`tb-stage ${dropping ? 'dropping' : ''}`}
@@ -455,135 +470,153 @@ export function TeamBuilder({
                 </div>
               </div>
 
-              {lead && (
-                <div className="tb-lead-row">
-                  <span className="tb-row-face">
-                    <Mascot
-                      identity={lead}
-                      color={dots.find((dot) => dot.id === lead)?.color}
-                      name={dotName(lead)}
-                      small
-                      decorative
-                    />
-                  </span>
-                  <span className="tb-row-name">
-                    <Crown size={13} aria-hidden /> {dotName(lead)}
-                    <small>Lead: talks with you and plans the work</small>
-                  </span>
-                  <button
-                    type="button"
-                    className="tb-icon-btn"
-                    aria-label={`Remove ${dotName(lead)} from the team`}
-                    title="Remove"
-                    onClick={() => remove(lead)}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
-              {draft.members.length > 0 && (
-                <ol
-                  className="tb-members"
-                  aria-label="Members, in working order"
-                >
-                  {draft.members.map((member, index) => {
-                    const name = dotName(member.dotId);
-                    const dot = dots.find((item) => item.id === member.dotId);
-                    return (
-                      <li
-                        key={member.dotId}
-                        className="tb-member"
-                        draggable
-                        onDragStart={(event) => dragStart(event, member.dotId)}
-                      >
+              {(lead || draft.members.length > 0) && (
+                <div className="tb-roster">
+                  {lead && (
+                    <div className="tb-lead-row">
+                      <span className="tb-lead-mark" aria-hidden>
+                        <Crown size={14} />
+                      </span>
+                      <span className="tb-row-face">
+                        <Mascot
+                          identity={lead}
+                          color={dots.find((dot) => dot.id === lead)?.color}
+                          name={dotName(lead)}
+                          small
+                          decorative
+                        />
+                      </span>
+                      <span className="tb-row-name">
+                        {dotName(lead)}
+                        <span className="tb-tag">Lead</span>
+                        <small>Talks with you and plans the work</small>
+                      </span>
+                      <span className="tb-row-actions">
                         <button
                           type="button"
-                          className="tb-handle"
-                          ref={(node) => {
-                            handles.current.set(member.dotId, node);
-                          }}
-                          aria-label={`${name}, place ${index + 1} of ${draft.members.length}. Arrow keys move it.`}
-                          aria-keyshortcuts="ArrowUp ArrowDown Home End"
-                          onKeyDown={(event) => {
-                            const to = orderKey(
-                              event.key,
-                              index,
-                              draft.members.length,
-                            );
-                            if (to === undefined) return;
-                            event.preventDefault();
-                            move(index, to);
-                          }}
+                          className="tb-icon-btn"
+                          aria-label={`Remove ${dotName(lead)} from the team`}
+                          title="Remove"
+                          onClick={() => remove(lead)}
                         >
-                          <GripVertical size={14} aria-hidden />
-                          <span>{index + 1}</span>
+                          <X size={14} />
                         </button>
-                        <span className="tb-row-face">
-                          <Mascot
-                            identity={member.dotId}
-                            color={dot?.color}
-                            name={name}
-                            small
-                            decorative
-                          />
-                        </span>
-                        <span className="tb-row-name">{name}</span>
-                        <input
-                          className="dlg-input tb-role"
-                          value={member.role}
-                          maxLength={TEAM_ROLE_MAX}
-                          placeholder="Role, e.g. finds sources"
-                          aria-label={`${name}'s role on the team`}
-                          onChange={(event) =>
-                            setDraft(
-                              setRole(draft, member.dotId, event.target.value),
-                            )
-                          }
-                        />
-                        <span className="tb-row-actions">
-                          <button
-                            type="button"
-                            className="tb-icon-btn"
-                            aria-label={`Move ${name} up`}
-                            title="Move up"
-                            disabled={index === 0}
-                            onClick={() => move(index, index - 1)}
+                      </span>
+                    </div>
+                  )}
+                  {draft.members.length > 0 && (
+                    <ol
+                      className="tb-members"
+                      aria-label="Members, in working order"
+                    >
+                      {draft.members.map((member, index) => {
+                        const name = dotName(member.dotId);
+                        const dot = dots.find(
+                          (item) => item.id === member.dotId,
+                        );
+                        return (
+                          <li
+                            key={member.dotId}
+                            className="tb-member"
+                            draggable
+                            onDragStart={(event) =>
+                              dragStart(event, member.dotId)
+                            }
                           >
-                            <ArrowUp size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="tb-icon-btn"
-                            aria-label={`Move ${name} down`}
-                            title="Move down"
-                            disabled={index === draft.members.length - 1}
-                            onClick={() => move(index, index + 1)}
-                          >
-                            <ArrowDown size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="tb-icon-btn"
-                            aria-label={`Make ${name} the lead`}
-                            title="Make lead"
-                            onClick={() => promote(member.dotId)}
-                          >
-                            <Crown size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="tb-icon-btn"
-                            aria-label={`Remove ${name} from the team`}
-                            title="Remove"
-                            onClick={() => remove(member.dotId)}
-                          >
-                            <X size={14} />
-                          </button>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ol>
+                            <button
+                              type="button"
+                              className="tb-handle"
+                              ref={(node) => {
+                                handles.current.set(member.dotId, node);
+                              }}
+                              aria-label={`${name}, place ${index + 1} of ${draft.members.length}. Arrow keys move it.`}
+                              aria-keyshortcuts="ArrowUp ArrowDown Home End"
+                              onKeyDown={(event) => {
+                                const to = orderKey(
+                                  event.key,
+                                  index,
+                                  draft.members.length,
+                                );
+                                if (to === undefined) return;
+                                event.preventDefault();
+                                move(index, to);
+                              }}
+                            >
+                              <GripVertical size={14} aria-hidden />
+                              <span>{index + 1}</span>
+                            </button>
+                            <span className="tb-row-face">
+                              <Mascot
+                                identity={member.dotId}
+                                color={dot?.color}
+                                name={name}
+                                small
+                                decorative
+                              />
+                            </span>
+                            <span className="tb-row-name">{name}</span>
+                            <input
+                              className="dlg-input tb-role"
+                              value={member.role}
+                              maxLength={TEAM_ROLE_MAX}
+                              placeholder="Role, e.g. finds sources"
+                              aria-label={`${name}'s role on the team`}
+                              onChange={(event) =>
+                                setDraft(
+                                  setRole(
+                                    draft,
+                                    member.dotId,
+                                    event.target.value,
+                                  ),
+                                )
+                              }
+                            />
+                            <span className="tb-row-actions">
+                              <button
+                                type="button"
+                                className="tb-icon-btn"
+                                aria-label={`Move ${name} up`}
+                                title="Move up"
+                                disabled={index === 0}
+                                onClick={() => move(index, index - 1)}
+                              >
+                                <ArrowUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="tb-icon-btn"
+                                aria-label={`Move ${name} down`}
+                                title="Move down"
+                                disabled={index === draft.members.length - 1}
+                                onClick={() => move(index, index + 1)}
+                              >
+                                <ArrowDown size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="tb-icon-btn"
+                                aria-label={`Make ${name} the lead`}
+                                title="Make lead"
+                                onClick={() => promote(member.dotId)}
+                              >
+                                <Crown size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="tb-icon-btn"
+                                aria-label={`Remove ${name} from the team`}
+                                title="Remove"
+                                onClick={() => remove(member.dotId)}
+                              >
+                                <X size={14} />
+                              </button>
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+                </div>
               )}
               <p className="tb-sr" aria-live="polite">
                 {announcement}
@@ -595,138 +628,151 @@ export function TeamBuilder({
               )}
             </section>
 
-            <div className="tb-field">
-              <span className="tb-label" id="tb-style-label">
-                How they work
-              </span>
-              <ChoiceGroup
-                label="Work style"
-                value={draft.style}
-                onChange={(style) => setDraft({ ...draft, style })}
-                className="tb-cards tb-styles"
-                optionClassName="tb-card"
-                options={(['parallel', 'sequential', 'review'] as const).map(
-                  (style) => ({
-                    value: style,
-                    label: STYLE_TEXT[style].title,
+            <section className="tb-section" aria-labelledby="tb-work-title">
+              <header className="tb-section-head">
+                <span className="tb-eyebrow">Workflow</span>
+                <h3 id="tb-work-title">How the team works</h3>
+              </header>
+              <div className="tb-field">
+                <span className="tb-label" id="tb-style-label">
+                  How they work
+                </span>
+                <ChoiceGroup
+                  label="Work style"
+                  value={draft.style}
+                  onChange={(style) => setDraft({ ...draft, style })}
+                  className="tb-cards tb-styles"
+                  optionClassName="tb-card"
+                  options={(['parallel', 'sequential', 'review'] as const).map(
+                    (style) => ({
+                      value: style,
+                      label: STYLE_TEXT[style].title,
+                      content: (
+                        <>
+                          <span className="tb-card-art" aria-hidden>
+                            <StyleDiagram style={style} color={draft.color} />
+                          </span>
+                          <strong>{STYLE_TEXT[style].title}</strong>
+                          <small>{STYLE_TEXT[style].text}</small>
+                        </>
+                      ),
+                    }),
+                  )}
+                />
+                {draft.style === 'review' && (
+                  <div className="tb-reviewer">
+                    <span className="tb-label" id="tb-reviewer-label">
+                      Who reviews
+                    </span>
+                    {reviewerChoices(draft, dots).length ? (
+                      <ChoiceGroup
+                        label="Who reviews the members’ work"
+                        value={draft.reviewerDotId ?? ''}
+                        onChange={(reviewerDotId) =>
+                          setDraft({ ...draft, reviewerDotId })
+                        }
+                        className="tb-reviewer-grid"
+                        optionClassName="tb-reviewer-option"
+                        options={reviewerChoices(draft, dots).map((dot) => ({
+                          value: dot.id,
+                          label: `${dot.name} reviews`,
+                          content: (
+                            <>
+                              <Mascot
+                                identity={dot.id}
+                                color={dot.color}
+                                name={dot.name}
+                                small
+                                decorative
+                                state={
+                                  draft.reviewerDotId === dot.id
+                                    ? 'reviewing'
+                                    : 'idle'
+                                }
+                              />
+                              <span>{dot.name}</span>
+                            </>
+                          ),
+                        }))}
+                      />
+                    ) : (
+                      <p className="tb-hint">
+                        The reviewer is a Dot that is not on the team. Create
+                        one more Dot to review.
+                      </p>
+                    )}
+                    <p className="tb-hint">
+                      After the members finish, it checks and improves their
+                      work. It can send it back once.
+                    </p>
+                    {errors.reviewer && (
+                      <p className="tb-invalid" role="alert">
+                        {errors.reviewer}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="tb-field">
+                <span className="tb-label" id="tb-mode-label">
+                  Who plans the work
+                </span>
+                <ChoiceGroup
+                  label="Who plans the work"
+                  value={draft.mode}
+                  onChange={(mode) => setDraft({ ...draft, mode })}
+                  className="tb-cards tb-modes"
+                  optionClassName="tb-card tb-mode"
+                  options={(['lead', 'direct'] as const).map((mode) => ({
+                    value: mode,
+                    label: MODE_TEXT[mode].title,
                     content: (
                       <>
-                        <StyleDiagram style={style} color={draft.color} />
-                        <strong>{STYLE_TEXT[style].title}</strong>
-                        <small>{STYLE_TEXT[style].text}</small>
+                        <strong>{MODE_TEXT[mode].title}</strong>
+                        <small>{MODE_TEXT[mode].text}</small>
                       </>
                     ),
-                  }),
+                  }))}
+                />
+                {draft.mode === 'direct' && (
+                  <Switch
+                    checked={draft.summarize}
+                    onChange={(summarize) => setDraft({ ...draft, summarize })}
+                    label="Lead summarises"
+                    hint="After the answers arrive, the lead adds one short summary."
+                  />
                 )}
-              />
-              {draft.style === 'review' && (
-                <div className="tb-reviewer">
-                  <span className="tb-label" id="tb-reviewer-label">
-                    Who reviews
-                  </span>
-                  {reviewerChoices(draft, dots).length ? (
-                    <ChoiceGroup
-                      label="Who reviews the members’ work"
-                      value={draft.reviewerDotId ?? ''}
-                      onChange={(reviewerDotId) =>
-                        setDraft({ ...draft, reviewerDotId })
-                      }
-                      className="tb-reviewer-grid"
-                      optionClassName="tb-reviewer-option"
-                      options={reviewerChoices(draft, dots).map((dot) => ({
-                        value: dot.id,
-                        label: `${dot.name} reviews`,
-                        content: (
-                          <>
-                            <Mascot
-                              identity={dot.id}
-                              color={dot.color}
-                              name={dot.name}
-                              small
-                              decorative
-                              state={
-                                draft.reviewerDotId === dot.id
-                                  ? 'reviewing'
-                                  : 'idle'
-                              }
-                            />
-                            <span>{dot.name}</span>
-                          </>
-                        ),
-                      }))}
-                    />
-                  ) : (
-                    <p className="tb-hint">
-                      The reviewer is a Dot that is not on the team. Create one
-                      more Dot to review.
-                    </p>
-                  )}
+              </div>
+            </section>
+            <section className="tb-section" aria-labelledby="tb-space-title">
+              <header className="tb-section-head">
+                <span className="tb-eyebrow">Home</span>
+                <h3 id="tb-space-title">Team space</h3>
+              </header>
+              <div className="tb-field">
+                {draft.hasSpace ? (
                   <p className="tb-hint">
-                    After the members finish, it checks and improves their work.
-                    It can send it back once.
+                    This team has its own Space: its Dots can use it and team
+                    chats save pages there.
                   </p>
-                  {errors.reviewer && (
-                    <p className="tb-invalid" role="alert">
-                      {errors.reviewer}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="tb-field">
-              <span className="tb-label" id="tb-mode-label">
-                Who plans the work
-              </span>
-              <ChoiceGroup
-                label="Who plans the work"
-                value={draft.mode}
-                onChange={(mode) => setDraft({ ...draft, mode })}
-                className="tb-cards tb-modes"
-                optionClassName="tb-card tb-mode"
-                options={(['lead', 'direct'] as const).map((mode) => ({
-                  value: mode,
-                  label: MODE_TEXT[mode].title,
-                  content: (
-                    <>
-                      <strong>{MODE_TEXT[mode].title}</strong>
-                      <small>{MODE_TEXT[mode].text}</small>
-                    </>
-                  ),
-                }))}
-              />
-              {draft.mode === 'direct' && (
-                <Switch
-                  checked={draft.summarize}
-                  onChange={(summarize) => setDraft({ ...draft, summarize })}
-                  label="Lead summarises"
-                  hint="After the answers arrive, the lead adds one short summary."
-                />
-              )}
-            </div>
-            <div className="tb-field">
-              <span className="tb-label">Team space</span>
-              {draft.hasSpace ? (
-                <p className="tb-hint">
-                  This team has its own Space: its Dots can use it and team
-                  chats save pages there.
-                </p>
-              ) : (
-                <Switch
-                  checked={draft.space}
-                  onChange={(space) => setDraft({ ...draft, space })}
-                  label="Create a team space"
-                  hint="A Space named after the team. Every Dot on it gets access (and loses only that access when it leaves), and team chats save pages there."
-                />
-              )}
-              {(draft.hasSpace || draft.space) && (
-                <Switch
-                  checked={draft.runLog}
-                  onChange={(runLog) => setDraft({ ...draft, runLog })}
-                  label="Keep a run log"
-                  hint="Each finished run writes a page into the team space: your request, every deliverable and links to the chats."
-                />
-              )}
-            </div>
+                ) : (
+                  <Switch
+                    checked={draft.space}
+                    onChange={(space) => setDraft({ ...draft, space })}
+                    label="Create a team space"
+                    hint="A Space named after the team. Every Dot on it gets access (and loses only that access when it leaves), and team chats save pages there."
+                  />
+                )}
+                {(draft.hasSpace || draft.space) && (
+                  <Switch
+                    checked={draft.runLog}
+                    onChange={(runLog) => setDraft({ ...draft, runLog })}
+                    label="Keep a run log"
+                    hint="Each finished run writes a page into the team space: your request, every deliverable and links to the chats."
+                  />
+                )}
+              </div>
+            </section>
           </div>
           <footer className="dlg-footer">
             {error && (

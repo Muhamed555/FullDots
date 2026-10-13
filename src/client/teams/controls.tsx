@@ -113,9 +113,7 @@ export function TeamColorPicker({
           <span
             className="tb-swatch"
             title={colorLabel(color)}
-            style={{
-              background: `radial-gradient(circle at 35% 30%, var(--dot-${color}-light), var(--dot-${color}-base) 60%, var(--dot-${color}-dark))`,
-            }}
+            style={{ background: `var(--dot-${color}-base)` }}
           />
         ),
       }))}

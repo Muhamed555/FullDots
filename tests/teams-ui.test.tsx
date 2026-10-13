@@ -1,6 +1,7 @@
 // P4 named teams in the client: the sidebar section, the builder (radio groups, keyboard helpers),
 // the team page, the Dot dialog's "Can hand work to", the team chat banner, palette actions and the
 // #/team/<id> hash.
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('../src/client/api', () => ({
@@ -538,5 +539,40 @@ describe('palette and navigation', () => {
       teamId: 'a b',
     });
     expect(parseAppHash('#/team/')).toBeUndefined();
+  });
+});
+
+describe('flat, calm look', () => {
+  it('uses no colour gradients in the Teams styles or the builder markup', () => {
+    for (const file of [
+      '../src/client/teams/teams.css',
+      '../src/client/lanes/team-run.css',
+    ])
+      expect(
+        readFileSync(new URL(file, import.meta.url), 'utf8'),
+      ).not.toContain('gradient(');
+    const html = renderToStaticMarkup(
+      <TeamBuilder dots={dots} teams={[]} onClose={noop} onSaved={noop} />,
+    );
+    expect(html).not.toContain('gradient(');
+    for (const title of ['Name and look', 'Who is on the team', 'Team space'])
+      expect(html).toContain(title);
+  });
+
+  it('marks the lead with a crown and a Lead tag in one roster with the members', () => {
+    const html = renderToStaticMarkup(
+      <TeamBuilder
+        dots={dots}
+        teams={[]}
+        onClose={noop}
+        onSaved={noop}
+        initial={['lead', 'scout'].reduce(addToTeam, emptyDraft())}
+      />,
+    );
+    const roster = html.slice(html.indexOf('class="tb-roster"'));
+    expect(roster).toContain('class="tb-lead-row"');
+    expect(roster).toContain('class="tb-tag">Lead<');
+    expect(roster).toContain('aria-label="Members, in working order"');
+    expect(html).toContain('aria-label="Remove Captain from the team"');
   });
 });

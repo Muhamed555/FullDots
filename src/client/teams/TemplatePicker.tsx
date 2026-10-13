@@ -2,7 +2,6 @@
 // in their colours). Choosing one shows what it creates, a name and "Create a team space", and
 // POST /api/teams/from-template makes the Dots and the team in one go.
 import { useState } from 'react';
-import { Sparkles } from 'lucide-react';
 import {
   TEAM_TEMPLATES,
   freeName,
@@ -60,9 +59,11 @@ export function TemplatePicker({
   };
   return (
     <section className="tb-templates" aria-labelledby="tb-templates-title">
-      <h3 id="tb-templates-title">
-        <Sparkles size={15} aria-hidden /> Start from a template
-      </h3>
+      <header className="tb-section-head">
+        <span className="tb-eyebrow">Quick start</span>
+        <h3 id="tb-templates-title">Start from a template</h3>
+        <p>Ready-made Dots and roles. You can change everything later.</p>
+      </header>
       <ul className="tb-template-row">
         {TEAM_TEMPLATES.map((template) => (
           <li key={template.id}>
@@ -70,12 +71,6 @@ export function TemplatePicker({
               type="button"
               className={`tb-template${chosen?.id === template.id ? ' chosen' : ''}`}
               aria-pressed={chosen?.id === template.id}
-              style={
-                {
-                  '--template-color': `var(--dot-${template.color}-base)`,
-                  '--template-light': `var(--dot-${template.color}-light)`,
-                } as never
-              }
               onClick={() => choose(template)}
             >
               <span className="tb-template-cast" aria-hidden>

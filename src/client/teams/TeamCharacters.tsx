@@ -1,6 +1,7 @@
 // A team drawn with its Dots' own characters: a small overlapping stack for rows, and an orbit
 // (the lead in the centre ring, members circling it) for the builder stage and the team page.
 import type { CSSProperties, ReactNode } from 'react';
+import { Crown } from 'lucide-react';
 import type { Dot } from '../../shared/types';
 import { Mascot } from '../Mascot';
 import { orbitAngles } from './builder-model';
@@ -132,7 +133,9 @@ export function TeamOrbit({
       <div className="team-orbit-center" aria-hidden>
         {leadDotId ? (
           <>
-            <span className="team-orbit-crown">★</span>
+            <span className="team-orbit-crown">
+              <Crown size={12} strokeWidth={2.25} />
+            </span>
             <Mascot
               identity={leadDotId}
               color={lead?.color}
