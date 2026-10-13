@@ -1,0 +1,70 @@
+/* The Dot colour picker: round swatches plus an Automatic pill, built on the design tokens. */
+.dot-color-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.dot-color-picker .dcp-preview {
+  display: block;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+.dot-color-picker .dcp-preview .mascot {
+  width: 100%;
+  height: 100%;
+}
+.dot-color-picker .dcp-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.dot-color-picker .dcp-option {
+  padding: 0;
+  border: 2px solid transparent;
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.dot-color-picker .dcp-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1px #00000026;
+}
+.dot-color-picker .dcp-swatch:hover:not(:disabled) {
+  transform: scale(1.12);
+}
+.dot-color-picker .dcp-auto {
+  height: 28px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.dot-color-picker .dcp-option[aria-checked='true'] {
+  border-color: var(--surface);
+  box-shadow:
+    0 0 0 2px var(--ink),
+    inset 0 0 0 1px #00000026;
+}
+.dot-color-picker .dcp-auto[aria-checked='true'] {
+  color: var(--ink);
+  border-color: var(--ink);
+  box-shadow: none;
+}
+.dot-color-picker .dcp-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot-color-picker .dcp-option {
+    transition: none;
+  }
+  .dot-color-picker .dcp-swatch:hover:not(:disabled) {
+    transform: none;
+  }
+}

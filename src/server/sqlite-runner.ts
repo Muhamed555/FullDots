@@ -12,6 +12,7 @@ import {
   type BaseEvent,
   type Message,
 } from '@ag-ui/client';
+import type { TurnFinishStatus } from '../shared/live-events.js';
 import {
   AgentRunner,
   finalizeRunEvents,
@@ -29,6 +30,14 @@ interface ActiveRun {
   stopRequested: boolean;
 }
 
+/** A stored run, reported once its events are saved and the thread is no longer running. */
+export interface FinishedRun {
+  threadId: string;
+  runId: string;
+  agentId: string;
+  status: TurnFinishStatus;
+}
+
 export class ThreadRunningError extends Error {
   constructor() {
     super('Conversation is running. Stop it before deleting.');
@@ -41,6 +50,7 @@ export class SqliteAgentRunner extends AgentRunner {
   // Run state is process-local on purpose: a crash must not leave a thread
   // marked as running forever.
   private active = new Map<string, ActiveRun>();
+  private finishedListeners = new Set<(run: FinishedRun) => void>();
 
   constructor(path: string) {
     super();
@@ -49,7 +59,8 @@ export class SqliteAgentRunner extends AgentRunner {
     this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS chat_runs(id INTEGER PRIMARY KEY AUTOINCREMENT, threadId TEXT NOT NULL, runId TEXT NOT NULL UNIQUE, agentId TEXT NOT NULL, events TEXT NOT NULL, createdAt INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS chat_runs_thread ON chat_runs(threadId, id);
-      CREATE TABLE IF NOT EXISTS chat_threads(threadId TEXT PRIMARY KEY, agentId TEXT NOT NULL, messages TEXT NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL);`);
+      CREATE TABLE IF NOT EXISTS chat_threads(threadId TEXT PRIMARY KEY, agentId TEXT NOT NULL, messages TEXT NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS thread_authors(threadId TEXT NOT NULL, messageId TEXT NOT NULL, agentId TEXT NOT NULL, PRIMARY KEY(threadId, messageId));`);
   }
 
   close() {
@@ -91,6 +102,14 @@ export class SqliteAgentRunner extends AgentRunner {
              ON CONFLICT(threadId) DO UPDATE SET messages=excluded.messages, updatedAt=excluded.updatedAt`,
           )
           .run(threadId, agentId, JSON.stringify(messages), now, now);
+      // Which Dot wrote which reply: the assistant messages this run produced.
+      if (agentId)
+        for (const messageId of runAssistantIds(events, messages))
+          this.db
+            .prepare(
+              'INSERT OR IGNORE INTO thread_authors(threadId, messageId, agentId) VALUES (?, ?, ?)',
+            )
+            .run(threadId, messageId, agentId);
       this.db.exec('COMMIT');
     } catch (error) {
       this.db.exec('ROLLBACK');
@@ -161,6 +180,16 @@ export class SqliteAgentRunner extends AgentRunner {
       this.active.delete(threadId);
       state.agent = undefined;
       subject.complete();
+      this.finished({
+        threadId,
+        runId: input.runId,
+        agentId: agent.agentId ?? '',
+        status: state.stopRequested
+          ? 'stopped'
+          : events.some((event) => event.type === EventType.RUN_ERROR)
+            ? 'failed'
+            : 'completed',
+      });
     };
     void agent
       .runAgent(input, {
@@ -205,6 +234,36 @@ export class SqliteAgentRunner extends AgentRunner {
       });
     else subject.complete();
     return subject.asObservable();
+  }
+
+  /** Called once per run, after it is stored and the thread is no longer running. */
+  onRunFinished(listener: (run: FinishedRun) => void): () => void {
+    this.finishedListeners.add(listener);
+    return () => this.finishedListeners.delete(listener);
+  }
+
+  private finished(run: FinishedRun) {
+    for (const listener of this.finishedListeners)
+      try {
+        listener(run);
+      } catch (error) {
+        console.error(
+          'Run finished listener failed:',
+          error instanceof Error ? error.message : 'unknown error',
+        );
+      }
+  }
+
+  /** The Dot that wrote each assistant message of a thread, by message id. */
+  authors(threadId: string): Record<string, string> {
+    return Object.fromEntries(
+      this.db
+        .prepare(
+          'SELECT messageId, agentId FROM thread_authors WHERE threadId=?',
+        )
+        .all(threadId)
+        .map((row) => [String(row.messageId), String(row.agentId)]),
+    );
   }
 
   isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean> {
@@ -279,6 +338,9 @@ export class SqliteAgentRunner extends AgentRunner {
       this.db
         .prepare('DELETE FROM chat_threads WHERE threadId=?')
         .run(threadId);
+      this.db
+        .prepare('DELETE FROM thread_authors WHERE threadId=?')
+        .run(threadId);
       this.db.exec('COMMIT');
     } catch (error) {
       this.db.exec('ROLLBACK');
@@ -287,6 +349,27 @@ export class SqliteAgentRunner extends AgentRunner {
   }
 
   clearThreads() {
-    this.db.exec('DELETE FROM chat_runs; DELETE FROM chat_threads;');
+    this.db.exec(
+      'DELETE FROM chat_runs; DELETE FROM chat_threads; DELETE FROM thread_authors;',
+    );
   }
+}
+
+/** Ids of the assistant messages a run produced: stored in the thread and named by its events. */
+function runAssistantIds(events: BaseEvent[], messages: Message[]): string[] {
+  const mentioned = new Set<string>();
+  for (const event of events) {
+    const ids = event as BaseEvent & {
+      messageId?: unknown;
+      parentMessageId?: unknown;
+    };
+    if (typeof ids.messageId === 'string') mentioned.add(ids.messageId);
+    if (typeof ids.parentMessageId === 'string')
+      mentioned.add(ids.parentMessageId);
+  }
+  return messages
+    .filter(
+      (message) => message.role === 'assistant' && mentioned.has(message.id),
+    )
+    .map((message) => message.id);
 }

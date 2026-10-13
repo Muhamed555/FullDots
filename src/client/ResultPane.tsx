@@ -170,6 +170,7 @@ export function ResultPane({
         <div className="pane-empty">
           <Mascot
             identity={defaultDotId}
+            color={dots.find((dot) => dot.id === defaultDotId)?.color}
             name={dots.find((dot) => dot.id === defaultDotId)?.name}
             state={dotState}
           />

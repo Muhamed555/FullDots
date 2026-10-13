@@ -9,7 +9,7 @@ import {
   deriveTitle,
   hasDefaultTitle,
 } from '../shared/conversation-title.js';
-import type { ConversationSummary } from '../shared/types.js';
+import { DOT_COLORS, type ConversationSummary } from '../shared/types.js';
 const dotSchema = z
   .object({
     name: z.string().trim().min(1).max(40),
@@ -36,6 +36,8 @@ const dotSchema = z
       .nullable()
       .optional(),
     approvalMode: z.enum(['sensitive', 'writes', 'off']).optional(),
+    // null clears the colour: the palette then follows the Dot's id again.
+    color: z.enum(DOT_COLORS).nullable().optional(),
   })
   .strict();
 const conversationPatch = z
@@ -231,6 +233,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         data.data.model ?? null,
         data.data.approvalMode ?? 'sensitive',
         data.data.modelProviderId ?? null,
+        data.data.color ?? null,
       ),
       201,
     );

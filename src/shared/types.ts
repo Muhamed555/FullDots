@@ -154,6 +154,18 @@ export interface Space {
   description: string;
   createdAt: number;
 }
+/** Per-Dot colour palettes. A Dot without one gets a palette derived from its id. */
+export const DOT_COLORS = [
+  'indigo',
+  'mint',
+  'coral',
+  'lilac',
+  'amber',
+  'sky',
+  'rose',
+  'moss',
+] as const;
+export type DotColor = (typeof DOT_COLORS)[number];
 export interface Dot {
   id: string;
   /** Default destination for saved pages, not ownership. */
@@ -172,6 +184,8 @@ export interface Dot {
   modelProviderId?: string | null;
   /** When to ask the owner before acting; null/undefined means 'sensitive'. */
   approvalMode?: ApprovalMode | null;
+  /** Chosen palette; unset means the palette derived from the id. */
+  color?: DotColor;
 }
 export interface Conversation {
   id: string;

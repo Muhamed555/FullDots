@@ -14,15 +14,21 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type {
-  ApprovalMode,
-  CallReceipt,
-  Conversation,
-  Dot,
-  Space,
+import {
+  DOT_COLORS,
+  type ApprovalMode,
+  type CallReceipt,
+  type Conversation,
+  type Dot,
+  type DotColor,
+  type Space,
 } from '../shared/types.js';
 /** A call still marked active after this long is treated as abandoned. */
 const LIVE_CALL_MS = 60 * 60 * 1000;
+/** NULL (every Dot from before colours) or an unknown value leaves the palette to the Dot's id. */
+function knownColor<T extends { color?: unknown }>({ color, ...row }: T) {
+  return DOT_COLORS.includes(color as DotColor) ? { ...row, color } : row;
+}
 export class WorkspaceStore {
   private db: DatabaseSync;
   readonly pages: Pages;
@@ -59,6 +65,7 @@ export class WorkspaceStore {
       ['dots', 'approvalMode', 'TEXT'],
       ['dots', 'paused', 'INTEGER NOT NULL DEFAULT 0'],
       ['dots', 'modelProviderId', 'TEXT'],
+      ['dots', 'color', 'TEXT'],
     ]) {
       if (
         !this.db
@@ -146,7 +153,7 @@ export class WorkspaceStore {
         // Columns from the removed Automatic Learning feature stay in the table but are not read.
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         .map(({ learningContainerId, skillDeliveryEnabled, ...row }) => ({
-          ...row,
+          ...knownColor(row),
           spaceIds: this.db
             .prepare(
               'SELECT spaceId FROM dot_spaces WHERE dotId=? ORDER BY spaceId',
@@ -174,6 +181,7 @@ export class WorkspaceStore {
     model: string | null = null,
     approvalMode: ApprovalMode = 'sensitive',
     modelProviderId: string | null = null,
+    color: DotColor | null = null,
   ): Dot {
     this.validateSpaceAccess(spaceId, spaceIds);
     const dot: Dot = {
@@ -188,13 +196,14 @@ export class WorkspaceStore {
       modelProviderId,
       approvalMode,
       paused: false,
+      ...(color ? { color } : {}),
       createdAt: Date.now(),
     };
     this.db.exec('BEGIN');
     try {
       this.db
         .prepare(
-          'INSERT INTO dots (id, spaceId, name, instructions, researchAllowed, memoryAllowed, createdAt, model, approvalMode, modelProviderId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO dots (id, spaceId, name, instructions, researchAllowed, memoryAllowed, createdAt, model, approvalMode, modelProviderId, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         )
         .run(
           dot.id,
@@ -207,6 +216,7 @@ export class WorkspaceStore {
           model,
           approvalMode,
           modelProviderId,
+          color,
         );
       for (const id of dot.spaceIds)
         this.db.prepare('INSERT INTO dot_spaces VALUES (?, ?)').run(dot.id, id);
@@ -240,6 +250,8 @@ export class WorkspaceStore {
       model?: string | null;
       modelProviderId?: string | null;
       approvalMode?: ApprovalMode | null;
+      /** Undefined keeps the current colour; null clears it. */
+      color?: DotColor | null;
     },
   ): Dot {
     const current = this.dot(id);
@@ -255,11 +267,13 @@ export class WorkspaceStore {
         : patch.modelProviderId;
     const approvalMode =
       patch.approvalMode ?? current.approvalMode ?? 'sensitive';
+    const color =
+      patch.color === undefined ? (current.color ?? null) : patch.color;
     this.db.exec('BEGIN');
     try {
       this.db
         .prepare(
-          'UPDATE dots SET name=?, instructions=?, researchAllowed=?, memoryAllowed=?, model=?, approvalMode=?, modelProviderId=? WHERE id=?',
+          'UPDATE dots SET name=?, instructions=?, researchAllowed=?, memoryAllowed=?, model=?, approvalMode=?, modelProviderId=?, color=? WHERE id=?',
         )
         .run(
           patch.name,
@@ -269,6 +283,7 @@ export class WorkspaceStore {
           model,
           approvalMode,
           modelProviderId,
+          color,
           id,
         );
       this.db

@@ -192,8 +192,12 @@ export class DotAgent extends AbstractAgent {
         const { source, ref } = turnOrigin(input.messages);
         // One turn per Dot at a time, whatever started it: the Dot has one computer.
         if (turns)
-          release = turns.acquire(dot.id, input.threadId, source, () =>
-            this.abortRun(),
+          release = turns.acquire(
+            dot.id,
+            input.threadId,
+            source,
+            () => this.abortRun(),
+            input.runId,
           );
         const mode = dot.approvalMode ?? 'sensitive';
         // An approval is valid for the turn it resumed; afterwards a matching action asks again.

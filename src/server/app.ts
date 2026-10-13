@@ -8,6 +8,7 @@ import { usageRoutes } from './usage-routes.js';
 import { hookRoutes, triggerRoutes } from './trigger-routes.js';
 import { teamRoutes } from './team-routes.js';
 import { turnRoutes } from './turn-routes.js';
+import { liveRoutes, workspaceChanges } from './live-routes.js';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { timingSafeEqual } from 'node:crypto';
@@ -99,6 +100,8 @@ export function createApp({
     await next();
   });
   if (platform) {
+    app.use('/api/*', workspaceChanges(platform));
+    app.route('/api', liveRoutes(platform));
     app.route(
       '/api',
       computerRoutes(platform.computers, {

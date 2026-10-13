@@ -24,6 +24,8 @@ import { createNotify, type Notify } from './notify.js';
 import { TriggerService } from './trigger-service.js';
 import { TeamService } from './team-service.js';
 import { included } from './mcp-tools.js';
+import { EventBus } from './events.js';
+import { wireLiveEvents } from './live-wiring.js';
 import type { DotAgentServices } from './dot-agent.js';
 import type { TurnMetadata } from '../shared/types.js';
 const DEFAULT_APPROVAL_TTL_MS = 7 * 24 * 3600_000;
@@ -43,6 +45,8 @@ export class Platform {
   readonly notify: Notify;
   readonly triggers: TriggerService;
   readonly team: TeamService;
+  /** The live event feed (GET /api/events): ids and small enums only. */
+  readonly events = new EventBus();
   constructor(
     readonly store: Store,
     readonly workspace: WorkspaceStore,
@@ -151,6 +155,12 @@ export class Platform {
     });
     // Conversations are stored locally; no hosted thread service is involved.
     this.runner = new SqliteAgentRunner(chatDatabase);
+    wireLiveEvents(this.events, {
+      store,
+      workspace,
+      turns,
+      runner: this.runner,
+    });
     this.pages = new PageService(workspace, () => {
       this.requireReady();
       return {
@@ -262,6 +272,8 @@ export class Platform {
     return undefined;
   }
   async stop() {
+    // Open event streams first: they would otherwise hold the HTTP server's close.
+    this.events.close();
     this.triggers.stop();
     this.resumes.stop();
     this.approvals.stopSweep();

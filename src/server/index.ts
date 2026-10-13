@@ -15,6 +15,7 @@ import type { PlatformConfig } from './platform-config.js';
 import { TurnRegistry } from './turn-registry.js';
 import { goalRunPrompt } from './goal-tools.js';
 import { isDotBusy } from './turn-registry.js';
+import { wakeOnWork } from './live-wiring.js';
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 4310);
 const ownerToken = process.env.OWNER_TOKEN;
@@ -134,6 +135,7 @@ const runner = new Runner(
     },
   },
 );
+wakeOnWork(platform.events, turns, runner);
 const app = createApp({
   store,
   runner,
@@ -174,7 +176,8 @@ const shutdown = createShutdown({
   stopRunner: () => runner.stop(),
   stopPlatform: () => platform.stop(),
   closeServer: () => {
-    // An open live screen would keep the server from finishing its close.
+    // An open live screen or event feed would keep the server from finishing its close.
+    platform.events.close();
     streams.close();
     return new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),

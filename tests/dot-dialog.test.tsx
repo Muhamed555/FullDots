@@ -155,3 +155,18 @@ describe('shared dialog shell', () => {
     expect(about).not.toContain('class="dlg-footer"');
   });
 });
+
+describe('Dot dialog colour', () => {
+  it('offers the colour picker and preselects the Dot colour', () => {
+    const fresh = render({ type: 'dot', spaceId: 's1' });
+    expect(fresh).toContain('aria-label="Dot colour"');
+    expect(fresh.match(/role="radio"/g)).toHaveLength(9);
+    expect(fresh).toMatch(/aria-checked="true"[^>]*aria-label="Automatic"/);
+    const edit = render({
+      type: 'dot',
+      spaceId: 's1',
+      dot: { ...dot, color: 'rose' },
+    });
+    expect(edit).toMatch(/aria-checked="true"[^>]*aria-label="Rose"/);
+  });
+});

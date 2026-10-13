@@ -252,7 +252,13 @@ export function Sidebar({
         >
           {several ? (
             <span className="sb-new-avatar">
-              <Mascot identity={dot.id} name={dot.name} small decorative />
+              <Mascot
+                identity={dot.id}
+                color={dot.color}
+                name={dot.name}
+                small
+                decorative
+              />
             </span>
           ) : (
             <SquarePen size={16} aria-hidden />
@@ -325,6 +331,7 @@ export function Sidebar({
                     <span className="sb-avatar">
                       <Mascot
                         identity={item.id}
+                        color={item.color}
                         name={item.name}
                         small
                         decorative

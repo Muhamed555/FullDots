@@ -25,6 +25,7 @@ import {
   DotConnectorGrants,
   type GrantInput,
 } from './DotConnectorGrants';
+import { DotColorPicker } from './DotColorPicker';
 import { Mascot } from './Mascot';
 import { ModelPicker, modelFields, type ModelChoice } from './ModelPicker';
 import { ModelProvidersSettings } from './ModelProvidersSettings';
@@ -32,6 +33,7 @@ import type {
   ApprovalMode,
   ConnectorView,
   Dot,
+  DotColor,
   DotConnectorGrant,
   Memory,
   State,
@@ -235,6 +237,9 @@ export function WorkspaceDialog({
       ? (dialog.dot?.approvalMode ?? 'sensitive')
       : 'sensitive',
   );
+  const [color, setColor] = useState<DotColor | null>(
+    dialog.type === 'dot' ? (dialog.dot?.color ?? null) : null,
+  );
   const [connectors, setConnectors] = useState<ConnectorView[]>([]);
   const [grants, setGrants] = useState<GrantInput[]>([]);
   const [grantsDirty, setGrantsDirty] = useState(false);
@@ -426,6 +431,7 @@ export function WorkspaceDialog({
                 memoryAllowed: memory,
                 ...modelFields(modelChoice),
                 approvalMode,
+                color,
               };
             }
             if (dialog.type === 'settings') {
@@ -504,6 +510,7 @@ export function WorkspaceDialog({
                     <span className="dlg-avatar">
                       <Mascot
                         identity={dialog.dot?.id}
+                        color={color}
                         name={name || 'New Dot'}
                       />
                     </span>
@@ -524,6 +531,13 @@ export function WorkspaceDialog({
                       <p className="dlg-hint">Each Dot keeps its own colour.</p>
                     </div>
                   </div>
+                  <span className="dlg-label">Colour</span>
+                  <DotColorPicker
+                    value={color}
+                    onChange={setColor}
+                    identity={dialog.dot?.id}
+                    name={name || 'New Dot'}
+                  />
                   <label className="dlg-label" htmlFor="entity-text">
                     Role instructions
                   </label>

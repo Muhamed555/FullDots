@@ -160,7 +160,13 @@ function ChatRow({
       >
         {dot && (
           <span className="sb-chat-dot">
-            <Mascot identity={dot.id} name={dot.name} small decorative />
+            <Mascot
+              identity={dot.id}
+              color={dot.color}
+              name={dot.name}
+              small
+              decorative
+            />
           </span>
         )}
         <span className="sb-chat-title">{chat.title}</span>

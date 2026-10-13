@@ -1,6 +1,7 @@
 // The Dot character and the FullDots mark, drawn as SVG so they stay sharp at every size, keep a
 // transparent background, and can change expression with the Dot's state (see dot-character.css).
 import { useId } from 'react';
+import type { DotColor } from '../shared/types';
 import './dot-character.css';
 
 export const DOT_PALETTES = {
@@ -32,18 +33,52 @@ export const DOT_PALETTES = {
     cheek: '#ff7ab8',
     cheekOpacity: 0.38,
   },
+  amber: {
+    base: '#f2ab2e',
+    light: '#ffe0a0',
+    dark: '#c27d0a',
+    cheek: '#ff7a5c',
+    cheekOpacity: 0.5,
+  },
+  sky: {
+    base: '#4aaee8',
+    light: '#b4e2ff',
+    dark: '#2380bd',
+    cheek: '#ff8fb0',
+    cheekOpacity: 0.55,
+  },
+  rose: {
+    base: '#ee6a98',
+    light: '#ffc4d9',
+    dark: '#c93f72',
+    cheek: '#ff5a82',
+    cheekOpacity: 0.4,
+  },
+  moss: {
+    base: '#7bab55',
+    light: '#cfe9b6',
+    dark: '#568736',
+    cheek: '#ff9a8a',
+    cheekOpacity: 0.5,
+  },
 } as const;
 export type DotPalette = keyof typeof DOT_PALETTES;
 export const DOT_PALETTE_NAMES = Object.keys(DOT_PALETTES) as DotPalette[];
+// Fails to compile if the shared colour list and the palettes drift apart.
+const _palettesMatchColors: Record<DotColor, unknown> = DOT_PALETTES;
+void _palettesMatchColors;
 
-/** idle, working, needs-input, complete or paused; anything else looks idle. */
+/**
+ * idle, working, needs-input, complete, paused, or the hand-off states handing-off, receiving,
+ * reviewing and stopped; anything else looks idle.
+ */
 export type DotState = string;
 
 const EYE = '#1c1f2e';
 
 /**
  * A round Dot with an antenna whose tip is a status light: it glows while the Dot works, turns
- * amber when the Dot needs you, green when it is done and grey when it is paused.
+ * amber when the Dot needs you, green when it is done and grey when it is paused or stopped.
  */
 export function DotCharacter({
   palette = 'indigo',
@@ -87,6 +122,7 @@ export function DotCharacter({
         <ellipse cx="76" cy="170" rx="19" ry="11" fill={p.dark} />
         <ellipse cx="124" cy="170" rx="19" ry="11" fill={p.dark} />
         <ellipse
+          className="dot-arm dot-arm-left"
           cx="33"
           cy="116"
           rx="11"
@@ -95,6 +131,7 @@ export function DotCharacter({
           fill={p.dark}
         />
         <ellipse
+          className="dot-arm dot-arm-right"
           cx="167"
           cy="116"
           rx="11"
@@ -179,13 +216,33 @@ export function DotCharacter({
           <path d="M112 99 Q123 107 134 99" />
         </g>
         <path
+          className="dot-mouth"
           d="M88 117 Q100 121 112 117 Q111 132 100 132 Q89 132 88 117 Z"
           fill={EYE}
         />
         <path
+          className="dot-mouth"
           d="M93 127.5 Q100 123 107 127.5 Q104 131.5 100 131.5 Q96 131.5 93 127.5 Z"
           fill="#ff7d8f"
         />
+        <path
+          className="dot-mouth-flat"
+          d="M91 125 L109 125"
+          fill="none"
+          stroke={EYE}
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+        <g
+          className="dot-loupe"
+          fill="none"
+          stroke={p.dark}
+          strokeWidth="5"
+          strokeLinecap="round"
+        >
+          <circle cx="172" cy="96" r="14" fill="#ffffff" fillOpacity=".35" />
+          <path d="M162 106 L152 120" />
+        </g>
       </g>
     </svg>
   );

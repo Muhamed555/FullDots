@@ -27,11 +27,29 @@ export class Runner {
   ) {}
   private activeDots = new Map<string, string>();
   private exclusionsFailed = false;
+  private wakeQueued = false;
+  // Set while this runner puts a claim back because the Dot was busy: that requeue must not wake
+  // it again, or a Dot the exclusions miss would be claimed and refused in a tight loop.
+  private requeueing = false;
   start() {
     if (!this.timer) {
       this.timer = setInterval(() => void this.tick(), 1000);
       void this.tick();
     }
+  }
+  /**
+   * Runs a tick soon (in a microtask), for work that became due now: a task created or requeued,
+   * a Dot lock released. Calls in the same synchronous stretch share one tick, and the caller's
+   * synchronous writes (binding the task to its conversation) are done by the time it claims.
+   * Overlapping ticks are safe, see runTick. The interval stays as the safety net. Not while stopped.
+   */
+  wake() {
+    if (!this.timer || this.wakeQueued || this.requeueing) return;
+    this.wakeQueued = true;
+    queueMicrotask(() => {
+      this.wakeQueued = false;
+      if (this.timer) void this.tick();
+    });
   }
   stop() {
     clearInterval(this.timer);
@@ -83,6 +101,11 @@ export class Runner {
     const concurrency = Math.max(1, this.options.concurrency ?? 1);
     const started: Promise<void>[] = [];
     let failure: unknown;
+    // Ticks overlap (the interval and wake() do not wait for an earlier tick, which awaits its runs
+    // to the end). The claim loop below is what keeps them within `concurrency`: it is synchronous,
+    // from the size check through claim() to active.set() with no await, so no other tick can claim
+    // in between. Keep it that way; serialising whole ticks instead would stall scheduling while any
+    // task runs.
     try {
       while (this.active.size < concurrency) {
         // The lease must outlive the run so a slow task is never claimed twice.
@@ -108,6 +131,7 @@ export class Runner {
     if (rejected) throw rejected.reason;
   }
   private async run(claim: Claim, controller: AbortController) {
+    let busy = false;
     const ownershipCheck = setInterval(() => {
       try {
         if (!this.store.owns(claim))
@@ -147,12 +171,18 @@ export class Runner {
       this.store.finish(claim, result);
     } catch (error) {
       // A chat turn took the Dot between the claim and the turn: try again later, not a failure.
-      if (isDotBusy(error))
-        this.store.release(
-          claim,
-          'Waiting: the Dot was busy with another turn.',
-        );
-      else
+      if (isDotBusy(error)) {
+        busy = true;
+        this.requeueing = true;
+        try {
+          this.store.release(
+            claim,
+            'Waiting: the Dot was busy with another turn.',
+          );
+        } finally {
+          this.requeueing = false;
+        }
+      } else
         this.store.fail(
           claim,
           error instanceof Error
@@ -164,6 +194,9 @@ export class Runner {
       clearTimeout(timeout);
       this.active.delete(claim.id);
       this.activeDots.delete(claim.id);
+      // A slot is free: claim the next due task now. Not after a busy requeue, which the release
+      // of the Dot's lock wakes instead.
+      if (!busy) this.wake();
     }
   }
 }

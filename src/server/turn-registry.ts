@@ -29,6 +29,8 @@ export interface RunningTurn {
   threadId: string;
   source: TurnSource | 'chat';
   startedAt: number;
+  /** The AG-UI run this turn belongs to, when the caller knows it. */
+  runId?: string;
   stop: () => void;
 }
 
@@ -42,6 +44,7 @@ export interface RegistryLookups {
 export class TurnRegistry {
   private turns = new Map<string, RunningTurn>();
   private listeners = new Set<(dotId: string) => void>();
+  private acquireListeners = new Set<(turn: RunningTurn) => void>();
   private lookups: RegistryLookups;
 
   constructor(lookups: Partial<RegistryLookups> = {}) {
@@ -62,6 +65,7 @@ export class TurnRegistry {
     threadId: string,
     source: TurnSource | 'chat',
     stop: () => void,
+    runId?: string,
   ): () => void {
     const current = this.turns.get(dotId);
     if (current)
@@ -71,9 +75,20 @@ export class TurnRegistry {
       threadId,
       source,
       startedAt: Date.now(),
+      ...(runId ? { runId } : {}),
       stop,
     };
     this.turns.set(dotId, turn);
+    for (const listener of this.acquireListeners) {
+      try {
+        listener(turn);
+      } catch (error) {
+        console.error(
+          'Turn acquire listener failed:',
+          error instanceof Error ? error.message : 'unknown error',
+        );
+      }
+    }
     let released = false;
     return () => {
       if (released) return;
@@ -128,6 +143,12 @@ export class TurnRegistry {
       );
     }
     return { threadIds: [...threadIds], dotIds: [...dotIds] };
+  }
+
+  /** Called with the turn whenever a lock is taken, after the turn is registered. */
+  onAcquire(listener: (turn: RunningTurn) => void): () => void {
+    this.acquireListeners.add(listener);
+    return () => this.acquireListeners.delete(listener);
   }
 
   /** Called with the Dot id whenever a lock is released (the resume queue retries on it). */

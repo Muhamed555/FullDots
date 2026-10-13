@@ -586,6 +586,7 @@ export function App() {
                   <div className="empty-chat-persona">
                     <Mascot
                       identity={dot.id}
+                      color={dot.color}
                       name={dot.name}
                       state={state.settings.paused ? 'paused' : 'idle'}
                     />

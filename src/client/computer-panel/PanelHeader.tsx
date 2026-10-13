@@ -45,7 +45,12 @@ export function PanelHeader({
   return (
     <header className="cp-header">
       <span className="cp-avatar">
-        <Mascot identity={dot.id} name={dot.name} decorative />
+        <Mascot
+          identity={dot.id}
+          color={dot.color}
+          name={dot.name}
+          decorative
+        />
       </span>
       <div className="cp-title">
         <h2>{dot.name}</h2>
