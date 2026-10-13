@@ -2,10 +2,16 @@
 // again. Owner-only like every /api route; the live feed only carries ids.
 import { Hono } from 'hono';
 import type { LaneProgressResponse } from '../shared/lanes.js';
+import type { TeamRunBand } from '../shared/teams.js';
 import { LaneError, type LaneService } from './lanes.js';
 import type { WorkspaceStore } from './workspace.js';
 
-export function laneRoutes(lanes: LaneService, workspace: WorkspaceStore) {
+export function laneRoutes(
+  lanes: LaneService,
+  workspace: WorkspaceStore,
+  /** The conversation's team runs, drawn as their own work bands. */
+  bands?: (threadId: string) => TeamRunBand[],
+) {
   const app = new Hono();
   const owned = (threadId: string) => {
     try {
@@ -26,6 +32,7 @@ export function laneRoutes(lanes: LaneService, workspace: WorkspaceStore) {
     const now = Date.now();
     return c.json({
       lanes: lanes.progress(id, now),
+      ...(bands ? { runs: bands(id) } : {}),
       now,
     } satisfies LaneProgressResponse);
   });

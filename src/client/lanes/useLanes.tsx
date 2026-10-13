@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { LaneProgress, LaneProgressResponse } from '../../shared/lanes';
+import type { TeamRunBand } from '../../shared/teams';
 import type { Dot } from '../../shared/types';
 import { api } from '../api';
 import type { Delegation } from '../../shared/types';
@@ -42,9 +43,10 @@ export function useLanes({
 }) {
   const [data, setData] = useState<{
     lanes: LaneProgress[];
+    runs: TeamRunBand[];
     receivedAt: number;
     loaded: boolean;
-  }>({ lanes: [], receivedAt: 0, loaded: false });
+  }>({ lanes: [], runs: [], receivedAt: 0, loaded: false });
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
   const [expanded, setExpanded] = useState<readonly string[]>([]);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
@@ -61,7 +63,12 @@ export function useLanes({
       const response = await api<LaneProgressResponse>(
         `/conversations/${encodeURIComponent(threadId)}/delegations/progress`,
       );
-      setData({ lanes: response.lanes, receivedAt: Date.now(), loaded: true });
+      setData({
+        lanes: response.lanes,
+        runs: response.runs ?? [],
+        receivedAt: Date.now(),
+        loaded: true,
+      });
     } catch {
       // The lanes keep their last known state; the next event or poll retries.
     }
@@ -71,7 +78,7 @@ export function useLanes({
   const soon = useMemo(() => debounce(() => void latest.current(), 150), []);
   useEffect(() => () => soon.cancel(), [soon]);
   useEffect(() => {
-    setData({ lanes: [], receivedAt: 0, loaded: false });
+    setData({ lanes: [], runs: [], receivedAt: 0, loaded: false });
     seen.current = undefined;
     void refresh();
   }, [refresh]);
@@ -201,6 +208,7 @@ export function useLanes({
     threadId,
     hostDot,
     lanes,
+    runs: data.runs,
     receivedAt: data.receivedAt,
     loaded: data.loaded,
     dot: (id) => dotById.get(id),

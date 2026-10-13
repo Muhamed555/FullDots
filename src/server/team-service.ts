@@ -78,6 +78,11 @@ export class TeamService {
     this.runHook = hook;
   }
 
+  /** The owner stopped a hand-off: a team run's step moves its run on (the next step, the review). */
+  stopped(delegation: Delegation) {
+    this.runHook?.(delegation);
+  }
+
   get(id: string): Delegation | undefined {
     return this.deps.workspace.team.get(id);
   }

@@ -129,6 +129,8 @@ export function useTeamsHost({
         onSaved={(team) => {
           setBuilder(undefined);
           void refresh();
+          // A template made Dots, and a team space may be new: the workspace refetches too.
+          void onRefresh();
           open(team.id);
         }}
       />

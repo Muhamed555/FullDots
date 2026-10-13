@@ -28,6 +28,14 @@ export interface TeamDraft {
   style: TeamStyle;
   mode: TeamMode;
   summarize: boolean;
+  /** Who checks the members' work in the review style (never the lead or a member). */
+  reviewerDotId: string | null;
+  /** The team already has its home Space. */
+  hasSpace: boolean;
+  /** Create the team's home Space on save (when it has none). */
+  space: boolean;
+  /** Each finished run writes a page into the team's Space. */
+  runLog: boolean;
 }
 
 /** A new team: "Lead plans" by default (the owner's decision), everyone at once. */
@@ -42,6 +50,10 @@ export function emptyDraft(seed: Partial<TeamDraft> = {}): TeamDraft {
     style: 'parallel',
     mode: 'lead',
     summarize: false,
+    reviewerDotId: null,
+    hasSpace: false,
+    space: false,
+    runLog: true,
     ...seed,
   };
 }
@@ -58,6 +70,10 @@ export function draftFromTeam(team: Team): TeamDraft {
     style: team.style,
     mode: team.mode,
     summarize: team.summarize,
+    reviewerDotId: team.reviewerDotId,
+    hasSpace: !!team.spaceId,
+    space: false,
+    runLog: team.runLog,
   };
 }
 
@@ -68,13 +84,24 @@ export const onTeam = (draft: TeamDraft, dotId: string) =>
 export const teamIsFull = (draft: TeamDraft) =>
   draft.leadDotId !== null && draft.members.length >= MAX_TEAM_MEMBERS;
 
-/** Adds a Dot: the lead when there is none yet, else the last member. Unchanged when full. */
+/**
+ * Adds a Dot: the lead when there is none yet, else the last member. Unchanged when full. A Dot
+ * that was the reviewer stops reviewing (the reviewer is never on the team itself).
+ */
 export function addToTeam(draft: TeamDraft, dotId: string): TeamDraft {
   if (onTeam(draft, dotId)) return draft;
-  if (draft.leadDotId === null) return { ...draft, leadDotId: dotId };
-  if (draft.members.length >= MAX_TEAM_MEMBERS) return draft;
-  return { ...draft, members: [...draft.members, { dotId, role: '' }] };
+  const next =
+    draft.reviewerDotId === dotId ? { ...draft, reviewerDotId: null } : draft;
+  if (next.leadDotId === null) return { ...next, leadDotId: dotId };
+  if (next.members.length >= MAX_TEAM_MEMBERS) return draft;
+  return { ...next, members: [...next.members, { dotId, role: '' }] };
 }
+
+/** The Dots that may review: every Dot that is neither the lead nor a member. */
+export const reviewerChoices = <T extends { id: string }>(
+  draft: TeamDraft,
+  dots: T[],
+): T[] => dots.filter((dot) => !onTeam(draft, dot.id));
 
 /** Takes a Dot off the team; when it was the lead, the first member steps up. */
 export function removeFromTeam(draft: TeamDraft, dotId: string): TeamDraft {
@@ -159,6 +186,7 @@ export interface DraftErrors {
   emoji?: string;
   lead?: string;
   members?: string;
+  reviewer?: string;
 }
 
 /** Inline validation, matching what the server checks. */
@@ -187,6 +215,12 @@ export function validateDraft(
     errors.members = 'Add at least one member besides the lead.';
   else if (draft.members.length > MAX_TEAM_MEMBERS)
     errors.members = `A team has at most ${MAX_TEAM_MEMBERS} members besides its lead.`;
+  if (draft.style === 'review') {
+    if (!draft.reviewerDotId)
+      errors.reviewer = 'Choose who reviews the members’ work.';
+    else if (onTeam(draft, draft.reviewerDotId))
+      errors.reviewer = 'The reviewer cannot also be on the team.';
+  }
   return errors;
 }
 
@@ -204,6 +238,10 @@ export function draftPayload(draft: TeamDraft) {
     style: draft.style,
     mode: draft.mode,
     summarize: draft.summarize,
+    // Kept only for the review style; another style has no reviewer.
+    reviewerDotId: draft.style === 'review' ? draft.reviewerDotId : null,
+    runLog: draft.runLog,
+    ...(draft.space && !draft.hasSpace ? { space: true } : {}),
     members: draft.members.map((member) => ({
       dotId: member.dotId,
       role: member.role.trim(),

@@ -36,9 +36,14 @@ export interface LaneDeps {
   store: Store;
   turns: Pick<TurnRegistry, 'running' | 'stop'>;
   runner: Pick<SqliteAgentRunner, 'liveRun' | 'runsAfter'>;
-  team: Pick<TeamService, 'delegate'>;
+  team: Pick<TeamService, 'delegate'> & Partial<Pick<TeamService, 'stopped'>>;
   /** Aborts the background run of a task at once (the runner would notice the cancel in 100 ms). */
   abortTask?: (taskId: string) => void;
+  /**
+   * Cancels the conversation's running team runs (Stop everything), so none of them moves on to
+   * a next step or its review. Returns how many steps it stopped.
+   */
+  cancelRuns?: (threadId: string) => number;
 }
 
 interface RunDigest {
@@ -272,6 +277,8 @@ export class LaneService {
     if (!delegation || delegation.status !== 'running') return 0;
     // Marked first, so the run that ends because of the cancel cannot report a result or a failure.
     workspace.team.finish(delegation.id, 'stopped', why);
+    // A team run's step: its run moves on without it (the next step, the review, the results).
+    this.deps.team.stopped?.(workspace.team.get(delegation.id)!);
     let stopped = 1;
     for (const below of workspace.team.forParent(delegation.childThreadId))
       stopped += this.stop(below.id, why);
@@ -301,7 +308,7 @@ export class LaneService {
 
   /** Stop everything: every hand-off of this conversation still running. */
   stopAll(parentThreadId: string): number {
-    let stopped = 0;
+    let stopped = this.deps.cancelRuns?.(parentThreadId) ?? 0;
     for (const delegation of this.deps.workspace.team.forParent(parentThreadId))
       stopped += this.stop(delegation.id);
     return stopped;

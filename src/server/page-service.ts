@@ -135,7 +135,9 @@ export class PageService {
         'This conversation exceeds the 100,000 character page limit. Save a shorter conversation.',
       );
     const destination =
-      this.workspace.pages.forThread(threadId)?.spaceId ?? dot.spaceId;
+      this.workspace.pages.forThread(threadId)?.spaceId ??
+      this.workspace.teams.spaceFor(threadId, dot.id) ??
+      dot.spaceId;
     if (!this.workspace.canAccessSpace(dot.id, destination))
       throw new PageError('Space access has been revoked.', 400);
     return this.workspace.pages.create(

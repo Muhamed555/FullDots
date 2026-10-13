@@ -87,10 +87,15 @@ export interface Team {
   mode: TeamMode;
   /** Direct mode: the lead writes one short summary after the results are posted. */
   summarize: boolean;
-  /** The reviewer Dot of the 'review' style (P5); stored, not used yet. */
+  /**
+   * The reviewer of the 'review' style: checks the members' combined work before the lead hears
+   * back. Never the lead and never a member (each Dot takes part in a run once).
+   */
   reviewerDotId: string | null;
-  /** The team's home Space (P5). */
+  /** The team's home Space: members get access, team chats save pages there. */
   spaceId: string | null;
+  /** Each finished run writes a page into the team's Space (only when it has one). */
+  runLog: boolean;
   createdAt: number;
   updatedAt: number;
   archivedAt: number | null;
@@ -102,6 +107,9 @@ export type TeamRunStatus = 'running' | 'done' | 'failed' | 'cancelled';
 export type TeamStepStatus =
   'queued' | 'running' | 'done' | 'failed' | 'skipped' | 'cancelled';
 
+/** What the reviewer said: APPROVED, CHANGES, or neither (treated like approved). */
+export type ReviewVerdict = 'approved' | 'changes' | 'unclear';
+
 export interface TeamRun {
   id: string;
   teamId: string;
@@ -112,7 +120,17 @@ export interface TeamRun {
   createdAt: number;
   finishedAt: number | null;
   cancelledAt: number | null;
+  /** The reviewer of a review run (taken from the team when the run started). */
+  reviewerDotId: string | null;
+  /** The reviewer's latest verdict; null until it gave one. */
+  verdict: ReviewVerdict | null;
+  /** The reviewer sent the work back (at most once per run). */
+  sentBack: boolean;
+  /** The run log page in the team's Space, once written. */
+  log: { spaceId: string; pageId: string } | null;
 }
+
+export type TeamStepRole = 'worker' | 'reviewer';
 
 export interface TeamRunStep {
   runId: string;
@@ -121,7 +139,25 @@ export interface TeamRunStep {
   dotId: string;
   position: number;
   status: TeamStepStatus;
+  /** Members are workers; the review style adds one reviewer step after them. */
+  role: TeamStepRole;
+  /**
+   * The step's first delegation when it went round again: a worker the reviewer sent back, or the
+   * reviewer checking a second time. `delegationId` is then the newer one.
+   */
+  firstDelegationId: string | null;
 }
+
+/** A run as the work band draws it (in GET /api/conversations/:id/delegations/progress). */
+export interface TeamRunBand extends TeamRun {
+  teamName: string;
+  teamEmoji: string;
+  leadDotId: string;
+  steps: (TeamRunStep & { brief: string })[];
+}
+
+/** The pseudo tool a direct team chat's "Sent to ..." reply carries, so its band is drawn there. */
+export const TEAM_DISPATCH_TOOL = 'team_dispatch';
 
 /** GET /api/teams/runs/:id: the run and each step with its timings (ms epoch, null when not yet). */
 export interface TeamRunDetail extends TeamRun {

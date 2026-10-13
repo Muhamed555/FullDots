@@ -236,10 +236,10 @@ export class Platform {
       resume: (marker) => void this.resumes.enqueue(marker),
       cancelTask: (taskId) => void store.action(taskId, 'cancel'),
       // Direct team chats write the owner's message and the results without a model call.
-      post: async ({ threadId, dotId, text, reply, metadata }) => {
+      post: async ({ threadId, dotId, text, reply, metadata, toolCall }) => {
         await runThreadTurn(
           this.runner,
-          new StaticReply(reply, dotId),
+          new StaticReply(reply, dotId, toolCall),
           threadId,
           text,
           AbortSignal.timeout(30_000),
@@ -251,6 +251,9 @@ export class Platform {
       turns,
       finished: (threadId, text) =>
         this.finishedWork(threadId, 'delegation', text),
+      messages: (threadId) => this.runner.getThreadMessages(threadId),
+      // A run log page landed in the team's Space: open pages and the sidebar refetch.
+      logged: () => this.events.emit('workspace.changed', {}),
     });
     this.team.setRunHook((delegation) =>
       this.teamRuns.stepFinished(delegation),

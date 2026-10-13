@@ -14,7 +14,7 @@ import { AddressedLine, AuthoredBubble } from './room/AuthorBubble';
 import { EarlierAttempts } from './message-actions/EarlierAttempts';
 import { foldRetries } from './message-actions/retries';
 import type { BubbleInfo } from './message-actions/useMessageActions';
-import { WorkBand } from './lanes/WorkBand';
+import { BandItem } from './lanes/BandItem';
 import { BuiltFrom, DelegatedWork } from './lanes/DelegatedResults';
 // These markers only control rendering; they do not confer trust or permissions.
 export function isInternalVoiceReceipt(message: Message): boolean {
@@ -241,7 +241,7 @@ export function ChatTranscript({
           }
           case 'band':
             return (
-              <WorkBand key={item.key} calls={item.calls} results={results} />
+              <BandItem key={item.key} calls={item.calls} results={results} />
             );
           case 'tools':
             return (

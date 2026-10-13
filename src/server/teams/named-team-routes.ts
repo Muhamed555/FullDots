@@ -15,10 +15,12 @@ import {
   type Team,
   type TeamDetail,
 } from '../../shared/teams.js';
+import { teamTemplate } from '../../shared/team-templates.js';
 import { DOT_COLORS } from '../../shared/types.js';
 import type { TurnRegistry } from '../turn-registry.js';
 import type { WorkspaceStore } from '../workspace.js';
 import { TeamRunError, type TeamRunService } from './team-runs.js';
+import { createFromTemplate, createTeamSpace } from './templates.js';
 
 export interface TeamRouteDeps {
   workspace: WorkspaceStore;
@@ -65,6 +67,10 @@ const fields = {
   style: z.enum(TEAM_STYLES as [string, ...string[]]),
   mode: z.enum(TEAM_MODES as [string, ...string[]]),
   summarize: z.boolean(),
+  reviewerDotId: z.string().min(1).max(200).nullable(),
+  runLog: z.boolean(),
+  /** Create the team's home Space (when it has none yet). */
+  space: z.boolean(),
 };
 const createSchema = z
   .object({
@@ -73,6 +79,9 @@ const createSchema = z
     style: fields.style.optional(),
     mode: fields.mode.optional(),
     summarize: fields.summarize.optional(),
+    reviewerDotId: fields.reviewerDotId.optional(),
+    runLog: fields.runLog.optional(),
+    space: fields.space.optional(),
     members,
   })
   .strict();
@@ -86,6 +95,9 @@ const patchSchema = z
     style: fields.style.optional(),
     mode: fields.mode.optional(),
     summarize: fields.summarize.optional(),
+    reviewerDotId: fields.reviewerDotId.optional(),
+    runLog: fields.runLog.optional(),
+    space: fields.space.optional(),
     members: members.optional(),
   })
   .strict();
@@ -94,13 +106,15 @@ const firstIssue = (error: z.ZodError) =>
   error.issues[0]?.message ?? 'Invalid team.';
 
 /**
- * Why this lead and these members cannot form a team, or undefined when they can: every Dot
- * exists, the lead is not also a member, and no member is listed twice.
+ * Why this lead, these members and this reviewer cannot form a team, or undefined when they can:
+ * every Dot exists, the lead is not also a member, no member is listed twice, and the reviewer is
+ * neither the lead nor a member (each Dot takes part in a run once).
  */
 export function teamProblem(
   workspace: Pick<WorkspaceStore, 'dot'>,
   leadDotId: string,
   list: { dotId: string }[],
+  reviewerDotId: string | null = null,
 ): string | undefined {
   if (!workspace.dot(leadDotId)) return 'The lead Dot was not found.';
   const seen = new Set<string>();
@@ -113,6 +127,13 @@ export function teamProblem(
   }
   if (seen.size > MAX_TEAM_MEMBERS)
     return `A team has at most ${MAX_TEAM_MEMBERS} members besides its lead.`;
+  if (reviewerDotId) {
+    if (!workspace.dot(reviewerDotId)) return 'The reviewer Dot was not found.';
+    if (reviewerDotId === leadDotId)
+      return 'The lead cannot also review: choose another Dot.';
+    if (seen.has(reviewerDotId))
+      return 'The reviewer checks the members’ work, so it cannot also be a member.';
+  }
   return undefined;
 }
 
@@ -140,8 +161,13 @@ export function namedTeamRoutes({ workspace, runs, turns }: TeamRouteDeps) {
     const parsed = createSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success)
       return c.json({ error: firstIssue(parsed.error) }, 400);
-    const input = parsed.data;
-    const problem = teamProblem(workspace, input.leadDotId, input.members);
+    const { space, ...input } = parsed.data;
+    const problem = teamProblem(
+      workspace,
+      input.leadDotId,
+      input.members,
+      input.reviewerDotId ?? null,
+    );
     if (problem) return c.json({ error: problem }, 400);
     if (nameTaken(input.name))
       return c.json(
@@ -153,7 +179,29 @@ export function namedTeamRoutes({ workspace, runs, turns }: TeamRouteDeps) {
       style: input.style as Team['style'] | undefined,
       mode: input.mode as Team['mode'] | undefined,
     });
-    return c.json(team, 201);
+    return c.json(space ? createTeamSpace(workspace, team) : team, 201);
+  });
+
+  // A team from a template: its Dots (careful defaults, no grants), the team, and optionally its
+  // Space. Registered before /teams/:id routes.
+  app.post('/teams/from-template', async (c) => {
+    const parsed = z
+      .object({
+        templateId: z.string().min(1).max(40),
+        name: fields.name.optional(),
+        space: z.boolean().optional(),
+      })
+      .strict()
+      .safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success)
+      return c.json({ error: firstIssue(parsed.error) }, 400);
+    const template = teamTemplate(parsed.data.templateId);
+    if (!template) return c.json({ error: 'Template not found.' }, 404);
+    const made = createFromTemplate(workspace, template, {
+      ...(parsed.data.name ? { name: parsed.data.name } : {}),
+      space: parsed.data.space ?? false,
+    });
+    return c.json(made, 201);
   });
 
   // Registered before /teams/:id so "runs" is never read as a team id.
@@ -187,10 +235,17 @@ export function namedTeamRoutes({ workspace, runs, turns }: TeamRouteDeps) {
     const parsed = patchSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success)
       return c.json({ error: firstIssue(parsed.error) }, 400);
-    const { members: list, ...patch } = parsed.data;
+    const { members: list, space, ...patch } = parsed.data;
     const lead = patch.leadDotId ?? current.leadDotId;
     const nextMembers = list ?? current.members;
-    const problem = teamProblem(workspace, lead, nextMembers);
+    const problem = teamProblem(
+      workspace,
+      lead,
+      nextMembers,
+      patch.reviewerDotId !== undefined
+        ? patch.reviewerDotId
+        : current.reviewerDotId,
+    );
     if (problem) return c.json({ error: problem }, 400);
     if (patch.name && nameTaken(patch.name, current.id))
       return c.json(
@@ -203,7 +258,15 @@ export function namedTeamRoutes({ workspace, runs, turns }: TeamRouteDeps) {
       mode: patch.mode as Team['mode'] | undefined,
     });
     if (list) teams.setMembers(current.id, list);
+    if (space) createTeamSpace(workspace, teams.get(current.id)!);
     return c.json(teams.get(current.id));
+  });
+
+  // The team's home Space: created once, named after the team; every Dot on the team gets access.
+  app.post('/teams/:id/space', (c) => {
+    const current = active(c.req.param('id'));
+    if (!current) return c.json({ error: 'Team not found.' }, 404);
+    return c.json(createTeamSpace(workspace, current), 201);
   });
 
   // Sets the members and their order (the order of the list) in one go.
@@ -220,6 +283,7 @@ export function namedTeamRoutes({ workspace, runs, turns }: TeamRouteDeps) {
       workspace,
       current.leadDotId,
       parsed.data.members,
+      current.reviewerDotId,
     );
     if (problem) return c.json({ error: problem }, 400);
     return c.json(teams.setMembers(current.id, parsed.data.members));

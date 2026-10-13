@@ -2,6 +2,7 @@
 // from useLanes so the transcript (and its server-side render in tests) needs no API or feed.
 import { createContext, useContext } from 'react';
 import type { LaneProgress } from '../../shared/lanes';
+import type { TeamRunBand } from '../../shared/teams';
 import type { Dot } from '../../shared/types';
 import type { DecideApproval } from '../ApprovalCard';
 
@@ -10,6 +11,8 @@ export interface LanesValue {
   /** The Dot of this chat: the one that hands work over. */
   hostDot: Dot;
   lanes: LaneProgress[];
+  /** The chat's team runs: each start_team_run (or direct dispatch) draws its run's band. */
+  runs?: TeamRunBand[];
   /** When the progress arrived (client clock), so timers count on from it. */
   receivedAt: number;
   loaded: boolean;

@@ -73,6 +73,7 @@ const team: Team = {
   summarize: false,
   reviewerDotId: null,
   spaceId: null,
+  runLog: true,
   createdAt: 1,
   updatedAt: 2,
   archivedAt: null,
@@ -257,6 +258,8 @@ describe('builder rules', () => {
       style: 'parallel',
       mode: 'lead',
       summarize: false,
+      reviewerDotId: null,
+      runLog: true,
       members: [{ dotId: 'scout', role: 'Finds' }],
     });
     expect(orbitAngles(4)).toEqual([-90, 0, 90, 180]);
@@ -301,7 +304,8 @@ describe('team builder', () => {
     expect(html).toContain('draggable="true"');
     // Three style cards, each with its little diagram.
     expect(html.match(/class="style-diagram/g)).toHaveLength(3);
-    expect(html).not.toContain('role="switch"');
+    // Lead plans: no "Lead summarises" switch (only the team space one).
+    expect(html).not.toContain('Lead summarises');
   });
 
   it('shows the lead in the centre, members in order with keyboard reordering and Make lead', () => {
@@ -355,6 +359,10 @@ describe('team page', () => {
           createdAt: 5,
           finishedAt: null,
           cancelledAt: null,
+          reviewerDotId: null,
+          verdict: null,
+          sentBack: false,
+          log: null,
         },
         {
           id: 'run-0',
@@ -366,6 +374,10 @@ describe('team page', () => {
           createdAt: 1,
           finishedAt: 31_001,
           cancelledAt: null,
+          reviewerDotId: null,
+          verdict: null,
+          sentBack: false,
+          log: null,
         },
       ],
     };

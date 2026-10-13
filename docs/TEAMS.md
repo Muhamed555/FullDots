@@ -117,7 +117,7 @@ A Dot's teammates are now the Dots ticked for it under **Can hand work to** in i
 
 - **All at once**: every step starts together, as many as `BACKGROUND_CONCURRENCY` allows; the rest queue.
 - **Step by step**: steps run strictly in member order, whatever order the briefs came in; members without a brief are skipped; each member's brief carries the previous member's result. A step that fails ends the chain: the remaining steps are skipped and the lead hears what was done.
-- **With a reviewer**: stored and shown, and for now runs like All at once. The reviewer step comes in P5.
+- **With a reviewer**: the members work at once, then the team's reviewer checks and improves their combined work before the lead hears back. See [The reviewer](#the-reviewer).
 
 The lead hears back **once**, when the run ends: one resume turn with every result, a section per member, including the ones that failed or were skipped. Each Dot takes part at most once per run, and the lead is never a step. Every step is an ordinary hand-off (its own conversation "_Lead_ → _Member_: …", task, model, approvals, budget and `DELEGATION_TIMEOUT`); `delegations.origin` says `team` for a lead's run and `owner` for a direct message (`dot` for everything else). Depth and loop limits apply as for any hand-off.
 
@@ -125,11 +125,64 @@ The lead hears back **once**, when the run ends: one resume turn with every resu
 
 Each run is a `team_runs` row (style, mode, status, created/finished/cancelled times) with one `team_run_steps` row per member (its delegation, position and status). `GET /api/teams/runs/:id` returns the run with each step's brief, conversation and timings; `POST /api/teams/runs/:id/cancel` stops it: every step's task is cancelled and the lead is not resumed. A member's turn is stopped at once only when it is running on that step's own conversation; the same member working in another chat is left alone. Deleting a team chat removes its runs and steps.
 
+**Stop everything** in a team chat cancels its running team runs first (so no next step or review starts), then stops the chat's other hand-offs. **Stop** on one member's lane stops only that member, and its run moves on without it: in step by step the later steps are skipped; in a review run the reviewer checks what the others delivered.
+
 Archiving a team keeps its Dots, its chats and its runs; it leaves the sidebar and stops granting its lead anything. A team whose lead Dot is removed is archived, not deleted, and a removed member leaves every team (Dots cannot be deleted yet; the store method is ready for when they can).
 
 Mission control groups Dots under their teams; a Dot in several teams appears under each, and Dots in no team share a last group. Search finds active teams by name and description, the Ctrl+K palette offers **Start team chat with …** and **Create team**, and a saved prompt can belong to an active team.
 
-API: `GET /api/teams` (`?archived=1` for archived ones too; also lists the Dots working right now), `POST /api/teams`, `GET`/`PATCH /api/teams/:id`, `PUT /api/teams/:id/members` (`{ members: [{ dotId, role }] }` in order), `POST /api/teams/:id/archive`, `POST /api/teams/:id/conversations`, `POST /api/teams/:id/dispatch`, `GET /api/teams/runs/:id`, `POST /api/teams/runs/:id/cancel`. `GET /api/dots/:id/team` also lists the team-given teammates as `implied`.
+### The reviewer
+
+A team with the **With a reviewer** style names a reviewer Dot (the builder's **Who reviews** picker, `teams.reviewerDotId`). The reviewer is never the lead and never a member: each Dot takes part in a run once, and the reviewer looks at the members' work from outside. Adding the reviewer to the team as a member takes it off reviewing. It gets the team space like the members, but no right to hand work to anyone.
+
+How a review run goes, all decided by the server (the same in **Lead plans** and **Direct** chats):
+
+1. The members with a brief work at once, as in All at once. The reviewer's step waits.
+2. When every member has finished, the reviewer gets their combined results (each member's result, and the owner's request when known) and is asked to **check and improve**: reply with the improved combined deliverable and a one-paragraph verdict that starts with **APPROVED** or **CHANGES**. Members that failed or were stopped are left out; if none delivered, the review is skipped.
+3. **At most one send-back.** If the verdict is CHANGES, the members it names (a whole-word match on their names; all of them when it names none) get its notes and their first version and revise once. The reviewer then checks once more; whatever it says the second time, nothing is sent back again. A verdict that is neither APPROVED nor CHANGES counts as approved.
+4. The lead resumes once with the **reviewed result** first and every member's **raw result** below it (marked "revised after the review" where a member revised). In a Direct chat the Results message shows "Checked by _Reviewer_" and the reviewed result above the members' sections.
+
+Each step is recorded in `team_run_steps` with `role` `worker` or `reviewer`. A step that goes round again keeps its one row: `delegationId` is its newest hand-off and `firstDelegationId` its first. The run records `reviewerDotId`, the reviewer's latest `verdict` (`approved`, `changes` or `unclear`) and `sentBack`. A review team without a reviewer (for example because its reviewer Dot was removed) runs like All at once.
+
+In the chat the members' lanes fold into "2 results, under review by _Critic_" while the reviewer's lane is full size, its character **reviewing**; the band then says **Sent back** while members revise, and **Checked by _Critic_** after the last check.
+
+### Team run bands
+
+A lead's `start_team_run` call draws its run's work band in the chat, with the same lanes as a hand-off: one per member in member order, each with its live state, Stop, approvals and chat. In **Step by step** the later steps wait in order ("Waits for _Scout_"), joined by a connector and numbered. A **Direct** chat stores its "Sent to …" line with the run's id, so the band appears right under it. When the run is done the band folds into result chips, and the result turn shows a card per member (and the reviewer). The band reads `runs` in `GET /api/conversations/:id/delegations/progress`: each run of the chat with its steps, roles, verdict and log page.
+
+### Templates
+
+**Start from a template** at the top of the builder (new teams only) offers four ready-made teams:
+
+| Template       | Dots                                          | Style           |
+| -------------- | --------------------------------------------- | --------------- |
+| Launch crew    | Launch Lead; Marketer, Writer, Engineer       | All at once     |
+| Research desk  | Research Lead; Scout, Analyst; Critic reviews | With a reviewer |
+| Content studio | Content Lead; Writer, Editor                  | Step by step    |
+| Support desk   | Support Lead; Triage, Responder               | All at once     |
+
+Choosing one shows what it creates, a team name and **Create a team space** (on by default); **Create** calls `POST /api/teams/from-template { templateId, name?, space? }`. It creates each Dot with its name, instructions and colour, web research on, note proposals off, approval mode **sensitive**, no computer access and **no connector grants**; then the team with its roles, style, mode (Lead plans) and reviewer; and, when asked, its Space. A taken name gets " 2", " 3", … (Dots, the team and the Space alike), so a template can be used again. Everything it creates is an ordinary Dot, team and Space: edit or archive them like any other. The templates live in `src/shared/team-templates.ts`.
+
+### Team space
+
+A team can have a home Space: **Create a team space** in the builder, or **Create space** on the team page (`POST /api/teams/:id/space`, or `space: true` on `POST /api/teams` and `PATCH /api/teams/:id`). It is named after the team and created once.
+
+- **Every Dot on the team gets access**: the lead, the members and the reviewer. When the team changes, access follows: a Dot that joins gets it, a Dot that leaves loses it.
+- **The team takes back only what it gave.** `team_space_grants` records each access the team added. A Dot that already had access (you ticked it by hand) has no grant row and keeps its access when it leaves; access you remove by hand is not given back by the team; access to a Space that is the Dot's default page destination, or that another team gave, is not removed. Archiving a team leaves its Space and access as they are.
+- **Team chats save pages there by default.** A team chat, and a member's step chat of a team run, use the team space as the default page destination (the Dot's instructions, `create_space_page` without a `spaceId`, and **Save as page**), when that Dot has access. An open page keeps its own Space, and other chats keep the Dot's own default.
+
+### Run log
+
+With **Keep a run log** on (a team setting, `teams.runLog`, on by default; it only does something when the team has a space), every finished team run writes one page into the team's own Space, never anywhere else and without asking (the owner's decision). The page is titled "_Team_ run — 2026-10-13 14:05" (UTC) and holds:
+
+- the team, style, mode, outcome and duration, and a link to the team chat;
+- your request (the message the run answers);
+- for a review run, the reviewer's verdict and the reviewed result;
+- every member's deliverable (or what went wrong), with links to the member's chat, and to its first version when it revised.
+
+The page names the team chat as its source. Runs you stop are not logged. The team page's **Recent runs** shows the verdict of review runs and a **Run log** link to each log page (`log: { spaceId, pageId }` on each run).
+
+API: `GET /api/teams` (`?archived=1` for archived ones too; also lists the Dots working right now), `POST /api/teams` (`reviewerDotId`, `runLog` and `space` optional), `POST /api/teams/from-template`, `GET`/`PATCH /api/teams/:id`, `PUT /api/teams/:id/members` (`{ members: [{ dotId, role }] }` in order), `POST /api/teams/:id/space`, `POST /api/teams/:id/archive`, `POST /api/teams/:id/conversations`, `POST /api/teams/:id/dispatch`, `GET /api/teams/runs/:id`, `POST /api/teams/runs/:id/cancel`. `GET /api/dots/:id/team` also lists the team-given teammates as `implied`.
 
 ## Settings
 

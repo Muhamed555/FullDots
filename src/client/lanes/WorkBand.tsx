@@ -53,7 +53,7 @@ const reducedMotion = () =>
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const colors = (dot: Pick<Dot, 'id' | 'color'>) => {
+export const colors = (dot: Pick<Dot, 'id' | 'color'>) => {
   const palette = dotPalette(dot);
   return {
     '--lane': palette.base,
@@ -62,7 +62,7 @@ const colors = (dot: Pick<Dot, 'id' | 'color'>) => {
   } as CSSProperties;
 };
 
-const names = (list: string[]) =>
+export const names = (list: string[]) =>
   list.length <= 1
     ? (list[0] ?? '')
     : `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`;
@@ -261,24 +261,29 @@ function Band({
   );
 }
 
-function ResultChip({
+export function ResultChip({
   name,
   lane,
   dot,
   refused,
+  label,
 }: {
   name: string;
   lane?: LaneProgress;
   dot?: Dot;
   refused?: string;
+  /** In place of the status the lane gives (a team run's reviewer: "Checked"). */
+  label?: string;
 }) {
-  const status = refused
-    ? 'Not handed over'
-    : lane?.status === 'done'
-      ? 'Done'
-      : lane?.status === 'stopped'
-        ? 'Stopped'
-        : 'Skipped';
+  const status =
+    label ??
+    (refused
+      ? 'Not handed over'
+      : lane?.status === 'done'
+        ? 'Done'
+        : lane?.status === 'stopped'
+          ? 'Stopped'
+          : 'Skipped');
   return (
     <span
       className={`fd-result-chip is-${lane?.status ?? 'refused'}`}
@@ -322,14 +327,20 @@ function PendingLane({ call }: { call: HandOffCall }) {
 
 const BRIEF_FOLD = 110;
 
-function Lane({
+export function Lane({
   lane,
   lanes,
   now,
+  mascot,
+  tag,
 }: {
   lane: LaneProgress;
   lanes: LanesValue;
   now: number;
+  /** The character's state in place of the lane's (a team run's reviewer at work: reviewing). */
+  mascot?: string;
+  /** A short label next to the name ("Reviewer", "Revising"). */
+  tag?: string;
 }) {
   const member = lanes.dot(lane.childDotId);
   const name = member?.name ?? 'A teammate';
@@ -384,11 +395,14 @@ function Lane({
             name={name}
             small
             decorative
-            state={view.mascot}
+            state={mascot ?? view.mascot}
           />
         </span>
         <span className="fd-lane-who">
-          <strong>{name}</strong>
+          <strong>
+            {name}
+            {tag && <span className="fd-lane-tag">{tag}</span>}
+          </strong>
           <span
             id={briefId}
             className={`fd-lane-brief ${briefOpen ? 'is-open' : ''}`}

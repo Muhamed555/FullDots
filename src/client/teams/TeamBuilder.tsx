@@ -1,7 +1,9 @@
 // The team builder: name, emoji and colour, then a stage where the lead sits in the centre ring and
 // members orbit it. Dots join by drag from the tray, or by the Add buttons (keyboard and phones);
 // members are ordered with their handle (arrow keys) for step-by-step work. Then the work style
-// (three option cards with tiny animated diagrams) and who plans: the lead (default) or Direct.
+// (three option cards with tiny animated diagrams; the review style picks its reviewer), who plans:
+// the lead (default) or Direct, and the team's home Space with its run log. A new team can also
+// start from a template.
 import {
   useEffect,
   useMemo,
@@ -42,6 +44,7 @@ import {
   onTeam,
   orderKey,
   removeFromTeam,
+  reviewerChoices,
   setRole,
   teamIsFull,
   validateDraft,
@@ -50,6 +53,7 @@ import {
 } from './builder-model';
 import { ChoiceGroup, Switch, TeamColorPicker } from './controls';
 import { StyleDiagram } from './StyleDiagram';
+import { TemplatePicker } from './TemplatePicker';
 import { TeamOrbit } from './TeamCharacters';
 import '../dialog.css';
 import './teams.css';
@@ -67,7 +71,7 @@ const STYLE_TEXT: Record<TeamStyle, { title: string; text: string }> = {
   },
   review: {
     title: 'With a reviewer',
-    text: 'Members work, then one checks it all. Runs all at once for now.',
+    text: 'Members work at once, then a reviewer checks and improves it all.',
   },
 };
 
@@ -92,6 +96,8 @@ export interface TeamBuilderProps {
   onSaved: (team: Team) => void;
   /** Starting state (tests). */
   initial?: TeamDraft;
+  /** A team made from a template (it is saved already). */
+  onTemplate?: (team: Team) => void;
 }
 
 export function TeamBuilder({
@@ -102,6 +108,7 @@ export function TeamBuilder({
   onClose,
   onSaved,
   initial,
+  onTemplate,
 }: TeamBuilderProps) {
   const [draft, setDraft] = useState<TeamDraft>(
     () => initial ?? (team ? draftFromTeam(team) : emptyDraft(seed)),
@@ -269,6 +276,12 @@ export function TeamBuilder({
         </header>
         <form className="dlg-form" onSubmit={save} noValidate>
           <div className="dlg-body tb-body">
+            {!draft.id && (
+              <TemplatePicker
+                teams={teams}
+                onCreated={(made) => (onTemplate ?? onSaved)(made)}
+              />
+            )}
             <div className="tb-identity">
               <span className="tb-badge" aria-hidden>
                 {draft.emoji || '✨'}
@@ -606,6 +619,59 @@ export function TeamBuilder({
                   }),
                 )}
               />
+              {draft.style === 'review' && (
+                <div className="tb-reviewer">
+                  <span className="tb-label" id="tb-reviewer-label">
+                    Who reviews
+                  </span>
+                  {reviewerChoices(draft, dots).length ? (
+                    <ChoiceGroup
+                      label="Who reviews the members’ work"
+                      value={draft.reviewerDotId ?? ''}
+                      onChange={(reviewerDotId) =>
+                        setDraft({ ...draft, reviewerDotId })
+                      }
+                      className="tb-reviewer-grid"
+                      optionClassName="tb-reviewer-option"
+                      options={reviewerChoices(draft, dots).map((dot) => ({
+                        value: dot.id,
+                        label: `${dot.name} reviews`,
+                        content: (
+                          <>
+                            <Mascot
+                              identity={dot.id}
+                              color={dot.color}
+                              name={dot.name}
+                              small
+                              decorative
+                              state={
+                                draft.reviewerDotId === dot.id
+                                  ? 'reviewing'
+                                  : 'idle'
+                              }
+                            />
+                            <span>{dot.name}</span>
+                          </>
+                        ),
+                      }))}
+                    />
+                  ) : (
+                    <p className="tb-hint">
+                      The reviewer is a Dot that is not on the team. Create one
+                      more Dot to review.
+                    </p>
+                  )}
+                  <p className="tb-hint">
+                    After the members finish, it checks and improves their work.
+                    It can send it back once.
+                  </p>
+                  {errors.reviewer && (
+                    <p className="tb-invalid" role="alert">
+                      {errors.reviewer}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="tb-field">
               <span className="tb-label" id="tb-mode-label">
@@ -634,6 +700,30 @@ export function TeamBuilder({
                   onChange={(summarize) => setDraft({ ...draft, summarize })}
                   label="Lead summarises"
                   hint="After the answers arrive, the lead adds one short summary."
+                />
+              )}
+            </div>
+            <div className="tb-field">
+              <span className="tb-label">Team space</span>
+              {draft.hasSpace ? (
+                <p className="tb-hint">
+                  This team has its own Space: its Dots can use it and team
+                  chats save pages there.
+                </p>
+              ) : (
+                <Switch
+                  checked={draft.space}
+                  onChange={(space) => setDraft({ ...draft, space })}
+                  label="Create a team space"
+                  hint="A Space named after the team. Every Dot on it gets access (and loses only that access when it leaves), and team chats save pages there."
+                />
+              )}
+              {(draft.hasSpace || draft.space) && (
+                <Switch
+                  checked={draft.runLog}
+                  onChange={(runLog) => setDraft({ ...draft, runLog })}
+                  label="Keep a run log"
+                  hint="Each finished run writes a page into the team space: your request, every deliverable and links to the chats."
                 />
               )}
             </div>

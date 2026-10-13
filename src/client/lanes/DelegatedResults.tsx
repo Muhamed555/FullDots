@@ -7,6 +7,7 @@ import type { LaneProgress } from '../../shared/lanes';
 import { Mascot, dotPalette } from '../Mascot';
 import { deliveredWith } from './lane-model';
 import { useLanesContext, type LanesValue } from './lanes-context';
+import { runResultLanes } from './team-run-model';
 import './lanes.css';
 
 const STATUS: Record<string, string> = {
@@ -24,7 +25,11 @@ export function DelegatedWork({
   fallback: ReactNode;
 }) {
   const lanes = useLanesContext();
-  const group = lanes ? deliveredWith(refId, lanes.lanes) : [];
+  // A team run's results (its ref is the run) or the hand-offs delivered together.
+  const group = lanes
+    ? (runResultLanes(refId, lanes.runs, lanes.lanes) ??
+      deliveredWith(refId, lanes.lanes))
+    : [];
   if (!lanes || !group.length) return <>{fallback}</>;
   return (
     <div
@@ -141,9 +146,10 @@ function ResultCard({
 export function BuiltFrom({ refId }: { refId: string }) {
   const lanes = useLanesContext();
   if (!lanes) return null;
-  const used = deliveredWith(refId, lanes.lanes).filter(
-    (lane) => lane.status === 'done',
-  );
+  const used = (
+    runResultLanes(refId, lanes.runs, lanes.lanes) ??
+    deliveredWith(refId, lanes.lanes)
+  ).filter((lane) => lane.status === 'done');
   if (!used.length) return null;
   return (
     <p className="fd-built-from">

@@ -1,6 +1,7 @@
 // Work lanes: the live view of the work a Dot handed to teammates, drawn as one lane per hand-off in
 // the chat that handed it over. GET /api/conversations/:id/delegations/progress serves these (owner
 // only); the live event feed only says when to fetch them again.
+import type { TeamRunBand } from './teams.js';
 import type { Approval, Handoff } from './types.js';
 
 /** What a lane shows: waiting to start, working, waiting for something, or finished. */
@@ -64,12 +65,26 @@ export interface LaneProgress {
 
 export interface LaneProgressResponse {
   lanes: LaneProgress[];
+  /** The conversation's team runs (their steps; the lanes above carry each started step). */
+  runs?: TeamRunBand[];
   /** Server time, so the client's timers line up. */
   now: number;
 }
 
-/** The tools whose calls are drawn as a work band. */
-export const LANE_TOOLS = ['delegate_to_dot', 'check_delegation'] as const;
+/**
+ * The tools whose calls are drawn as a work band: hand-offs, a lead's team run, and the line a
+ * direct team chat stores when it sends the owner's message to every member.
+ */
+export const LANE_TOOLS = [
+  'delegate_to_dot',
+  'check_delegation',
+  'start_team_run',
+  'team_dispatch',
+] as const;
+
+/** The team run tools among the lane tools: each call draws its run's band. */
+export const isTeamRunTool = (name: string) =>
+  name === 'start_team_run' || name === 'team_dispatch';
 
 export const isLaneTool = (name: string) =>
   (LANE_TOOLS as readonly string[]).includes(name);

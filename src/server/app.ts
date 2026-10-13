@@ -242,8 +242,10 @@ export function createApp({
           runner: platform.runner,
           team: platform.team,
           abortTask: (taskId) => runner.abort(taskId),
+          cancelRuns: (threadId) => platform.teamRuns.cancelThread(threadId),
         }),
         platform.workspace,
+        (threadId) => platform.teamRuns.bands(threadId),
       ),
     );
   if (platform)

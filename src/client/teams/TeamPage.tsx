@@ -1,12 +1,15 @@
 // The team page (#/team/<id>): the team orbiting in its colour, who does what, how it works, its
-// recent chats and runs, and "Start team chat".
+// recent chats and runs (with their run log pages), its home Space, and "Start team chat".
 import { useCallback, useEffect, useState } from 'react';
 import {
   Archive,
   Crown,
+  FileText,
+  FolderPlus,
   MessageSquarePlus,
   MessagesSquare,
   Pencil,
+  ShieldCheck,
   Square,
 } from 'lucide-react';
 import {
@@ -39,6 +42,18 @@ const when = (ms: number) =>
     hour: '2-digit',
     minute: '2-digit',
   });
+
+/** What the reviewer of a review run said, for the run's row. */
+const verdictText = (run: TeamRun, reviewer: string) =>
+  !run.reviewerDotId || run.verdict === null
+    ? ''
+    : run.verdict === 'changes'
+      ? `${reviewer} still asked for changes`
+      : `Checked by ${reviewer}${run.sentBack ? ' after one send-back' : ''}`;
+
+const openHash = (hash: string) => {
+  location.hash = hash;
+};
 
 const duration = (run: TeamRun) => {
   if (run.finishedAt === null) return '';
@@ -102,6 +117,14 @@ export function TeamPage({
   const color = (id: string) => dots.find((dot) => dot.id === id)?.color;
   const memberIds = team.members.map((member) => member.dotId);
   const busy = [team.leadDotId, ...memberIds].some((id) => working?.has(id));
+  const createSpace = async () => {
+    try {
+      await api(`/teams/${team.id}/space`, 'POST', {});
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not create the space.');
+    }
+  };
   const stop = async (run: TeamRun) => {
     try {
       await api(`/teams/runs/${run.id}/cancel`, 'POST', {});
@@ -157,6 +180,12 @@ export function TeamPage({
                 : ''}
             </li>
             <li>{memberIds.length + 1} Dots</li>
+            {team.style === 'review' && team.reviewerDotId && (
+              <li>
+                <ShieldCheck size={13} aria-hidden /> {name(team.reviewerDotId)}{' '}
+                reviews
+              </li>
+            )}
           </ul>
           <div className="tp-actions">
             <button
@@ -177,6 +206,26 @@ export function TeamPage({
               <Pencil size={15} aria-hidden />
               Edit
             </button>
+            {team.spaceId ? (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => openHash(`#/spaces/${team.spaceId}`)}
+              >
+                <FileText size={15} aria-hidden />
+                Team space
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="secondary"
+                disabled={!!team.archivedAt}
+                onClick={() => void createSpace()}
+              >
+                <FolderPlus size={15} aria-hidden />
+                Create space
+              </button>
+            )}
             <button
               type="button"
               className="secondary"
@@ -281,8 +330,24 @@ export function TeamPage({
                     <small>
                       {TEAM_STYLE_LABELS[run.style]} · {when(run.createdAt)}
                       {duration(run) ? ` · ${duration(run)}` : ''}
+                      {verdictText(run, name(run.reviewerDotId ?? ''))
+                        ? ` · ${verdictText(run, name(run.reviewerDotId ?? ''))}`
+                        : ''}
                     </small>
                   </span>
+                  {run.log && (
+                    <button
+                      type="button"
+                      className="tp-link compact"
+                      onClick={() =>
+                        openHash(
+                          `#/spaces/${run.log!.spaceId}/pages/${run.log!.pageId}`,
+                        )
+                      }
+                    >
+                      <FileText size={13} aria-hidden /> Run log
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="tp-link compact"

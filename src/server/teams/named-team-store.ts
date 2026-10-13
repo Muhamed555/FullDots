@@ -6,15 +6,18 @@ import type { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import { DOT_COLORS, type DotColor } from '../../shared/types.js';
 import type {
+  ReviewVerdict,
   Team,
   TeamMember,
   TeamMode,
   TeamRun,
   TeamRunStatus,
   TeamRunStep,
+  TeamStepRole,
   TeamStepStatus,
   TeamStyle,
 } from '../../shared/teams.js';
+import { TeamSpaceGrants } from './team-space.js';
 
 export interface NewTeam {
   name: string;
@@ -25,6 +28,8 @@ export interface NewTeam {
   style?: TeamStyle;
   mode?: TeamMode;
   summarize?: boolean;
+  reviewerDotId?: string | null;
+  runLog?: boolean;
   members?: { dotId: string; role?: string }[];
 }
 
@@ -39,6 +44,8 @@ export type TeamPatch = Partial<
     | 'style'
     | 'mode'
     | 'summarize'
+    | 'reviewerDotId'
+    | 'runLog'
   >
 >;
 
@@ -46,6 +53,8 @@ export type TeamPatch = Partial<
 export interface StoredStep extends TeamRunStep {
   brief: string;
 }
+
+const VERDICTS: readonly ReviewVerdict[] = ['approved', 'changes', 'unclear'];
 
 const toRun = (
   row: Record<string, unknown>,
@@ -59,6 +68,13 @@ const toRun = (
   createdAt: Number(row.createdAt),
   finishedAt: row.finishedAt == null ? null : Number(row.finishedAt),
   cancelledAt: row.cancelledAt == null ? null : Number(row.cancelledAt),
+  reviewerDotId: row.reviewerDotId == null ? null : String(row.reviewerDotId),
+  verdict: VERDICTS.find((verdict) => verdict === row.verdict) ?? null,
+  sentBack: !!row.sentBack,
+  log:
+    row.logPageId == null || row.logSpaceId == null
+      ? null
+      : { spaceId: String(row.logSpaceId), pageId: String(row.logPageId) },
   postedAt: row.postedAt == null ? null : Number(row.postedAt),
 });
 
@@ -68,10 +84,15 @@ const toStep = (row: Record<string, unknown>): StoredStep => ({
   dotId: String(row.dotId),
   position: Number(row.position),
   status: String(row.status) as TeamStepStatus,
+  role: row.role === 'reviewer' ? 'reviewer' : 'worker',
+  firstDelegationId:
+    row.firstDelegationId == null ? null : String(row.firstDelegationId),
   brief: String(row.brief ?? ''),
 });
 
 export class NamedTeamStore {
+  /** Space access a team gave its Dots (only that is ever taken back by the team). */
+  readonly spaces: TeamSpaceGrants;
   constructor(private db: DatabaseSync) {
     db.exec(`CREATE TABLE IF NOT EXISTS teams(id TEXT PRIMARY KEY, name TEXT NOT NULL, emoji TEXT NOT NULL,
       color TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', leadDotId TEXT NOT NULL, style TEXT NOT NULL,
@@ -88,6 +109,26 @@ export class NamedTeamStore {
       position INTEGER NOT NULL, status TEXT NOT NULL, brief TEXT NOT NULL DEFAULT '',
       PRIMARY KEY(runId, dotId));
       CREATE INDEX IF NOT EXISTS team_run_steps_delegation ON team_run_steps(delegationId);`);
+    for (const [table, column, definition] of [
+      // P5: the run log switch, the reviewer of review runs, the run log page and the owner's request.
+      ['teams', 'runLog', 'INTEGER NOT NULL DEFAULT 1'],
+      ['team_runs', 'reviewerDotId', 'TEXT'],
+      ['team_runs', 'verdict', 'TEXT'],
+      ['team_runs', 'sentBack', 'INTEGER NOT NULL DEFAULT 0'],
+      ['team_runs', 'logSpaceId', 'TEXT'],
+      ['team_runs', 'logPageId', 'TEXT'],
+      ['team_runs', 'request', 'TEXT'],
+      ['team_run_steps', 'role', "TEXT NOT NULL DEFAULT 'worker'"],
+      ['team_run_steps', 'firstDelegationId', 'TEXT'],
+    ] as const)
+      if (
+        !db
+          .prepare(`PRAGMA table_info(${table})`)
+          .all()
+          .some((field) => field.name === column)
+      )
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    this.spaces = new TeamSpaceGrants(db);
   }
 
   private transaction<T>(run: () => T): T {
@@ -132,6 +173,7 @@ export class NamedTeamStore {
       reviewerDotId:
         row.reviewerDotId == null ? null : String(row.reviewerDotId),
       spaceId: row.spaceId == null ? null : String(row.spaceId),
+      runLog: row.runLog == null ? true : !!row.runLog,
       createdAt: Number(row.createdAt),
       updatedAt: Number(row.updatedAt),
       archivedAt: row.archivedAt == null ? null : Number(row.archivedAt),
@@ -171,8 +213,8 @@ export class NamedTeamStore {
       this.db
         .prepare(
           `INSERT INTO teams(id, name, emoji, color, description, leadDotId, style, mode, summarize,
-            reviewerDotId, spaceId, createdAt, updatedAt, archivedAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, NULL)`,
+            reviewerDotId, spaceId, createdAt, updatedAt, archivedAt, runLog)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, ?)`,
         )
         .run(
           id,
@@ -184,22 +226,31 @@ export class NamedTeamStore {
           input.style ?? 'parallel',
           input.mode ?? 'lead',
           +(input.summarize ?? false),
+          input.reviewerDotId ?? null,
           now,
           now,
+          +(input.runLog ?? true),
         );
       this.writeMembers(id, input.members ?? []);
     });
+    this.syncSpace(id);
     return this.get(id)!;
   }
 
   update(id: string, patch: TeamPatch, now = Date.now()): Team | undefined {
     const current = this.get(id);
     if (!current) return undefined;
-    const next = { ...current, ...patch };
+    // A key given as undefined keeps the current value (the routes pass optional fields through).
+    const next: Team = {
+      ...current,
+      ...Object.fromEntries(
+        Object.entries(patch).filter(([, value]) => value !== undefined),
+      ),
+    };
     this.db
       .prepare(
         `UPDATE teams SET name=?, emoji=?, color=?, description=?, leadDotId=?, style=?, mode=?,
-          summarize=?, updatedAt=? WHERE id=?`,
+          summarize=?, reviewerDotId=?, runLog=?, updatedAt=? WHERE id=?`,
       )
       .run(
         next.name.trim(),
@@ -210,10 +261,56 @@ export class NamedTeamStore {
         next.style,
         next.mode,
         +next.summarize,
+        next.reviewerDotId,
+        +next.runLog,
         now,
         id,
       );
+    this.syncSpace(id);
     return this.get(id);
+  }
+
+  /** Gives the team its home Space and its Dots access to it. */
+  setSpace(id: string, spaceId: string, now = Date.now()): Team | undefined {
+    this.db
+      .prepare('UPDATE teams SET spaceId=?, updatedAt=? WHERE id=?')
+      .run(spaceId, now, id);
+    this.syncSpace(id);
+    return this.get(id);
+  }
+
+  /** Brings the team's Space access in line with its lead, members and reviewer. */
+  syncSpace(id: string) {
+    const team = this.get(id);
+    if (!team) return;
+    this.spaces.sync(team.id, team.spaceId, [
+      team.leadDotId,
+      ...team.members.map((member) => member.dotId),
+      ...(team.reviewerDotId ? [team.reviewerDotId] : []),
+    ]);
+  }
+
+  /**
+   * The team Space a page made in this conversation goes to by default: the Space of the team the
+   * chat belongs to (or whose run made it, for a member's step chat), when this Dot may use it.
+   */
+  spaceFor(threadId: string, dotId: string): string | undefined {
+    const row =
+      this.db
+        .prepare(
+          'SELECT teamId FROM thread_bindings WHERE id=? AND teamId IS NOT NULL',
+        )
+        .get(threadId) ??
+      this.db
+        .prepare(
+          `SELECT r.teamId FROM team_run_steps s JOIN team_runs r ON r.id=s.runId
+           JOIN delegations d ON d.id=s.delegationId OR d.id=s.firstDelegationId
+           WHERE d.childThreadId=? LIMIT 1`,
+        )
+        .get(threadId);
+    if (typeof row?.teamId !== 'string') return undefined;
+    const spaceId = this.get(row.teamId)?.spaceId;
+    return spaceId && this.spaces.canUse(dotId, spaceId) ? spaceId : undefined;
   }
 
   private writeMembers(
@@ -242,6 +339,7 @@ export class NamedTeamStore {
         .prepare('UPDATE teams SET updatedAt=? WHERE id=?')
         .run(now, teamId);
     });
+    this.syncSpace(teamId);
     return this.get(teamId);
   }
 
@@ -270,6 +368,7 @@ export class NamedTeamStore {
     return this.list().filter(
       (team) =>
         team.leadDotId === dotId ||
+        team.reviewerDotId === dotId ||
         team.members.some((member) => member.dotId === dotId),
     );
   }
@@ -320,6 +419,19 @@ export class NamedTeamStore {
           'UPDATE teams SET archivedAt=?, updatedAt=? WHERE leadDotId=? AND archivedAt IS NULL',
         )
         .run(now, now, dotId);
+      // A team whose reviewer goes keeps its style; until a new reviewer is chosen it runs like
+      // "All at once".
+      const reviewed = this.db
+        .prepare('SELECT id FROM teams WHERE reviewerDotId=?')
+        .all(dotId)
+        .map((row) => String(row.id));
+      this.db
+        .prepare(
+          'UPDATE teams SET reviewerDotId=NULL, updatedAt=? WHERE reviewerDotId=?',
+        )
+        .run(now, dotId);
+      for (const teamId of new Set([...touched, ...reviewed]))
+        this.syncSpace(teamId);
       return { archived };
     });
   }
@@ -360,26 +472,93 @@ export class NamedTeamStore {
   // ---- Runs -------------------------------------------------------------------------------
 
   createRun(
-    input: Pick<TeamRun, 'teamId' | 'threadId' | 'style' | 'mode'>,
-    steps: { dotId: string; position: number; brief: string }[],
+    input: Pick<TeamRun, 'teamId' | 'threadId' | 'style' | 'mode'> & {
+      /** A direct run's id is chosen before its "Sent to ..." line names it. */
+      id?: string;
+      reviewerDotId?: string | null;
+      /** The owner's message the run answers (a direct run knows it at once). */
+      request?: string | null;
+    },
+    steps: {
+      dotId: string;
+      position: number;
+      brief: string;
+      role?: TeamStepRole;
+    }[],
     now = Date.now(),
   ): TeamRun {
-    const id = randomUUID();
+    const id = input.id ?? randomUUID();
     this.transaction(() => {
       this.db
         .prepare(
-          `INSERT INTO team_runs(id, teamId, threadId, style, mode, status, createdAt, finishedAt, cancelledAt, postedAt)
-           VALUES (?, ?, ?, ?, ?, 'running', ?, NULL, NULL, NULL)`,
+          `INSERT INTO team_runs(id, teamId, threadId, style, mode, status, createdAt, finishedAt, cancelledAt,
+            postedAt, reviewerDotId, request)
+           VALUES (?, ?, ?, ?, ?, 'running', ?, NULL, NULL, NULL, ?, ?)`,
         )
-        .run(id, input.teamId, input.threadId, input.style, input.mode, now);
+        .run(
+          id,
+          input.teamId,
+          input.threadId,
+          input.style,
+          input.mode,
+          now,
+          input.reviewerDotId ?? null,
+          input.request ?? null,
+        );
       const insert = this.db.prepare(
-        `INSERT INTO team_run_steps(runId, delegationId, dotId, position, status, brief)
-         VALUES (?, NULL, ?, ?, 'queued', ?)`,
+        `INSERT INTO team_run_steps(runId, delegationId, dotId, position, status, brief, role)
+         VALUES (?, NULL, ?, ?, 'queued', ?, ?)`,
       );
       for (const step of steps)
-        insert.run(id, step.dotId, step.position, step.brief);
+        insert.run(
+          id,
+          step.dotId,
+          step.position,
+          step.brief,
+          step.role ?? 'worker',
+        );
     });
     return this.run(id)!;
+  }
+
+  /** The owner's message a run answers, when it was recorded. */
+  request(runId: string): string | null {
+    const row = this.db
+      .prepare('SELECT request FROM team_runs WHERE id=?')
+      .get(runId);
+    return typeof row?.request === 'string' ? row.request : null;
+  }
+
+  setRequest(runId: string, request: string) {
+    this.db
+      .prepare('UPDATE team_runs SET request=? WHERE id=? AND request IS NULL')
+      .run(request, runId);
+  }
+
+  setVerdict(runId: string, verdict: ReviewVerdict) {
+    this.db
+      .prepare('UPDATE team_runs SET verdict=? WHERE id=?')
+      .run(verdict, runId);
+  }
+
+  /** Records the one send-back round of a review run. True only for the first call. */
+  markSentBack(runId: string): boolean {
+    return (
+      this.db
+        .prepare('UPDATE team_runs SET sentBack=1 WHERE id=? AND sentBack=0')
+        .run(runId).changes > 0
+    );
+  }
+
+  /** Records the run log page. True only the first time, so a run is logged once. */
+  setLog(runId: string, spaceId: string, pageId: string): boolean {
+    return (
+      this.db
+        .prepare(
+          'UPDATE team_runs SET logSpaceId=?, logPageId=? WHERE id=? AND logPageId IS NULL',
+        )
+        .run(spaceId, pageId, runId).changes > 0
+    );
   }
 
   run(id: string): (TeamRun & { postedAt: number | null }) | undefined {
@@ -414,18 +593,32 @@ export class NamedTeamStore {
       .map(toStep);
   }
 
+  /** The step of a delegation: its current one, or the first of a step that went round again. */
   stepOf(delegationId: string): StoredStep | undefined {
     const row = this.db
-      .prepare('SELECT * FROM team_run_steps WHERE delegationId=?')
-      .get(delegationId);
+      .prepare(
+        'SELECT * FROM team_run_steps WHERE delegationId=? OR firstDelegationId=?',
+      )
+      .get(delegationId, delegationId);
     return row ? toStep(row) : undefined;
   }
 
   setStep(
     runId: string,
     dotId: string,
-    patch: { status: TeamStepStatus; delegationId?: string },
+    patch: {
+      status: TeamStepStatus;
+      delegationId?: string;
+      /** The delegation of the round before (a step that goes round again). */
+      firstDelegationId?: string;
+    },
   ) {
+    if (patch.firstDelegationId)
+      this.db
+        .prepare(
+          'UPDATE team_run_steps SET firstDelegationId=? WHERE runId=? AND dotId=?',
+        )
+        .run(patch.firstDelegationId, runId, dotId);
     if (patch.delegationId)
       this.db
         .prepare(

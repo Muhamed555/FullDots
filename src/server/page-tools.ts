@@ -9,10 +9,12 @@ export function pageAccess(
   check: () => void,
 ) {
   const dotId = workspace.requireThread(threadId).dotId;
+  // A team chat (and a member's step chat of a team run) saves to the team's Space by default.
+  const destination = workspace.teams.spaceFor(threadId, dotId) ?? spaceId;
   const resolve = (requested?: string) => {
     check();
     const target =
-      requested ?? workspace.pages.forThread(threadId)?.spaceId ?? spaceId;
+      requested ?? workspace.pages.forThread(threadId)?.spaceId ?? destination;
     if (!workspace.canAccessSpace(dotId, target))
       throw new Error('Space access has been revoked or was not granted.');
     return target;
@@ -22,6 +24,8 @@ export function pageAccess(
     url: `/#/spaces/${page.spaceId}/pages/${page.id}`,
   });
   return {
+    /** Where pages go when no Space is named and no page is open. */
+    destination,
     context: () => workspace.pages.forThread(threadId, resolve()),
     spaces: () => {
       check();
