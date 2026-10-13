@@ -206,16 +206,27 @@ const promptSource: SearchSource = {
     })),
 };
 
-/**
- * Extension point: teams. Once named teams exist, add 'team' to SEARCH_TYPES and a source here
- * that returns hits of type 'team' (title match on the team name, content match on its notes).
- */
+/** Named teams: a title match on the name (shown with its emoji), a content match on the description. */
+const teamSource: SearchSource = {
+  type: 'team',
+  run: (context) =>
+    context.store.teams(context.query, context.limit).map((team) => ({
+      group: team.nameHit ? ('title' as const) : ('content' as const),
+      type: 'team' as const,
+      id: team.id,
+      title: `${team.emoji} ${team.name}`,
+      snippet: team.nameHit ? '' : makeSnippet(team.description, context.query),
+      updatedAt: team.updatedAt,
+    })),
+};
+
 const SOURCES: SearchSource[] = [
   chatSource,
   messageSource,
   pageSource,
   dotSource,
   promptSource,
+  teamSource,
 ];
 
 export function clampLimit(raw: unknown): number {

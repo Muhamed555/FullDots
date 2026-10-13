@@ -43,7 +43,13 @@ export interface Delegation {
   deliveredAt: number | null;
   /** The hand-off this one tries again (the owner's Try again on a failed or stopped lane). */
   retryOf: string | null;
+  /**
+   * Who started it: a Dot's own delegate_to_dot ('dot'), a step of a team run the lead started
+   * ('team'), or the owner's message sent straight to a team ('owner').
+   */
+  origin: DelegationOrigin;
 }
+export type DelegationOrigin = 'dot' | 'owner' | 'team';
 export type TriggerKind = 'webhook' | 'poll';
 /** bearer: Authorization header; query: ?token= in the URL; hmac: a signature of the body. */
 export type TriggerAuth = 'bearer' | 'query' | 'hmac';
@@ -210,6 +216,8 @@ export interface Conversation {
   createdAt: number;
   /** Set on a branch: the conversation and message it was copied from (null: before the first). */
   branchedFrom?: { threadId: string; messageId: string | null };
+  /** A team chat: the named team it belongs to (its host `dotId` is the team's lead). */
+  teamId?: string;
 }
 /** A conversation as the sidebar lists it, with activity facts from the server. */
 export interface ConversationSummary extends Conversation {

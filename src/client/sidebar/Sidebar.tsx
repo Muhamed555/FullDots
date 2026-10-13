@@ -35,9 +35,10 @@ import type { DotLiveState } from './useDotLive';
 import '../sidebar.css';
 import { BrandMark } from '../DotCharacter';
 import { shortcutLabel } from '../palette/palette-model';
+import { TeamRows, type SidebarTeams } from '../teams/TeamsSection';
 
 export type NavView =
-  'chat' | 'tasks' | 'memories' | 'space' | 'inbox' | 'mission';
+  'chat' | 'tasks' | 'memories' | 'space' | 'inbox' | 'mission' | 'team';
 
 export interface SidebarProps {
   workspace: WorkspaceState;
@@ -72,6 +73,8 @@ export interface SidebarProps {
   onOpenPalette?: (query?: string) => void;
   /** What each Dot is doing right now (useDotLive): working, or waiting for the owner. */
   dotStates?: ReadonlyMap<string, DotLiveState>;
+  /** Named teams: the Teams section between Dots and Spaces. */
+  teams?: SidebarTeams;
 }
 
 function Section({
@@ -155,6 +158,7 @@ export function Sidebar({
   onDialog,
   onOpenPalette,
   dotStates,
+  teams,
 }: SidebarProps) {
   const phone = useMediaQuery(MOBILE_QUERY);
   const collapsed = collapsedPreference && !phone;
@@ -427,6 +431,18 @@ export function Sidebar({
             })}
           </nav>
         </Section>
+
+        {teams && (
+          <Section
+            title="Teams"
+            storageKey="fulldots.sidebar.teams"
+            collapsed={collapsed}
+            actionLabel="Create team"
+            onAction={teams.onCreate}
+          >
+            <TeamRows {...teams} dots={workspace.dots} collapsed={collapsed} />
+          </Section>
+        )}
 
         <Section
           title="Spaces"

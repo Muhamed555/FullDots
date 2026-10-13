@@ -4,7 +4,12 @@
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@copilotkit/runtime/v2';
 import { z } from 'zod';
-import type { Delegation, Dot, TurnSource } from '../shared/types.js';
+import type {
+  Delegation,
+  DelegationOrigin,
+  Dot,
+  TurnSource,
+} from '../shared/types.js';
 import {
   deriveTitle,
   MAX_CONVERSATION_TITLE_LENGTH,
@@ -38,10 +43,39 @@ const firstLine = (text: string) =>
     ?.trim()
     .slice(0, 120) ?? '';
 
+/**
+ * The Dots a Dot may hand work to: the ones the owner ticked for it (dot_teams) plus the members of
+ * the active named teams it leads. Computed on every call, never stored; members of a team gain
+ * nothing towards each other.
+ */
+export function effectiveDelegates(
+  workspace: Pick<WorkspaceStore, 'team' | 'teams'>,
+  dotId: string,
+): string[] {
+  return [
+    ...new Set([
+      ...workspace.team.delegates(dotId),
+      ...workspace.teams.impliedDelegates(dotId).keys(),
+    ]),
+  ].filter((id) => id !== dotId);
+}
+
+/** The key that groups a team run's steps and its one result marker (see Delegation.batchKey). */
+export const teamBatchKey = (runId: string) => `team:${runId}`;
+
 export class TeamService {
   readonly maxDepth: number;
+  /**
+   * Set by the team run service: a finished step of a team run goes to it instead of reporting to
+   * its lead on its own. Returns true when it took the delegation.
+   */
+  private runHook?: (delegation: Delegation) => boolean;
   constructor(private deps: TeamServiceDeps) {
     this.maxDepth = deps.maxDepth ?? 2;
+  }
+
+  setRunHook(hook: (delegation: Delegation) => boolean) {
+    this.runHook = hook;
   }
 
   get(id: string): Delegation | undefined {
@@ -64,8 +98,7 @@ export class TeamService {
   /** The Dots this Dot may hand work to. */
   teammates(dotId: string): Dot[] {
     const { workspace } = this.deps;
-    return workspace.team
-      .delegates(dotId)
+    return effectiveDelegates(workspace, dotId)
       .map((id) => workspace.dot(id))
       .filter((dot): dot is Dot => !!dot);
   }
@@ -106,7 +139,7 @@ export class TeamService {
     /** The hand-off this one tries again. */
     retryOf?: string;
   }): Delegation {
-    const { workspace, store } = this.deps;
+    const { workspace } = this.deps;
     const from = workspace.dot(input.fromDotId);
     if (!from) throw new Error('Dot not found.');
     const team = this.teammates(from.id);
@@ -120,6 +153,45 @@ export class TeamService {
           ? `${input.to} is not on your team. You can hand work to: ${team.map((dot) => dot.name).join(', ')}.`
           : 'You have no teammates to hand work to.',
       );
+    return this.handOff({
+      from,
+      target,
+      threadId: input.threadId,
+      brief: input.brief,
+      deliverable: input.deliverable,
+      batchKey:
+        input.batchKey !== undefined
+          ? input.batchKey
+          : input.runId
+            ? `${input.threadId}:${input.runId}`
+            : null,
+      origin: 'dot',
+      ...(input.retryOf ? { retryOf: input.retryOf } : {}),
+    });
+  }
+
+  /**
+   * Starts one hand-off: a new conversation of the target, a delegation task in it, and the
+   * delegation row. The depth limit and the loop check apply to every origin; the caller has
+   * already checked that `from` may hand work to `target`.
+   */
+  handOff(input: {
+    from: Dot;
+    target: Dot;
+    threadId: string;
+    brief: string;
+    deliverable: string;
+    batchKey: string | null;
+    origin: DelegationOrigin;
+    /** Replaces "<Lead> handed you this work." (the owner's own message to a team says so). */
+    intro?: string;
+    /** Context after the brief, such as the previous step's result in a step-by-step run. */
+    context?: string;
+    /** The hand-off this one tries again (the owner's Try again on a lane). */
+    retryOf?: string;
+  }): Delegation {
+    const { workspace, store } = this.deps;
+    const { from, target } = input;
     const depth = this.depthOf(input.threadId) + 1;
     if (depth > this.maxDepth)
       throw new Error(
@@ -137,7 +209,9 @@ export class TeamService {
       target.id,
       TeamService.title(from.name, target.name, input.brief),
     );
-    const prompt = `${from.name} handed you this work.\n\nBrief: ${input.brief}\n\nWhat to deliver: ${input.deliverable}\n\nDo the work, then reply with the deliverable only: no preamble, no plan, no "I am ready", no notes about what you are about to do. Your final reply goes to ${from.name} exactly as you write it.`;
+    const intro = input.intro ?? `${from.name} handed you this work.`;
+    const context = input.context ? `\n\n${input.context}` : '';
+    const prompt = `${intro}\n\nBrief: ${input.brief}${context}\n\nWhat to deliver: ${input.deliverable}\n\nDo the work, then reply with the deliverable only: no preamble, no plan, no "I am ready", no notes about what you are about to do. Your final reply goes to ${from.name} exactly as you write it.`;
     const task = store.createTask(prompt, { kind: 'delegation' });
     workspace.bindTask(task.id, child.id);
     return workspace.team.create({
@@ -149,12 +223,8 @@ export class TeamService {
       depth,
       brief: input.brief,
       deliverable: input.deliverable,
-      batchKey:
-        input.batchKey !== undefined
-          ? input.batchKey
-          : input.runId
-            ? `${input.threadId}:${input.runId}`
-            : null,
+      batchKey: input.batchKey,
+      origin: input.origin,
       ...(input.retryOf ? { retryOf: input.retryOf } : {}),
     });
   }
@@ -201,7 +271,15 @@ export class TeamService {
       },
       delivered: (markers, now) =>
         team.markDelivered(
-          of(markers).map((delegation) => delegation.id),
+          [
+            ...of(markers).map((delegation) => delegation.id),
+            // A team run's one result marker delivers every step of the run.
+            ...markers
+              .filter((marker) => marker.batchKey?.startsWith('team:'))
+              .flatMap((marker) =>
+                team.inBatch(marker.batchKey!).map((item) => item.id),
+              ),
+          ],
           now,
         ),
     };
@@ -245,6 +323,7 @@ export class TeamService {
     const delegation = this.deps.workspace.team.byTask(taskId);
     if (!delegation || delegation.status !== 'running') return;
     this.deps.workspace.team.finish(delegation.id, 'done', text);
+    if (this.runHook?.(this.deps.workspace.team.get(delegation.id)!)) return;
     const name =
       this.deps.workspace.dot(delegation.childDotId)?.name ?? 'Your teammate';
     this.report(
@@ -258,6 +337,7 @@ export class TeamService {
     const delegation = this.deps.workspace.team.byTask(taskId);
     if (!delegation || delegation.status !== 'running') return;
     this.deps.workspace.team.finish(delegation.id, 'failed', error);
+    if (this.runHook?.(this.deps.workspace.team.get(delegation.id)!)) return;
     const name =
       this.deps.workspace.dot(delegation.childDotId)?.name ?? 'Your teammate';
     this.report(

@@ -510,6 +510,7 @@ export function categoriesOf(input: ClassifyInput): RuleCategory[] {
       break;
     case 'delegate_to_dot':
     case 'hand_to_dot':
+    case 'start_team_run':
       found.add('hand_off_work');
       break;
     case 'computer_click':
@@ -746,6 +747,15 @@ export function redactArgs(
       // The note is what the next Dot acts on, so the owner reads it in full.
       text = `hand this chat to ${String(args.dot ?? '')}: ${String(args.note ?? '')}`;
       break;
+    case 'start_team_run': {
+      // Every brief is what a member will act on, so the owner reads them in full.
+      const briefs = Object.entries(
+        (args.briefs ?? {}) as Record<string, unknown>,
+      ).map(([name, brief]) => `${name}: ${String(brief)}`);
+      const shared = args.shared ? [`Shared: ${String(args.shared)}`] : [];
+      text = ['start a team run', ...shared, ...briefs].join('\n');
+      break;
+    }
     default:
       text = `${tool} ${JSON.stringify(mask(args))}`;
   }

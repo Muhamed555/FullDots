@@ -4,6 +4,7 @@ export type AppHashTarget =
   | { view: 'inbox'; section?: InboxSection }
   | { view: 'mission' }
   | { view: 'space'; spaceId: string; pageId?: string }
+  | { view: 'team'; teamId: string }
   | { view: 'thread'; dotId: string; threadId: string };
 
 const decode = (value: string): string | undefined => {
@@ -16,8 +17,8 @@ const decode = (value: string): string | undefined => {
 
 /**
  * Where a `location.hash` points: `#/inbox`, `#/approvals` (kept for notification links and
- * bookmarks: the inbox, on its Approvals section), `#/mission`, `#/spaces/<id>[/pages/<id>]` or
- * `#/dots/<dotId>/threads/<threadId>`. Anything else is `undefined` and ignored.
+ * bookmarks: the inbox, on its Approvals section), `#/mission`, `#/spaces/<id>[/pages/<id>]`,
+ * `#/team/<id>` or `#/dots/<dotId>/threads/<threadId>`. Anything else is `undefined` and ignored.
  */
 export function parseAppHash(hash: string): AppHashTarget | undefined {
   if (hash === '#/inbox') return { view: 'inbox' };
@@ -25,6 +26,11 @@ export function parseAppHash(hash: string): AppHashTarget | undefined {
   if (hash === '#/mission') return { view: 'mission' };
   const space = hash.match(/^#\/spaces\/([^/]+)(?:\/pages\/([^/]+))?$/);
   if (space) return { view: 'space', spaceId: space[1]!, pageId: space[2] };
+  const team = hash.match(/^#\/team\/([^/]+)$/);
+  if (team) {
+    const teamId = decode(team[1]!);
+    if (teamId) return { view: 'team', teamId };
+  }
   const thread = hash.match(/^#\/dots\/([^/]+)\/threads\/([^/]+)$/);
   if (thread) {
     const dotId = decode(thread[1]!);

@@ -1,16 +1,18 @@
 import type { SearchResult } from '../../shared/search';
+import type { Team } from '../../shared/teams';
 import type { ConversationSummary, Dot, Space } from '../../shared/types';
 import { filterChats } from '../sidebar/chat-groups';
 
 /** The groups in the order the palette shows them. `recent` only appears for an empty query. */
 export type PaletteGroupId =
-  'recent' | 'chat' | 'message' | 'page' | 'dot' | 'prompt' | 'action';
+  'recent' | 'chat' | 'message' | 'page' | 'dot' | 'team' | 'prompt' | 'action';
 export const GROUP_ORDER: readonly PaletteGroupId[] = [
   'recent',
   'chat',
   'message',
   'page',
   'dot',
+  'team',
   'prompt',
   'action',
 ];
@@ -20,6 +22,7 @@ export const GROUP_LABELS: Record<PaletteGroupId, string> = {
   message: 'Messages',
   page: 'Pages',
   dot: 'Dots',
+  team: 'Teams',
   prompt: 'Prompts',
   action: 'Actions',
 };
@@ -27,6 +30,8 @@ export const GROUP_LABELS: Record<PaletteGroupId, string> = {
 export type PaletteAction =
   | { type: 'new-chat'; dotId: string }
   | { type: 'create-dot' }
+  | { type: 'create-team' }
+  | { type: 'team-chat'; teamId: string }
   | { type: 'create-space' }
   | { type: 'settings' }
   | { type: 'prompts' }
@@ -41,6 +46,7 @@ export type PaletteTarget =
   | { kind: 'chat'; threadId: string; dotId?: string }
   | { kind: 'page'; spaceId: string; pageId: string }
   | { kind: 'dot'; dotId: string }
+  | { kind: 'team'; teamId: string }
   | { kind: 'prompt'; promptId: string; dotId?: string }
   | { kind: 'action'; action: PaletteAction };
 
@@ -51,6 +57,9 @@ export type PaletteIcon =
   | 'dot'
   | 'new-chat'
   | 'create-dot'
+  | 'team'
+  | 'create-team'
+  | 'team-chat'
   | 'create-space'
   | 'settings'
   | 'approvals'
@@ -84,6 +93,8 @@ export interface PaletteHandlers {
   openThread: (threadId: string, dotId?: string) => void;
   openPage: (spaceId: string, pageId: string) => void;
   openDot: (dotId: string) => void;
+  /** Opens a team's page; optional so a host without teams still compiles. */
+  openTeam?: (teamId: string) => void;
   usePrompt: (promptId: string, dotId?: string) => void;
   runAction: (action: PaletteAction) => void;
 }
@@ -100,6 +111,8 @@ export function dispatchTarget(
       return handlers.openPage(target.spaceId, target.pageId);
     case 'dot':
       return handlers.openDot(target.dotId);
+    case 'team':
+      return handlers.openTeam?.(target.teamId);
     case 'prompt':
       return handlers.usePrompt(target.promptId, target.dotId);
     case 'action':
@@ -111,6 +124,8 @@ export interface PaletteWorkspace {
   dots: Dot[];
   spaces: Space[];
   conversations: ConversationSummary[];
+  /** Named teams, for their actions and search results. */
+  teams?: Team[];
 }
 
 /** A search hit as a palette row, or undefined when the thing it points at is gone. */
@@ -169,14 +184,30 @@ export function resultToItem(
         icon: 'prompt',
         target: { kind: 'prompt', promptId: result.id, dotId: result.dotId },
       };
+    case 'team': {
+      const team = workspace.teams?.find((item) => item.id === result.id);
+      return {
+        id,
+        group: 'team',
+        title: result.title,
+        subtitle: team
+          ? `Led by ${dotName(team.leadDotId) ?? 'a Dot'}`
+          : undefined,
+        snippet: result.snippet || undefined,
+        icon: 'team',
+        target: { kind: 'team', teamId: result.id },
+      };
+    }
     default:
-      // A result type this client does not know yet (for example 'team').
+      // A result type this client does not know yet.
       return undefined;
   }
 }
 
 export interface ActionContext {
   dots: Dot[];
+  /** Named teams: one Start team chat action per active team. */
+  teams?: Pick<Team, 'id' | 'name' | 'emoji' | 'archivedAt'>[];
   /** The Dot the owner is working with; its actions come first. */
   currentDotId?: string;
   /** A chat cannot start before setup is done. */
@@ -233,9 +264,25 @@ export function buildActions(context: ActionContext): PaletteItem[] {
           { dotId: dot.id },
         ),
   );
+  const teamChats = context.configured
+    ? (context.teams ?? [])
+        .filter((team) => !team.archivedAt)
+        .map((team) =>
+          action(
+            `team-chat:${team.id}`,
+            `Start team chat with ${team.emoji} ${team.name}`,
+            'team-chat',
+            { type: 'team-chat', teamId: team.id },
+          ),
+        )
+    : [];
   return [
     ...newChats.slice(0, 1),
+    ...teamChats.slice(0, 1),
     action('create-dot', 'Create Dot', 'create-dot', { type: 'create-dot' }),
+    action('create-team', 'Create team', 'create-team', {
+      type: 'create-team',
+    }),
     action('create-space', 'Create Space', 'create-space', {
       type: 'create-space',
     }),
@@ -248,6 +295,7 @@ export function buildActions(context: ActionContext): PaletteItem[] {
     }),
     ...pauses.slice(0, 1),
     ...newChats.slice(1),
+    ...teamChats.slice(1),
     ...pauses.slice(1),
   ];
 }

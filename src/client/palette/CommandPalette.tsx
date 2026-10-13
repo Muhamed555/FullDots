@@ -20,6 +20,9 @@ import {
   Inbox,
   LayoutGrid,
   SquarePen,
+  Users,
+  UsersRound,
+  MessageSquarePlus,
   type LucideIcon,
 } from 'lucide-react';
 import { SEARCH_QUERY_MAX } from '../../shared/search';
@@ -55,6 +58,9 @@ const ICONS: Record<PaletteIcon, LucideIcon> = {
   dot: SquarePen,
   'new-chat': SquarePen,
   'create-dot': Plus,
+  team: Users,
+  'create-team': UsersRound,
+  'team-chat': MessageSquarePlus,
   'create-space': FolderPlus,
   settings: Settings2,
   approvals: Inbox,
@@ -131,8 +137,14 @@ function PaletteDialog({
   const search = usePaletteSearch(query, initialSearch);
   const pageTitles = useRecentPageTitles(recents);
   const actions = useMemo(
-    () => buildActions({ dots: workspace.dots, currentDotId, configured }),
-    [workspace.dots, currentDotId, configured],
+    () =>
+      buildActions({
+        dots: workspace.dots,
+        currentDotId,
+        configured,
+        ...(workspace.teams ? { teams: workspace.teams } : {}),
+      }),
+    [workspace.dots, workspace.teams, currentDotId, configured],
   );
   const recentRows = useMemo(
     () => recentItems(recents, workspace, pageTitles),

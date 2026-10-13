@@ -25,6 +25,7 @@ const TABLES: [table: string, column: string][] = [
   ['thread_participants', 'threadId'],
   ['pinned_messages', 'threadId'],
   ['inbox_items', 'threadId'],
+  ['team_runs', 'threadId'],
 ];
 
 class ReplyAgent extends AbstractAgent {
@@ -121,6 +122,30 @@ it('DELETE /api/conversations/:id leaves no rows of that thread in any per-threa
     });
     platform.inbox.ask({ dotId: dot.id, threadId: id, question: 'Which?' });
   }
+  // A team run in each thread, with a step (steps belong to their run, not to a thread column).
+  const crew = workspace.teams.create({
+    name: 'Crew',
+    emoji: '🐝',
+    color: 'amber',
+    leadDotId: dot.id,
+    members: [{ dotId: guest.id }],
+  });
+  const runs = Object.fromEntries(
+    ['drop', 'keep'].map((id) => [
+      id,
+      workspace.teams.createRun(
+        { teamId: crew.id, threadId: id, style: 'parallel', mode: 'lead' },
+        [{ dotId: guest.id, position: 0, brief: 'Help.' }],
+      ).id,
+    ]),
+  );
+  const steps = (id: string) =>
+    Number(
+      reader
+        .prepare('SELECT COUNT(*) AS n FROM team_run_steps WHERE runId=?')
+        .get(runs[id]!)?.n,
+    );
+  expect(steps('drop')).toBe(1);
   const count = (table: string, column: string, id: string) =>
     Number(
       reader
@@ -140,4 +165,8 @@ it('DELETE /api/conversations/:id leaves no rows of that thread in any per-threa
     expect(count(table, column, 'drop'), table).toBe(0);
     expect(count(table, column, 'keep'), table).toBeGreaterThan(0);
   }
+  expect(steps('drop')).toBe(0);
+  expect(steps('keep')).toBe(1);
+  // The team itself stays.
+  expect(workspace.teams.get(crew.id)?.archivedAt).toBeNull();
 });

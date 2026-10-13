@@ -1,0 +1,1208 @@
+/*
+ * Named teams: sidebar rows, the orbit of characters, the builder dialog, the style diagrams, the
+ * team page and the team chat banner. Colours come from the team's palette (--team-color, set
+ * inline from the --dot-<colour>-* tokens) so every surface of a team shares its colour.
+ */
+
+/* ---------- shared helpers ---------- */
+.sb-sr,
+.tb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- stacked faces (sidebar rows, chat banner) ---------- */
+.team-stack {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin-left: auto;
+  padding-left: 4px;
+}
+.team-stack-face {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  margin-left: -6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+.team-stack-face:first-child {
+  margin-left: 0;
+}
+.team-stack-face.lead {
+  width: 21px;
+  height: 21px;
+}
+.team-stack .team-stack-face .mascot {
+  width: 100%;
+  height: 100%;
+}
+.team-stack-more {
+  margin-left: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ---------- sidebar ---------- */
+.sb .sb-team {
+  gap: 8px;
+}
+.sb .sb-team-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb .sb-team-emoji {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--team-color, #6e7ff3) 18%, #fff);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--team-color, #6e7ff3) 35%, transparent);
+  font-size: 13px;
+  line-height: 1;
+}
+.sb .sb-team-pulse {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9px;
+  border: 2px solid var(--team-color, #6e7ff3);
+  animation: team-pulse 1.6s var(--ease-out) infinite;
+  pointer-events: none;
+}
+.sb .sb-team.working .sb-team-emoji {
+  background: color-mix(in srgb, var(--team-color, #6e7ff3) 30%, #fff);
+}
+.sb .sb-team-empty {
+  color: var(--sb-muted, var(--muted));
+  font-size: 12.5px;
+}
+.sb.collapsed .team-stack {
+  display: none;
+}
+
+/* ---------- the orbit ---------- */
+.team-orbit {
+  --r: 112px;
+  --face: 46px;
+  --lead: 92px;
+  --size: 300px;
+  --orbit-speed: 60s;
+  position: relative;
+  flex: none;
+  width: var(--size);
+  height: var(--size);
+}
+.team-orbit-md {
+  --r: 76px;
+  --face: 36px;
+  --lead: 64px;
+  --size: 210px;
+}
+.team-orbit-sm {
+  --r: 44px;
+  --face: 24px;
+  --lead: 40px;
+  --size: 128px;
+}
+.team-orbit::before {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--team-color, #6e7ff3) 26%, transparent),
+    transparent 70%
+  );
+}
+.team-orbit-track {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--r) * 2);
+  height: calc(var(--r) * 2);
+  margin: calc(var(--r) * -1) 0 0 calc(var(--r) * -1);
+  border: 1.5px dashed
+    color-mix(in srgb, var(--team-color, #6e7ff3) 45%, transparent);
+  border-radius: 50%;
+}
+.team-orbit-ring {
+  position: absolute;
+  inset: 0;
+  animation: team-orbit var(--orbit-speed) linear infinite;
+}
+.team-orbit-slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform: rotate(var(--angle)) translate(var(--r))
+    rotate(calc(var(--angle) * -1));
+}
+.team-orbit-upright {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  /* `translate` (not transform) so the counter-rotation below turns the face about its centre. */
+  translate: -50% calc(var(--face) / -2);
+  transform-origin: 50% calc(var(--face) / 2);
+  animation: team-counter var(--orbit-speed) linear infinite;
+}
+.team-orbit-face {
+  display: block;
+  width: var(--face);
+  height: var(--face);
+  animation: team-bob 3.4s ease-in-out infinite;
+}
+.team-orbit .team-orbit-face .mascot,
+.team-orbit .team-orbit-center .mascot {
+  width: 100%;
+  height: 100%;
+}
+.team-orbit-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: var(--lead);
+  height: var(--lead);
+  margin: calc(var(--lead) / -2) 0 0 calc(var(--lead) / -2);
+}
+.team-orbit-crown {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--team-color, #f2ab2e);
+  font-size: 14px;
+  text-shadow: 0 1px 0 #fff;
+}
+.team-orbit-center .tb-orbit-name {
+  position: absolute;
+  bottom: -18px;
+}
+
+/* ---------- builder ---------- */
+.modal.dlg.team-builder {
+  max-width: 800px;
+}
+.modal.dlg.team-builder .tb-body {
+  display: grid;
+  gap: 18px;
+}
+.team-builder .tb-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--team-color) 10%, #fff);
+}
+.team-builder .tb-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--team-color) 26%, #fff);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--team-color) 50%, transparent),
+    0 6px 16px color-mix(in srgb, var(--team-color) 24%, transparent);
+  font-size: 30px;
+  transition: transform var(--dur-med) var(--ease-spring);
+}
+.team-builder .tb-identity:hover .tb-badge {
+  transform: rotate(-6deg) scale(1.04);
+}
+.team-builder .tb-name {
+  flex: 1;
+  min-width: 0;
+}
+.team-builder .tb-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.team-builder .tb-field > label,
+.team-builder .tb-label,
+.team-builder .tb-name > label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.team-builder .tb-field small {
+  font-weight: 400;
+  color: var(--muted);
+}
+.team-builder .tb-invalid {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+.team-builder .dlg-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.modal.dlg.team-builder .tb-desc {
+  min-height: 64px;
+}
+.team-builder .tb-emoji-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.team-builder .tb-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 36px);
+  gap: 4px;
+}
+.team-builder .tb-emoji {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 19px;
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.team-builder .tb-emoji:hover {
+  transform: scale(1.15);
+  background: var(--surface-raised);
+}
+.team-builder .tb-emoji.on {
+  border-color: var(--team-color);
+  background: color-mix(in srgb, var(--team-color) 16%, #fff);
+}
+.team-builder .tb-emoji:focus-visible,
+.team-builder .tb-card:focus-visible,
+.team-builder .tb-handle:focus-visible,
+.team-builder .tb-icon-btn:focus-visible,
+.team-builder .tb-tray-dot:focus-visible,
+.team-builder .tb-switch:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.team-builder .tb-emoji-own {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.team-builder .tb-emoji-input {
+  width: 64px;
+  height: 36px;
+  text-align: center;
+  font-size: 18px;
+}
+.team-builder .tb-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.team-builder .tb-swatch {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+/* the cast: stage, tray and member list */
+.team-builder .tb-cast {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--team-color) 7%, #fff),
+    #fff 70%
+  );
+}
+.team-builder .tb-cast-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.team-builder .tb-cast-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.team-builder .tb-cast-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 12px;
+}
+.team-builder .tb-stage {
+  display: grid;
+  place-items: center;
+  min-height: 330px;
+  border: 2px dashed transparent;
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--team-color) 9%, transparent),
+      transparent 65%
+    ),
+    var(--surface);
+  transition:
+    border-color var(--dur-med) var(--ease-out),
+    background var(--dur-med) var(--ease-out);
+}
+.team-builder .tb-stage.dropping {
+  border-color: var(--team-color);
+  background: color-mix(in srgb, var(--team-color) 12%, #fff);
+}
+.team-builder .tb-stage-empty {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  width: 92px;
+  height: 92px;
+  border: 2px dashed color-mix(in srgb, var(--team-color) 55%, transparent);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.2;
+}
+.team-builder .tb-orbit-name {
+  max-width: 76px;
+  padding: 1px 7px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: #ffffffe6;
+  box-shadow: var(--shadow-sm);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-builder .tb-tray {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
+.team-builder .tb-tray h4 {
+  margin: 0 0 2px;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.team-builder .tb-tray ul,
+.team-builder .tb-members {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team-builder .tb-tray-dot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  cursor: grab;
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.team-builder .tb-tray-dot:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.team-builder .tb-tray-dot:active:not(:disabled) {
+  cursor: grabbing;
+}
+.team-builder .tb-tray-dot:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.team-builder .tb-tray-face,
+.team-builder .tb-row-face {
+  display: inline-grid;
+  flex: none;
+  width: 26px;
+  height: 26px;
+}
+.team-builder .tb-tray-face .mascot.small,
+.team-builder .tb-row-face .mascot.small {
+  width: 100%;
+  height: 100%;
+}
+.team-builder .tb-tray-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-builder .tb-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.team-builder .tb-lead-row,
+.team-builder .tb-member {
+  display: grid;
+  grid-template-columns: auto auto minmax(80px, 140px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.team-builder .tb-lead-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  border-color: color-mix(in srgb, var(--team-color) 45%, var(--line));
+  background: color-mix(in srgb, var(--team-color) 8%, #fff);
+}
+.team-builder .tb-row-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.team-builder .tb-row-name small {
+  flex-basis: 100%;
+  font-weight: 400;
+  color: var(--muted);
+}
+.team-builder .tb-handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: grab;
+}
+.team-builder .tb-role {
+  height: 34px;
+  font-size: 13px;
+}
+.team-builder .tb-row-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+.team-builder .tb-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+.team-builder .tb-icon-btn:hover:not(:disabled) {
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+.team-builder .tb-icon-btn:disabled {
+  opacity: 0.35;
+}
+
+/* style and mode cards */
+.team-builder .tb-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.team-builder .tb-modes {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.team-builder .tb-card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-spring),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.team-builder .tb-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.team-builder .tb-card.on {
+  border-color: var(--team-color);
+  background: color-mix(in srgb, var(--team-color) 8%, #fff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--team-color) 18%, transparent);
+}
+.team-builder .tb-card strong {
+  font-size: 13.5px;
+}
+.team-builder .tb-card small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.team-builder .tb-card .style-diagram {
+  height: 46px;
+}
+.team-builder .tb-switch {
+  margin-top: 4px;
+}
+
+/* the switch */
+.tb-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+}
+.tb-switch-track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: #d6d6d6;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.tb-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.tb-switch.on .tb-switch-track {
+  background: var(--team-color, var(--accent));
+}
+.tb-switch.on .tb-switch-thumb {
+  transform: translateX(16px);
+}
+.tb-switch-text {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+.tb-switch-text small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---------- style diagrams ---------- */
+.style-diagram {
+  display: block;
+  width: 100%;
+  height: 48px;
+  overflow: visible;
+}
+.style-diagram .sd-wire {
+  fill: none;
+  stroke: #d8d8d8;
+  stroke-width: 1.4;
+  stroke-dasharray: 3 3;
+}
+.style-diagram .sd-fan,
+.style-diagram .sd-gather {
+  animation: sd-travel 2.6s var(--ease-out) infinite;
+}
+.style-diagram .sd-hop {
+  animation: sd-hop 3.6s ease-in-out infinite;
+}
+.style-diagram .sd-loupe {
+  transform-box: view-box;
+  transform-origin: 104px 16px;
+  animation: sd-peer 2.6s ease-in-out infinite;
+}
+/* Only the chosen card (or the one under the pointer or focus) moves. */
+.tb-card:not(.on):not(:hover):not(:focus-visible) .style-diagram * {
+  animation-play-state: paused;
+}
+
+/* ---------- team page ---------- */
+.team-page {
+  display: grid;
+  gap: 22px;
+}
+.team-page .tp-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+  padding: 22px 28px;
+  border-radius: 26px;
+  background:
+    radial-gradient(
+      circle at 15% 50%,
+      color-mix(in srgb, var(--team-color) 22%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--team-light, #fff) 45%, #fff),
+      #fff
+    );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--team-color) 22%, var(--line)),
+    var(--shadow-md);
+}
+.team-page .tp-hero-text {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.team-page .tp-hero h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: -0.02em;
+}
+.team-page .tp-emoji {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--team-color) 22%, #fff);
+  font-size: 28px;
+}
+.team-page .tp-hero p {
+  margin: 0;
+  color: var(--muted);
+}
+.team-page .tp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team-page .tp-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  background: #ffffffcc;
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.team-page .tp-chips .style-diagram {
+  width: 54px;
+  height: 22px;
+}
+.team-page .tp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.team-page .tp-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.team-page .tp-actions .secondary {
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 550;
+}
+.team-page .tp-actions .secondary:hover:not(:disabled) {
+  border-color: #cfcfcf;
+}
+.team-page .tp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.team-page .tp-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.team-page .tp-card h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+.team-page .tp-members,
+.team-page .tp-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team-page .tp-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.team-page .tp-member.lead {
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--team-color) 9%, #fff);
+}
+.team-page .tp-face {
+  display: inline-grid;
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+.team-page .tp-face .mascot.small {
+  width: 100%;
+  height: 100%;
+}
+.team-page .tp-member-text {
+  display: grid;
+  min-width: 0;
+}
+.team-page .tp-member-text strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13.5px;
+}
+.team-page .tp-member-text small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.team-page .tp-step {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--team-color);
+  color: #fff;
+  font-size: 10.5px;
+}
+.team-page .tp-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+}
+.team-page .tp-link span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-page .tp-link small {
+  color: var(--muted);
+}
+.team-page .tp-link:hover {
+  border-color: #cfcfcf;
+}
+.team-page .tp-link.compact {
+  width: auto;
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.team-page .tp-link.danger {
+  color: var(--danger);
+}
+.team-page .tp-run {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.team-page .tp-run-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+.team-page .tp-run-text small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.team-page .tp-run-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.team-page .tp-run-dot.running {
+  background: var(--team-color);
+  animation: team-pulse-dot 1.4s ease-in-out infinite;
+}
+.team-page .tp-run-dot.done {
+  background: var(--success);
+}
+.team-page .tp-run-dot.failed {
+  background: var(--danger);
+}
+
+/* ---------- team chat banner ---------- */
+.team-chat-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto 6px;
+  width: min(100% - 32px, 760px);
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--team-color) 9%, #fff);
+  box-shadow:
+    inset 3px 0 0 var(--team-color),
+    inset 0 0 0 1px color-mix(in srgb, var(--team-color) 22%, var(--line));
+}
+.team-chat-banner .tcb-emoji {
+  font-size: 20px;
+}
+.team-chat-banner .tcb-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.team-chat-banner .tcb-name {
+  color: var(--ink);
+  font-weight: 650;
+  font-size: 13.5px;
+  text-decoration: none;
+}
+.team-chat-banner .tcb-name:hover {
+  text-decoration: underline;
+}
+.team-chat-banner small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.team-chat-banner .team-stack {
+  margin-left: 0;
+}
+.team-chat-banner .tcb-error {
+  flex-basis: 100%;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+.team-chat-banner .tcb-error button {
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+/* ---------- Dot dialog: "Can hand work to" ---------- */
+.modal.dlg .dlg-check-row.dd-locked {
+  cursor: default;
+  border-style: dashed;
+}
+.modal.dlg .dlg-check-row .dd-via {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.modal.dlg .dd-make {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.modal.dlg .dd-make-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ink);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.modal.dlg .dd-made {
+  margin: 8px 0 0;
+  color: var(--success);
+  font-size: 13px;
+}
+
+/* ---------- motion ---------- */
+@keyframes team-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes team-counter {
+  from {
+    rotate: 0deg;
+  }
+  to {
+    rotate: -360deg;
+  }
+}
+@keyframes team-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes team-pulse {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+@keyframes team-pulse-dot {
+  50% {
+    transform: scale(1.5);
+    opacity: 0.6;
+  }
+}
+@keyframes sd-travel {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    transform: translate(var(--dx), var(--dy));
+    opacity: 1;
+  }
+  85%,
+  100% {
+    transform: translate(var(--dx), var(--dy));
+    opacity: 0;
+  }
+}
+@keyframes sd-hop {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  12% {
+    transform: translate(15px, -7px);
+  }
+  22%,
+  33% {
+    transform: translate(31px, 0);
+  }
+  44% {
+    transform: translate(46px, -7px);
+  }
+  55%,
+  66% {
+    transform: translate(62px, 0);
+  }
+  77% {
+    transform: translate(77px, -7px);
+  }
+  88% {
+    transform: translate(92px, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(92px, 0);
+    opacity: 0;
+  }
+}
+@keyframes sd-peer {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0deg);
+  }
+  70% {
+    transform: rotate(-14deg);
+  }
+  85% {
+    transform: rotate(10deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .team-orbit-ring,
+  .team-orbit-upright,
+  .team-orbit-face,
+  .sb .sb-team-pulse,
+  .team-page .tp-run-dot.running {
+    animation: none;
+  }
+  /* A steady ring instead of a pulse: the row still says "working" in text. */
+  .sb .sb-team-pulse {
+    opacity: 0.8;
+  }
+  .style-diagram .sd-fan,
+  .style-diagram .sd-gather,
+  .style-diagram .sd-hop,
+  .style-diagram .sd-loupe {
+    animation: none;
+  }
+  /* Static diagrams: packets drawn half way along their path. */
+  .style-diagram .sd-fan,
+  .style-diagram .sd-gather {
+    transform: translate(calc(var(--dx) / 2), calc(var(--dy) / 2));
+  }
+  .style-diagram .sd-hop {
+    transform: translate(46px, 0);
+  }
+  .team-builder .tb-badge,
+  .team-builder .tb-emoji,
+  .team-builder .tb-tray-dot,
+  .team-builder .tb-card,
+  .tb-switch-thumb,
+  .tb-switch-track {
+    transition: none;
+  }
+  .team-builder .tb-identity:hover .tb-badge,
+  .team-builder .tb-emoji:hover,
+  .team-builder .tb-tray-dot:hover:not(:disabled),
+  .team-builder .tb-card:hover {
+    transform: none;
+  }
+}
+
+/* ---------- phones ---------- */
+@media (max-width: 700px) {
+  /* The stage becomes the vertical member list below it. */
+  .team-builder .tb-stage {
+    display: none;
+  }
+  .team-builder .tb-cast-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .team-builder .tb-cards,
+  .team-builder .tb-modes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .team-builder .tb-emoji-grid {
+    grid-template-columns: repeat(8, 32px);
+  }
+  .team-builder .tb-emoji {
+    width: 32px;
+    height: 32px;
+  }
+  .team-builder .tb-member {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+  }
+  .team-builder .tb-member .tb-role {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .team-page .tp-hero {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    padding: 18px;
+    text-align: center;
+  }
+  .team-page .tp-hero .team-orbit {
+    --r: 76px;
+    --face: 36px;
+    --lead: 64px;
+    --size: 210px;
+  }
+  .team-page .tp-hero h1 {
+    justify-content: center;
+    font-size: 26px;
+  }
+  .team-page .tp-chips,
+  .team-page .tp-actions {
+    justify-content: center;
+  }
+}

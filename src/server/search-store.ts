@@ -35,6 +35,15 @@ export interface PromptRow {
   titleHit: boolean;
 }
 
+export interface TeamRow {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  updatedAt: number;
+  nameHit: boolean;
+}
+
 /** LIKE queries over the workspace tables. Chat messages are searched separately (see search.ts). */
 export class SearchStore {
   constructor(
@@ -87,6 +96,26 @@ export class SearchStore {
         name: String(row.name),
         instructions: String(row.instructions),
         createdAt: Number(row.createdAt),
+        nameHit: !!row.nameHit,
+      }));
+  }
+
+  /** Active named teams only, by name or description. */
+  teams(query: string, limit: number): TeamRow[] {
+    const pattern = contains(query);
+    return this.db
+      .prepare(
+        `SELECT id, name, emoji, description, updatedAt, (name ${LIKE}) AS nameHit FROM teams
+         WHERE archivedAt IS NULL AND (name ${LIKE} OR description ${LIKE})
+         ORDER BY updatedAt DESC, id LIMIT ?`,
+      )
+      .all(pattern, pattern, pattern, limit)
+      .map((row) => ({
+        id: String(row.id),
+        name: String(row.name),
+        emoji: String(row.emoji),
+        description: String(row.description),
+        updatedAt: Number(row.updatedAt),
         nameHit: !!row.nameHit,
       }));
   }

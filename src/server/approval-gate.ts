@@ -160,6 +160,12 @@ function describeAction(
       return `hand work to ${clip(String(args.dot ?? 'a teammate'), 40)}`;
     case 'hand_to_dot':
       return `hand this chat to ${clip(String(args.dot ?? 'another Dot'), 40)}`;
+    case 'start_team_run': {
+      const names = Object.keys((args.briefs ?? {}) as object);
+      return names.length
+        ? `start a team run with ${clip(names.join(', '), 60)}`
+        : 'start a team run with every member';
+    }
     case 'computer_click':
       return `click the ${target}`;
     case 'computer_select':

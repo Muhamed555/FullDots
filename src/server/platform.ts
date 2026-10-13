@@ -23,6 +23,8 @@ import { HandoffService } from './handoff-service.js';
 import { createNotify, type Notify } from './notify.js';
 import { TriggerService } from './trigger-service.js';
 import { TeamService } from './team-service.js';
+import { TeamRunService } from './teams/team-runs.js';
+import { StaticReply } from './teams/static-reply.js';
 import { GroupChat } from './group-chat.js';
 import { runConflict } from './group-routes.js';
 import { included } from './mcp-tools.js';
@@ -49,6 +51,8 @@ export class Platform {
   readonly notify: Notify;
   readonly triggers: TriggerService;
   readonly team: TeamService;
+  /** Named teams' runs: start_team_run, direct dispatch, results and cancel. */
+  readonly teamRuns: TeamRunService;
   /** Group chats: participants, the baton tool and the relay cap. */
   readonly group: GroupChat;
   /** The owner's inbox: questions and the results of finished background work. */
@@ -226,6 +230,31 @@ export class Platform {
     this.events.subscribe('turn.started', ({ threadId, source }) =>
       this.team.started(threadId, source),
     );
+    this.teamRuns = new TeamRunService({
+      workspace,
+      team: this.team,
+      resume: (marker) => void this.resumes.enqueue(marker),
+      cancelTask: (taskId) => void store.action(taskId, 'cancel'),
+      // Direct team chats write the owner's message and the results without a model call.
+      post: async ({ threadId, dotId, text, reply, metadata }) => {
+        await runThreadTurn(
+          this.runner,
+          new StaticReply(reply, dotId),
+          threadId,
+          text,
+          AbortSignal.timeout(30_000),
+          metadata,
+        );
+      },
+      onTurnFinished: (listener) =>
+        this.events.subscribe('turn.finished', listener),
+      turns,
+      finished: (threadId, text) =>
+        this.finishedWork(threadId, 'delegation', text),
+    });
+    this.team.setRunHook((delegation) =>
+      this.teamRuns.stepFinished(delegation),
+    );
     this.pages = new PageService(workspace, () => {
       this.requireReady();
       return {
@@ -279,6 +308,7 @@ export class Platform {
       models: this.models,
       usage: (dotId, tokens) => this.recordUsage(dotId, tokens),
       team: this.team,
+      teamRuns: this.teamRuns,
       group: this.group,
       questions: this.inbox,
       notes: this.dotNotes,
@@ -345,6 +375,7 @@ export class Platform {
     await this.connectors.start();
     this.approvals.startSweep();
     this.resumes.start();
+    this.teamRuns.recover();
     this.triggers.start();
   }
   /** Why a connector tool cannot be polled for this Dot; undefined when it can. */

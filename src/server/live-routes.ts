@@ -1,8 +1,8 @@
 import { Hono, type MiddlewareHandler } from 'hono';
 import type { Platform } from './platform.js';
 
-/** Mutating requests under these paths change Spaces, Dots or conversations. */
-const WORKSPACE_PATH = /^\/api\/(spaces|dots|conversations)(\/|$)/;
+/** Mutating requests under these paths change Spaces, Dots, teams or conversations. */
+const WORKSPACE_PATH = /^\/api\/(spaces|dots|teams|conversations)(\/|$)/;
 
 /** Mounted under /api, behind the owner and origin checks like every other route. */
 export function liveRoutes(platform: Platform) {

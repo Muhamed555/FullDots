@@ -10,6 +10,7 @@ import { ResumeStore } from './resume-store.js';
 import { UsageStore } from './usage-store.js';
 import { TriggerStore } from './trigger-store.js';
 import { TeamStore } from './team-store.js';
+import { NamedTeamStore } from './teams/named-team-store.js';
 import { RuleStore } from './rule-store.js';
 import { PromptStore } from './prompt-store.js';
 import { SearchStore } from './search-store.js';
@@ -54,6 +55,8 @@ export class WorkspaceStore {
   readonly usage: UsageStore;
   readonly triggers: TriggerStore;
   readonly team: TeamStore;
+  /** Named teams (a lead and its members) and their runs: see docs/TEAMS.md. */
+  readonly teams: NamedTeamStore;
   /** Rules per Dot (send messages, spend money, ...): see docs/APPROVALS.md. */
   readonly rules: RuleStore;
   readonly prompts: PromptStore;
@@ -93,6 +96,8 @@ export class WorkspaceStore {
       ['thread_bindings', 'branchedFromThreadId', 'TEXT'],
       ['thread_bindings', 'branchedFromMessageId', 'TEXT'],
       ['dots', 'notesProposals', 'INTEGER NOT NULL DEFAULT 0'],
+      // A team chat names its team; every other conversation keeps NULL.
+      ['thread_bindings', 'teamId', 'TEXT'],
     ]) {
       if (
         !this.db
@@ -130,6 +135,7 @@ export class WorkspaceStore {
     this.usage = new UsageStore(this.db);
     this.triggers = new TriggerStore(this.db, connectorKey);
     this.team = new TeamStore(this.db);
+    this.teams = new NamedTeamStore(this.db);
     this.rules = new RuleStore(this.db);
     this.pages = new Pages(this.db, (id) =>
       this.spaces().some((space) => space.id === id),
@@ -356,23 +362,26 @@ export class WorkspaceStore {
   conversations(): Conversation[] {
     return this.db
       .prepare(
-        'SELECT id, dotId, ownerId, title, createdAt, branchedFromThreadId, branchedFromMessageId FROM thread_bindings WHERE ownerId=? ORDER BY createdAt DESC',
+        'SELECT id, dotId, ownerId, title, createdAt, branchedFromThreadId, branchedFromMessageId, teamId FROM thread_bindings WHERE ownerId=? ORDER BY createdAt DESC',
       )
       .all(this.ownerId)
-      .map(({ branchedFromThreadId, branchedFromMessageId, ...row }) => ({
-        ...(row as unknown as Conversation),
-        ...(typeof branchedFromThreadId === 'string'
-          ? {
-              branchedFrom: {
-                threadId: branchedFromThreadId,
-                messageId:
-                  typeof branchedFromMessageId === 'string'
-                    ? branchedFromMessageId
-                    : null,
-              },
-            }
-          : {}),
-      }));
+      .map(
+        ({ branchedFromThreadId, branchedFromMessageId, teamId, ...row }) => ({
+          ...(row as unknown as Conversation),
+          ...(typeof teamId === 'string' ? { teamId } : {}),
+          ...(typeof branchedFromThreadId === 'string'
+            ? {
+                branchedFrom: {
+                  threadId: branchedFromThreadId,
+                  messageId:
+                    typeof branchedFromMessageId === 'string'
+                      ? branchedFromMessageId
+                      : null,
+                },
+              }
+            : {}),
+        }),
+      );
   }
   bindThread(id: string, dotId: string, title: string): Conversation {
     const dot = this.dot(dotId);
@@ -497,6 +506,8 @@ export class WorkspaceStore {
         'DELETE FROM thread_participants WHERE threadId=?',
         'DELETE FROM pinned_messages WHERE threadId=?',
         'DELETE FROM inbox_items WHERE threadId=?',
+        'DELETE FROM team_run_steps WHERE runId IN (SELECT id FROM team_runs WHERE threadId=?)',
+        'DELETE FROM team_runs WHERE threadId=?',
       ])
         this.db.prepare(sql).run(id);
       this.db

@@ -174,8 +174,8 @@ it('filters by type and refuses unknown types', async () => {
   expect((await search('comet', '&types=page,teams')).status).toBe(400);
   expect((await search('comet', '&types=bogus')).status).toBe(400);
   expect(parseTypes('page, dot')).toEqual(['page', 'dot']);
-  expect(parseTypes(undefined)).toHaveLength(5);
-  expect(parseTypes('')).toHaveLength(5);
+  expect(parseTypes(undefined)).toHaveLength(6);
+  expect(parseTypes('')).toHaveLength(6);
 });
 
 it('searches Dot names and instructions and saved prompts, not archived ones', async () => {

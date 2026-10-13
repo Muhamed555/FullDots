@@ -282,7 +282,7 @@ describe('team API', () => {
     expect((await put([scout.id])).status).toBe(200);
     expect(
       await (await app.request(`/api/dots/${lead.id}/team`)).json(),
-    ).toEqual({ delegateIds: [scout.id] });
+    ).toEqual({ delegateIds: [scout.id], implied: [] });
     expect((await put([lead.id])).status).toBe(400);
     expect((await put(['missing'])).status).toBe(400);
     expect((await put([], 'nope')).status).toBe(404);

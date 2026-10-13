@@ -328,7 +328,7 @@ describe('palette model', () => {
     ).toBeUndefined();
     expect(
       resultToItem(
-        { ...hit('chat', 'x', 'Team'), type: 'team' as never },
+        { ...hit('chat', 'x', 'Widget'), type: 'widget' as never },
         workspace,
       ),
     ).toBeUndefined();

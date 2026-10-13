@@ -1,6 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
-import type { Delegation, DelegationStatus } from '../shared/types.js';
+import type {
+  Delegation,
+  DelegationOrigin,
+  DelegationStatus,
+} from '../shared/types.js';
 
 const toDelegation = (row: Record<string, unknown>): Delegation => ({
   id: String(row.id),
@@ -20,6 +24,7 @@ const toDelegation = (row: Record<string, unknown>): Delegation => ({
   startedAt: row.startedAt == null ? null : Number(row.startedAt),
   deliveredAt: row.deliveredAt == null ? null : Number(row.deliveredAt),
   retryOf: row.retryOf == null ? null : String(row.retryOf),
+  origin: (row.origin == null ? 'dot' : String(row.origin)) as DelegationOrigin,
 });
 
 // Columns added after the first release; ALTER TABLE keeps existing rows (they read as null).
@@ -28,6 +33,8 @@ const DELEGATION_COLUMNS: [string, string][] = [
   ['startedAt', 'INTEGER'],
   ['deliveredAt', 'INTEGER'],
   ['retryOf', 'TEXT'],
+  // Rows from before named teams were all a Dot's own hand-offs.
+  ['origin', "TEXT NOT NULL DEFAULT 'dot'"],
 ];
 
 /** Teams of Dots: who may hand work to whom, and every hand-off with its result. */
@@ -91,14 +98,19 @@ export class TeamStore {
       | 'startedAt'
       | 'deliveredAt'
       | 'retryOf'
-    > & { batchKey?: string | null; retryOf?: string | null },
+      | 'origin'
+    > & {
+      batchKey?: string | null;
+      retryOf?: string | null;
+      origin?: DelegationOrigin;
+    },
     now = Date.now(),
   ): Delegation {
     const id = randomUUID();
     this.db
       .prepare(
         `INSERT INTO delegations(id, parentThreadId, parentDotId, childThreadId, childDotId, taskId, depth, status,
-          brief, deliverable, result, createdAt, finishedAt, batchKey, retryOf) VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, NULL, ?, NULL, ?, ?)`,
+          brief, deliverable, result, createdAt, finishedAt, batchKey, retryOf, origin) VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, NULL, ?, NULL, ?, ?, ?)`,
       )
       .run(
         id,
@@ -113,6 +125,7 @@ export class TeamStore {
         now,
         input.batchKey ?? null,
         input.retryOf ?? null,
+        input.origin ?? 'dot',
       );
     return this.get(id)!;
   }

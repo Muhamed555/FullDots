@@ -38,6 +38,7 @@ import {
   turnErrorMessage,
 } from './chat-errors';
 import { useGroupChat } from './room/useGroupChat';
+import { useTeamChat } from './teams/useTeamChat';
 import { Composer } from './composer/Composer';
 import { DotNotesButton } from './DotNotes';
 import { useAutoAttach } from './live-attach';
@@ -105,6 +106,7 @@ export function Chat({
     onOpenThread,
     onComputer,
   });
+  const teamChat = useTeamChat({ thread, dots: dots ?? [] });
   const [pageContext, setPageContext] = useState<PageContext | null>();
   const [contextError, setContextError] = useState('');
   const [contextAttempt, setContextAttempt] = useState(0);
@@ -225,6 +227,12 @@ export function Chat({
   const send = async (text: string) => {
     if (!text.trim() || running || !loaded || !contextReady || paused) return;
     if (room.threadBusy || room.dispatching) return;
+    // A Direct team chat sends the message to every member instead of the lead.
+    if (teamChat.direct) {
+      setDraft('');
+      if (!(await teamChat.dispatch(text))) setDraft(text);
+      return;
+    }
     // A message that mentions other Dots goes to them, one turn each, after the owner's confirm.
     setDraft('');
     const routed = await room.send(text, contextualMessage(text, pageContext));
@@ -561,6 +569,7 @@ export function Chat({
           </button>
         </div>
       </header>
+      {teamChat.banner}
       {pageContext && (
         <div className="page-chat-context">
           Working on{' '}
@@ -694,7 +703,7 @@ export function Chat({
       <Composer
         mode="chat"
         label="Message your Dot"
-        placeholder={`Message ${dot.name}…`}
+        placeholder={teamChat.placeholder ?? `Message ${dot.name}…`}
         value={draft}
         onChange={setDraft}
         onSubmit={(text) => void send(text)}

@@ -10,6 +10,8 @@ import { hookRoutes, triggerRoutes } from './trigger-routes.js';
 import { teamRoutes } from './team-routes.js';
 import { laneRoutes } from './lane-routes.js';
 import { LaneService } from './lanes.js';
+import { namedTeamRoutes } from './teams/named-team-routes.js';
+import { teamGroups } from './teams/team-groups.js';
 import { groupRoutes } from './group-routes.js';
 import { ruleRoutes } from './rule-routes.js';
 import { promptRoutes } from './prompt-routes.js';
@@ -223,6 +225,8 @@ export function createApp({
         store,
         workspace: platform.workspace,
         turns: platform.turns,
+        // Dots grouped under their named teams (a Dot in several appears under each).
+        groups: (ids) => teamGroups(platform.workspace.teams.list(), ids),
       }),
     );
   }
@@ -242,10 +246,28 @@ export function createApp({
         platform.workspace,
       ),
     );
+  if (platform)
+    app.route(
+      '/api',
+      namedTeamRoutes({
+        workspace: platform.workspace,
+        runs: platform.teamRuns,
+        turns: platform.turns,
+      }),
+    );
   if (platform) app.route('/api', groupRoutes(platform));
   if (platform) app.route('/api', ruleRoutes(platform.workspace));
   if (platform) {
-    app.route('/api', promptRoutes(platform.workspace));
+    app.route(
+      '/api',
+      promptRoutes(platform.workspace, {
+        // Only an active team can own a prompt.
+        teamExists: (id) => {
+          const team = platform.workspace.teams.get(id);
+          return !!team && !team.archivedAt;
+        },
+      }),
+    );
     app.route('/api', searchRoutes(platform.workspace, platform.runner));
     app.route('/api', messageActionRoutes(platform));
   }

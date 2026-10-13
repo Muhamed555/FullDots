@@ -8,7 +8,21 @@ export function teamRoutes(workspace: WorkspaceStore) {
   app.get('/dots/:id/team', (c) => {
     const id = c.req.param('id');
     if (!workspace.dot(id)) return c.json({ error: 'Dot not found.' }, 404);
-    return c.json({ delegateIds: workspace.team.delegates(id) });
+    return c.json({
+      // What the owner ticked; the PUT below replaces exactly this list.
+      delegateIds: workspace.team.delegates(id),
+      // Dots it may also hand work to because it leads their team (not stored, not editable here).
+      implied: [...workspace.teams.impliedDelegates(id)].map(
+        ([dotId, teams]) => ({
+          dotId,
+          teams: teams.map(({ id: teamId, name, emoji }) => ({
+            id: teamId,
+            name,
+            emoji,
+          })),
+        }),
+      ),
+    });
   });
   app.put('/dots/:id/team', async (c) => {
     const id = c.req.param('id');

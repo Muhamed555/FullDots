@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Prompt } from '../../shared/prompts';
+import type { Team } from '../../shared/teams';
 import type { Dot, WorkspaceState } from '../../shared/types';
 import { api } from '../api';
 import type { Dialog } from '../WorkspaceDialog';
@@ -14,7 +15,7 @@ export interface PaletteHostProps {
   /** The Dot the owner is working with. */
   dot: Dot;
   configured: boolean;
-  view: 'chat' | 'tasks' | 'memories' | 'space' | 'inbox' | 'mission';
+  view: 'chat' | 'tasks' | 'memories' | 'space' | 'inbox' | 'mission' | 'team';
   selectedThread?: string;
   spaceId: string;
   pageId?: string;
@@ -27,6 +28,11 @@ export interface PaletteHostProps {
   onView: (view: 'tasks' | 'inbox' | 'mission') => void;
   onDialog: (dialog: Dialog) => void;
   onError: (message: string) => void;
+  /** Named teams: search results, Start team chat with each, and Create team. */
+  teams?: Team[];
+  onOpenTeam?: (teamId: string) => void;
+  onTeamChat?: (teamId: string) => void;
+  onCreateTeam?: () => void;
 }
 
 /** Connects the palette to the app: what each result opens, and which chats and pages count as recent. */
@@ -53,6 +59,12 @@ export function PaletteHost(props: PaletteHostProps) {
         break;
       case 'create-dot':
         props.onDialog({ type: 'dot', spaceId: workspace.spaces[0]!.id });
+        break;
+      case 'create-team':
+        props.onCreateTeam?.();
+        break;
+      case 'team-chat':
+        props.onTeamChat?.(action.teamId);
         break;
       case 'create-space':
         props.onDialog({ type: 'space' });
@@ -86,6 +98,7 @@ export function PaletteHost(props: PaletteHostProps) {
       const target = dotById(dotId);
       if (target) props.onChooseDot(target);
     },
+    openTeam: (teamId) => props.onOpenTeam?.(teamId),
     // A prompt starts a new chat with its text in the composer; the owner still presses send.
     usePrompt: (promptId, dotId) => {
       void api<Prompt>(`/prompts/${promptId}`)
@@ -109,7 +122,7 @@ export function PaletteHost(props: PaletteHostProps) {
       open={palette.open}
       onClose={palette.hide}
       initialQuery={palette.initialQuery}
-      workspace={workspace}
+      workspace={props.teams ? { ...workspace, teams: props.teams } : workspace}
       currentDotId={dot.id}
       configured={props.configured}
       recents={recents}

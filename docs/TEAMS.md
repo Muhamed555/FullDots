@@ -4,7 +4,7 @@ A Dot can hand part of a task to a teammate whose role fits it better. For examp
 
 ## Set up a team
 
-Open a Dot's settings (its menu in the sidebar, **Edit Dot**) and tick the Dots it may hand work to under **Team**. A Dot with no team never sees the hand-off tools.
+Open a Dot's settings (its menu in the sidebar, **Edit Dot**) and tick the Dots it may hand work to under **Can hand work to**. A Dot with no teammates never sees the hand-off tools. A Dot that leads a [named team](#named-teams) may also hand work to that team's members.
 
 ## How a hand-off works
 
@@ -91,6 +91,45 @@ Safety:
 - Each Dot keeps its own settings in the chat: model, approval mode, rules, pause, token budget and its one-turn-at-a-time lock. A message you address to a Dot counts as a chat message (`source: chat`), so approvals behave exactly as when you type to the host. A pass to a Dot over its daily budget waits like other background work.
 
 API: `GET`/`POST /api/conversations/:id/participants` (`{ dotId }`, the confirm), `DELETE /api/conversations/:id/participants/:dotId`, `POST /api/conversations/:id/turns` (`{ text, dotId }`, answers 202 once the turn started; 403 for a Dot not in the chat, 409 while a turn runs), and `POST /api/conversations/:id/stop`. `/api/workspace` lists `participantIds` with each conversation.
+
+## Named teams
+
+A named team is a lead Dot plus up to eight members, with a name, an emoji, a colour, a work style and a mode. Teams live in the sidebar's **Teams** section, between Dots and Spaces: each row shows the team's emoji and name, its members' characters (lead first, a little larger) and a pulse while any of them is working. **+** opens the team builder; a row's menu has **Start team chat**, **Edit team** and **Archive team**. A team's page (`#/team/<id>`) shows who does what, how the team works, its recent chats and runs, and **Start team chat**.
+
+### Building a team
+
+In the builder, drag Dots from **Your Dots** onto the stage, or press their **Add** buttons (the keyboard and phone path). The first Dot becomes the lead and sits in the centre; members orbit it. In the member list each member has a role ("finds sources"), an order handle (focus it and use the arrow keys, Home and End), **Move up**/**Move down**, **Make lead** and **Remove**. On a phone the stage is hidden and the list is the whole picture. The builder checks what the server checks: a name not used by another active team, exactly one emoji, a colour from the Dot palette, a lead that is not also a member, no Dot twice, at least one and at most eight members.
+
+The lead is not a member row: `teams.leadDotId` names it and `team_members.position` orders the members from 0.
+
+### Who may hand work to whom
+
+A Dot's teammates are now the Dots ticked for it under **Can hand work to** in its settings **plus** the members of every active team it leads. Nothing is stored or migrated: the team-given entries are computed each time and shown in the Dot dialog as locked rows ("via 🚀 Launch crew"); change them on the team. Members get **nothing** from a team: being on the same team does not let them hand work to each other or to the lead. Archiving the team takes the lead's team-given teammates away again. A Dot with two or more ticked teammates can press **Make a team from these teammates** to create a team it leads; the ticks stay as they are.
+
+### Team chats and modes
+
+**Start team chat** opens a new conversation bound to the team (`thread_bindings.teamId`) and hosted by the lead. A banner names the team, its mode and style.
+
+- **Lead plans** (the default). You talk to the lead. Its instructions name the team, the members in order with their roles, and the style, and it gets one tool, `start_team_run({ briefs: { "<member name>": "<brief>" }, shared?: "<context>" })`. The server makes one step per member that got a brief (every member when only `shared` is given; `shared` is prepended to each brief) and runs them in the team's style. The lead may call it **once per turn**, only in a turn you started (a chat message, or the approval of one); the turn that brings the results back cannot start another run. It does not count against the three hand-offs per turn of `delegate_to_dot`, and it follows the **Hand work to teammates** rule: under Ask me first you approve the run, briefs in full, before anything starts.
+- **Direct**. Your message goes straight to every member, with no lead model call (`POST /api/teams/:id/dispatch { threadId, text }`, which the chat uses for you). The chat stores your message with a short "Sent to …" line from the lead, and when every member has finished it posts one **Results** message with a section per member (stored as a turn of the lead, so it is replayed and attributed like any other reply). With **Lead summarises** on, the lead then adds one short summary turn.
+
+### Work styles
+
+- **All at once**: every step starts together, as many as `BACKGROUND_CONCURRENCY` allows; the rest queue.
+- **Step by step**: steps run strictly in member order, whatever order the briefs came in; members without a brief are skipped; each member's brief carries the previous member's result. A step that fails ends the chain: the remaining steps are skipped and the lead hears what was done.
+- **With a reviewer**: stored and shown, and for now runs like All at once. The reviewer step comes in P5.
+
+The lead hears back **once**, when the run ends: one resume turn with every result, a section per member, including the ones that failed or were skipped. Each Dot takes part at most once per run, and the lead is never a step. Every step is an ordinary hand-off (its own conversation "_Lead_ → _Member_: …", task, model, approvals, budget and `DELEGATION_TIMEOUT`); `delegations.origin` says `team` for a lead's run and `owner` for a direct message (`dot` for everything else). Depth and loop limits apply as for any hand-off.
+
+### Runs, cancel and archive
+
+Each run is a `team_runs` row (style, mode, status, created/finished/cancelled times) with one `team_run_steps` row per member (its delegation, position and status). `GET /api/teams/runs/:id` returns the run with each step's brief, conversation and timings; `POST /api/teams/runs/:id/cancel` stops it: every step's task is cancelled and the lead is not resumed. A member's turn is stopped at once only when it is running on that step's own conversation; the same member working in another chat is left alone. Deleting a team chat removes its runs and steps.
+
+Archiving a team keeps its Dots, its chats and its runs; it leaves the sidebar and stops granting its lead anything. A team whose lead Dot is removed is archived, not deleted, and a removed member leaves every team (Dots cannot be deleted yet; the store method is ready for when they can).
+
+Mission control groups Dots under their teams; a Dot in several teams appears under each, and Dots in no team share a last group. Search finds active teams by name and description, the Ctrl+K palette offers **Start team chat with …** and **Create team**, and a saved prompt can belong to an active team.
+
+API: `GET /api/teams` (`?archived=1` for archived ones too; also lists the Dots working right now), `POST /api/teams`, `GET`/`PATCH /api/teams/:id`, `PUT /api/teams/:id/members` (`{ members: [{ dotId, role }] }` in order), `POST /api/teams/:id/archive`, `POST /api/teams/:id/conversations`, `POST /api/teams/:id/dispatch`, `GET /api/teams/runs/:id`, `POST /api/teams/runs/:id/cancel`. `GET /api/dots/:id/team` also lists the team-given teammates as `implied`.
 
 ## Settings
 

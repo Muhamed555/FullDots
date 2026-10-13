@@ -64,6 +64,7 @@ const STARTERS = [
 ];
 import { PaletteHost } from './palette/PaletteHost';
 import { useCommandPalette } from './palette/useCommandPalette';
+import { useTeamsHost } from './teams/TeamsHost';
 
 function describeFailure(error: unknown, fallback: string) {
   return {
@@ -79,8 +80,9 @@ export function App() {
   const [selectedDot, setSelectedDot] = useState('');
   const [selectedThread, setSelectedThread] = useState<string>();
   const [view, rawSetView] = useState<
-    'chat' | 'tasks' | 'memories' | 'space' | 'inbox' | 'mission'
+    'chat' | 'tasks' | 'memories' | 'space' | 'inbox' | 'mission' | 'team'
   >('chat');
+  const [teamId, setTeamId] = useState<string>();
   const [inboxFocus, setInboxFocus] = useState<InboxSection>();
   const dirtyPage = useRef(false);
   const [spaceId, setSpaceId] = useState('');
@@ -116,6 +118,10 @@ export function App() {
         setSpaceId(target.spaceId);
         setPageId(target.pageId);
         rawSetView('space');
+      } else if (target.view === 'team') {
+        // Like a page, a team page keeps its hash so a reload stays there.
+        setTeamId(target.teamId);
+        rawSetView('team');
       } else {
         // Notification links: show the view, then drop the hash so a later reload does not repeat it.
         if (target.view === 'thread') {
@@ -306,6 +312,18 @@ export function App() {
     setView('chat');
     setMobile(false);
   };
+  const teams = useTeamsHost({
+    dots: workspace?.dots ?? [],
+    view,
+    teamId,
+    onOpenThread: (id, dotId) => {
+      // A team chat made a moment ago is not in this render's workspace yet: name its host.
+      if (dotId) setSelectedDot(dotId);
+      selectThread(id);
+    },
+    onRefresh: refresh,
+    onError: setError,
+  });
   const renameThread = async (id: string, title: string) => {
     setError('');
     try {
@@ -492,6 +510,7 @@ export function App() {
         }}
         onOpenPalette={palette.show}
         dotStates={dotStates}
+        teams={teams.sidebar}
       />
       <div className="workspace" inert={mobile}>
         <header className="topbar">
@@ -513,7 +532,9 @@ export function App() {
                       ? 'Inbox'
                       : view === 'mission'
                         ? 'Mission control'
-                        : 'Memories'}
+                        : view === 'team'
+                          ? 'Team'
+                          : 'Memories'}
             </strong>
           </div>
           <div className="top-actions">
@@ -701,6 +722,8 @@ export function App() {
               />
             )}
           </div>
+        ) : view === 'team' ? (
+          teams.page
         ) : view === 'inbox' ? (
           <InboxPage
             inbox={inbox}
@@ -933,6 +956,7 @@ export function App() {
           mutate={mutate}
         />
       )}
+      {teams.dialog}
       {triggerFor && (
         <TriggerDialog
           threadId={triggerFor.threadId}
@@ -961,6 +985,10 @@ export function App() {
         }}
         onDialog={setDialog}
         onError={setError}
+        teams={teams.teams}
+        onOpenTeam={teams.open}
+        onTeamChat={(id) => void teams.startChat({ id })}
+        onCreateTeam={() => teams.create()}
       />
     </div>
   );

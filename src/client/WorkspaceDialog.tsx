@@ -35,6 +35,7 @@ import { Mascot } from './Mascot';
 import { ModelPicker, modelFields, type ModelChoice } from './ModelPicker';
 import { ModelProvidersSettings } from './ModelProvidersSettings';
 import { PromptsSettings } from './palette/PromptsSettings';
+import { DotDelegatesField } from './teams/DotDelegatesField';
 import type {
   ApprovalMode,
   ConnectorView,
@@ -625,46 +626,20 @@ export function WorkspaceDialog({
                 <DotSection
                   id="team"
                   icon={Users}
-                  title="Team"
+                  title="Can hand work to"
                   description="Dots this one may hand work to. Each works in its own conversation and reports back."
                 >
-                  {workspace.dots.filter((item) => item.id !== dialog.dot?.id)
-                    .length === 0 ? (
-                    <p className="dlg-hint">
-                      Create another Dot first; then this one can hand it work.
-                    </p>
-                  ) : (
-                    <div
-                      className="dlg-list"
-                      role="group"
-                      aria-label="Can hand work to"
-                    >
-                      {workspace.dots
-                        .filter((item) => item.id !== dialog.dot?.id)
-                        .map((item) => (
-                          <label className="dlg-check-row" key={item.id}>
-                            <input
-                              type="checkbox"
-                              checked={teamIds.includes(item.id)}
-                              onChange={(event) => {
-                                setTeamIds((current) =>
-                                  event.target.checked
-                                    ? [...current, item.id]
-                                    : current.filter((id) => id !== item.id),
-                                );
-                                setTeamDirty(true);
-                              }}
-                            />
-                            <span className="dlg-team-text">
-                              <strong>{item.name}</strong>
-                              <small>
-                                {item.instructions.split('\n')[0].slice(0, 90)}
-                              </small>
-                            </span>
-                          </label>
-                        ))}
-                    </div>
-                  )}
+                  <DotDelegatesField
+                    dotId={dialog.dot?.id}
+                    dotName={dialog.dot?.name ?? name}
+                    dotColor={color}
+                    dots={workspace.dots}
+                    value={teamIds}
+                    onChange={(ids) => {
+                      setTeamIds(ids);
+                      setTeamDirty(true);
+                    }}
+                  />
                 </DotSection>
                 <DotSection
                   id="approvals"
