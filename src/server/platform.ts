@@ -23,6 +23,8 @@ import { HandoffService } from './handoff-service.js';
 import { createNotify, type Notify } from './notify.js';
 import { TriggerService } from './trigger-service.js';
 import { TeamService } from './team-service.js';
+import { GroupChat } from './group-chat.js';
+import { runConflict } from './group-routes.js';
 import { included } from './mcp-tools.js';
 import { EventBus } from './events.js';
 import { wireLiveEvents } from './live-wiring.js';
@@ -45,6 +47,8 @@ export class Platform {
   readonly notify: Notify;
   readonly triggers: TriggerService;
   readonly team: TeamService;
+  /** Group chats: participants, the baton tool and the relay cap. */
+  readonly group: GroupChat;
   /** The live event feed (GET /api/events): ids and small enums only. */
   readonly events = new EventBus();
   constructor(
@@ -89,6 +93,11 @@ export class Platform {
       resume: (marker) => void this.resumes.enqueue(marker),
       maxDepth: config.teamMaxDepth ?? 2,
     });
+    this.group = new GroupChat({
+      workspace,
+      resume: (marker) => void this.resumes.enqueue(marker),
+      relayMax: config.teamRelayMax ?? 4,
+    });
     this.resumes = new ResumeQueue({
       store: workspace.resumes,
       registry: turns,
@@ -96,8 +105,17 @@ export class Platform {
         this.events.subscribe('turn.finished', listener),
       batches: this.team.batches(config.teamResultBatchMs ?? 1500),
       isPaused: (dotId) => !!workspace.dot(dotId)?.paused,
-      turn: (threadId, prompt, signal, metadata) =>
-        this.turn(threadId, prompt, signal, metadata),
+      belongs: (marker) => {
+        try {
+          workspace.requireThread(marker.threadId, marker.dotId);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      isOverBudget: (dotId) => workspace.usage.overBudgetDots().includes(dotId),
+      turn: (threadId, prompt, signal, metadata, dotId) =>
+        this.turnAs(threadId, dotId, prompt, signal, metadata),
       onGiveUp: (marker) =>
         workspace.computers.record({
           dotId: marker.dotId,
@@ -220,6 +238,7 @@ export class Platform {
       models: this.models,
       usage: (dotId, tokens) => this.recordUsage(dotId, tokens),
       team: this.team,
+      group: this.group,
       goals: {
         isOpenGoal: (taskId) => {
           const task = this.store.task(taskId);
@@ -325,24 +344,41 @@ export class Platform {
         { status: 403 },
       );
     }
+    const conflict = await runConflict(this, request, body);
+    if (conflict) return conflict;
     return this.handler.fetch(request);
   }
+  /** A server-side turn of the conversation's host Dot. */
   async turn(
     threadId: string,
     prompt: string,
     signal: AbortSignal,
     metadata?: TurnMetadata | Record<string, unknown>,
   ): Promise<string> {
-    this.requireReady();
     const thread = this.workspace.requireThread(threadId);
+    return this.turnAs(threadId, thread.dotId, prompt, signal, metadata);
+  }
+  /**
+   * A server-side turn of one Dot in a conversation: its host, or a participant of a group chat.
+   * The Dot's own approval mode, rules, pause, budget and turn lock apply, as in any other turn.
+   */
+  async turnAs(
+    threadId: string,
+    dotId: string,
+    prompt: string,
+    signal: AbortSignal,
+    metadata?: TurnMetadata | Record<string, unknown>,
+  ): Promise<string> {
+    this.requireReady();
+    this.workspace.requireThread(threadId, dotId);
     const agent = new DotAgent(
       this.store,
       this.workspace,
       this.config,
-      thread.dotId,
+      dotId,
       this.services(),
     );
-    agent.agentId = thread.dotId;
+    agent.agentId = dotId;
     return runThreadTurn(
       this.runner,
       agent,

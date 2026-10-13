@@ -13,6 +13,7 @@ import { TeamStore } from './team-store.js';
 import { RuleStore } from './rule-store.js';
 import { PromptStore } from './prompt-store.js';
 import { SearchStore } from './search-store.js';
+import { ParticipantStore } from './participant-store.js';
 import { Pages } from './pages.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -53,6 +54,8 @@ export class WorkspaceStore {
   readonly rules: RuleStore;
   readonly prompts: PromptStore;
   readonly search: SearchStore;
+  /** Group chats: Dots added to a conversation besides its host. */
+  readonly participants: ParticipantStore;
   constructor(
     path: string,
     readonly ownerId: string,
@@ -109,6 +112,7 @@ export class WorkspaceStore {
     this.approvals = new ApprovalStore(this.db);
     this.handoffs = new HandoffStore(this.db);
     this.resumes = new ResumeStore(this.db);
+    this.participants = new ParticipantStore(this.db);
     this.usage = new UsageStore(this.db);
     this.triggers = new TriggerStore(this.db, connectorKey);
     this.team = new TeamStore(this.db);
@@ -349,11 +353,28 @@ export class WorkspaceStore {
       .run(id, dotId, this.ownerId, title, value.createdAt);
     return value;
   }
+  /** The owner's conversation; with `dotId`, only when that Dot is its host or a participant. */
   requireThread(id: string, dotId?: string): Conversation {
     const thread = this.conversations().find((thread) => thread.id === id);
-    if (!thread || (dotId && thread.dotId !== dotId))
+    if (
+      !thread ||
+      (dotId &&
+        thread.dotId !== dotId &&
+        !this.participants.has(thread.id, dotId))
+    )
       throw new Error('Conversation does not belong to this Dot and owner.');
     return thread;
+  }
+  /** The host Dot and the participants of a conversation, host first. */
+  threadMembers(id: string): string[] {
+    const thread = this.requireThread(id);
+    return [
+      thread.dotId,
+      ...this.participants
+        .list(id)
+        .map((row) => row.dotId)
+        .filter((dotId) => dotId !== thread.dotId),
+    ];
   }
   renameThread(id: string, title: string): Conversation {
     this.requireThread(id);
@@ -406,6 +427,7 @@ export class WorkspaceStore {
         'DELETE FROM trigger_events WHERE triggerId IN (SELECT id FROM triggers WHERE threadId=?)',
         'DELETE FROM triggers WHERE threadId=?',
         'DELETE FROM computer_frames WHERE threadId=?',
+        'DELETE FROM thread_participants WHERE threadId=?',
       ])
         this.db.prepare(sql).run(id);
       this.db

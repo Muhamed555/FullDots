@@ -22,6 +22,7 @@ const TABLES: [table: string, column: string][] = [
   ['chat_threads', 'threadId'],
   ['thread_authors', 'threadId'],
   ['computer_frames', 'threadId'],
+  ['thread_participants', 'threadId'],
 ];
 
 class ReplyAgent extends AbstractAgent {
@@ -98,6 +99,14 @@ it('DELETE /api/conversations/:id leaves no rows of that thread in any per-threa
         'INSERT INTO computer_frames(id,dotId,threadId,toolCallId,createdAt) VALUES (?,?,?,?,?)',
       )
       .run(`frame-${id}`, dot.id, id, 'call-1', Date.now());
+  const guest = workspace.createDot(
+    dot.spaceId,
+    'Guest',
+    'Joins group chats.',
+    true,
+    true,
+  );
+  for (const id of ['drop', 'keep']) workspace.participants.add(id, guest.id);
   const count = (table: string, column: string, id: string) =>
     Number(
       reader

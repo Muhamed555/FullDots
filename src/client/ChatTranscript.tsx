@@ -4,12 +4,13 @@ import { PhoneOff } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { AssistantMessage, Message } from '@ag-ui/core';
-import type { Approval, CallReceipt, TurnSource } from '../shared/types';
+import type { Approval, CallReceipt, Dot, TurnSource } from '../shared/types';
 import { voiceReceiptMessagePrefix } from '../shared/voice-receipt';
 import { ComputerActivity } from './ComputerActivity';
 import { ApprovalCard, type DecideApproval } from './ApprovalCard';
 import { describeComputerSteps } from './ComputerToolCard';
 import { buildTranscriptItems, toolResults } from './chat-turns';
+import { AddressedLine, AuthoredBubble } from './room/AuthorBubble';
 // These markers only control rendering; they do not confer trust or permissions.
 export function isInternalVoiceReceipt(message: Message): boolean {
   const metadata = message.metadata;
@@ -78,6 +79,7 @@ const EVENT_LABELS: Record<TurnSource, string> = {
   trigger: 'Trigger',
   channel: 'Message from channel',
   delegation: 'Delegated work',
+  relay: 'Handed over',
 };
 /**
  * Renders the visible conversation. Consecutive `computer_*` and `mcp__*` tool calls of a
@@ -95,6 +97,7 @@ export function ChatTranscript({
   onTakeOver,
   approvals,
   onDecide,
+  group,
 }: {
   messages: Message[];
   calls: CallReceipt[];
@@ -113,6 +116,11 @@ export function ChatTranscript({
   approvals?: ReadonlyMap<string, Approval>;
   /** Answers a pending approval card. */
   onDecide?: DecideApproval;
+  /** Group chat attribution: who wrote a reply, and the Dots owner messages were addressed to. */
+  group?: {
+    authorOf(messageId: string): Dot | undefined;
+    dot(id: string): Dot | undefined;
+  };
 }) {
   const results = toolResults(allMessages ?? messages);
   const items = buildTranscriptItems(messages, calls, results);
@@ -127,10 +135,32 @@ export function ChatTranscript({
         switch (item.kind) {
           case 'receipt':
             return <Receipt key={item.key} call={item.call} />;
-          case 'bubble':
+          case 'bubble': {
+            const bubble = <Bubble role={item.role} content={item.content} />;
+            const author =
+              item.role === 'assistant' && item.messageId
+                ? group?.authorOf(item.messageId)
+                : undefined;
+            const to = item.to ? group?.dot(item.to) : undefined;
+            if (to && item.repeat)
+              return <AddressedLine key={item.key} to={to} repeat />;
+            if (author)
+              return (
+                <AuthoredBubble key={item.key} author={author}>
+                  {bubble}
+                </AuthoredBubble>
+              );
+            if (to)
+              return (
+                <Fragment key={item.key}>
+                  <AddressedLine to={to} />
+                  {bubble}
+                </Fragment>
+              );
             return (
               <Bubble key={item.key} role={item.role} content={item.content} />
             );
+          }
           case 'event':
             return (
               <div

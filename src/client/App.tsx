@@ -571,6 +571,7 @@ export function App() {
                   key={thread.id}
                   thread={thread}
                   dot={dot}
+                  dots={workspace.dots}
                   initialPrompt={pendingPrompt}
                   onConsumed={() => setPendingPrompt(undefined)}
                   voiceReady={workspace.setup.voice}

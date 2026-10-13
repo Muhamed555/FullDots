@@ -51,12 +51,13 @@ export interface ResumeBatches {
 export interface ResumeQueueDeps {
   store: ResumeStore;
   registry: TurnRegistry;
-  /** = platform.turn */
+  /** = platform.turnAs: the marker's Dot takes the turn (the host, or a group chat participant). */
   turn: (
     threadId: string,
     prompt: string,
     signal: AbortSignal,
     metadata: TurnMetadata,
+    dotId: string,
   ) => Promise<string>;
   /**
    * Subscribes to finished turns (the `turn.finished` event, sent once the runner stored the run
@@ -74,6 +75,13 @@ export interface ResumeQueueDeps {
   maxAgeMs?: number;
   /** A paused Dot gets no resume turns until it is resumed. */
   isPaused?: (dotId: string) => boolean;
+  /**
+   * False when the marker's Dot may no longer act in its thread (a participant removed from a group
+   * chat): the marker is given up instead of retried.
+   */
+  belongs?: (marker: ResumeMarker) => boolean;
+  /** A baton pass (relay) to a Dot over its daily token budget waits, like other background work. */
+  isOverBudget?: (dotId: string) => boolean;
   /** Called once when a marker is removed without delivery (too many failures, or too old). */
   onGiveUp?: (marker: ResumeMarker, lastError: string) => void;
   /** Called after a marker's turn ran, with the text the turn returned (once per batch). */
@@ -159,6 +167,14 @@ export class ResumeQueue {
     if (registry.isThreadRunning(marker.threadId)) return 'deferred';
     if (registry.isDotBusy(marker.dotId)) return 'deferred';
     if (this.deps.isPaused?.(marker.dotId)) return 'deferred';
+    if (this.deps.belongs && !this.deps.belongs(marker))
+      return this.giveUp(
+        [marker],
+        'The Dot is no longer in this conversation.',
+        'not a member',
+      );
+    if (marker.kind === 'relay' && this.deps.isOverBudget?.(marker.dotId))
+      return 'deferred';
     const stored = store.all();
     const batchKey = batches ? marker.batchKey : null;
     const oldest = stored.find((m) => m.threadId === marker.threadId);
@@ -196,6 +212,7 @@ export class ResumeQueue {
         group.length > 1 && batches ? batches.prompt(group) : lead.prompt,
         AbortSignal.timeout(NO_TIME_LIMIT_MS), // the turn has its own limits
         { source: lead.source, ref: lead.refId },
+        lead.dotId,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

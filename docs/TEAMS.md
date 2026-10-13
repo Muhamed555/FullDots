@@ -40,6 +40,25 @@ A teammate's turn on handed-over work may take `DELEGATION_TIMEOUT` seconds (def
 - **Usual rules:** hand-off tasks wait like any other background work, for paused Dots, busy Dots, pending approvals and spent budgets.
 - **Deleted conversation:** if you delete the conversation that asked, its running hand-offs are cancelled.
 
+## Group chats
+
+A conversation can have more than one Dot. The Dot you started it with is its **host**; the others are **participants** you added. Every Dot in the chat sees the whole conversation and answers in it with its own character, name and colour.
+
+- **Mention a Dot.** Type `@` in the message box to pick a Dot (arrow keys, Enter or Tab to insert, Escape to close), or type `@Name` yourself. A message without a mention goes to the host, as before.
+- **Adding asks once.** Mentioning a Dot that is not in the chat yet asks "Add _Writer_ to this chat? It will see the whole conversation." Nothing is sent until you choose **Add**; **Cancel** keeps your message in the box. You can also add a Dot with **+** in the chat header, and remove a participant with the small cross on its picture there.
+- **Several mentions.** `@Scout find the dates, @Writer draft the post` gives each mentioned Dot its own turn in this chat, one after another in the order you mentioned them. The queue lives in your open page: each Dot starts once the previous one finished, and closing the page drops the Dots still waiting. Your message is stored once per Dot and shown once ("Also to Writer").
+- **One turn at a time.** A chat runs one turn at a time. While a Dot answers, Send is disabled; if a message still meets a running turn, the chat names the Dot that is answering and offers **Send again** or **Stop the other work and send**.
+- **Passing the baton.** A Dot can pass the chat to another Dot in it with `hand_to_dot` (the host counts as a member too). The next Dot takes the following turn in the same chat with the whole history, and the chat shows "_Scout_ handed to _Writer_". A hand-off counts against the three hand-offs per turn shared with `delegate_to_dot`, and it follows the **Hand work to teammates** rule: under Ask me first you approve each pass first.
+- **Relay cap.** At most `TEAM_RELAY_MAX` Dot turns (default 4) run in a row without a message from you: the turn your message started plus the passes after it, queued ones included. Beyond that the Dot is told to finish its reply and the chat waits for you.
+
+Safety:
+
+- Only **your** mentions start turns. `@Name` written by a Dot, returned by a tool or found on a web page is plain text and dispatches nothing; the only way for a Dot to involve another is the gated `hand_to_dot` tool, and only to Dots you added.
+- The server refuses a turn for a Dot that is neither the host nor a participant on every path: the chat runtime, `POST /api/conversations/:id/turns`, headless turns and resume turns. A pass waiting for a Dot you removed is dropped.
+- Each Dot keeps its own settings in the chat: model, approval mode, rules, pause, token budget and its one-turn-at-a-time lock. A message you address to a Dot counts as a chat message (`source: chat`), so approvals behave exactly as when you type to the host. A pass to a Dot over its daily budget waits like other background work.
+
+API: `GET`/`POST /api/conversations/:id/participants` (`{ dotId }`, the confirm), `DELETE /api/conversations/:id/participants/:dotId`, `POST /api/conversations/:id/turns` (`{ text, dotId }`, answers 202 once the turn started; 403 for a Dot not in the chat, 409 while a turn runs), and `POST /api/conversations/:id/stop`. `/api/workspace` lists `participantIds` with each conversation.
+
 ## Settings
 
 | Variable                 | Default | Purpose                                                                  |
@@ -48,3 +67,4 @@ A teammate's turn on handed-over work may take `DELEGATION_TIMEOUT` seconds (def
 | `DELEGATION_TIMEOUT`     | 300     | Seconds a teammate's turn on handed-over work may take (0 = no limit).   |
 | `TEAM_RESULT_BATCH_MS`   | 1500    | Milliseconds one turn's results wait for each other (0 to 60000).        |
 | `BACKGROUND_CONCURRENCY` | 4       | Background tasks, hand-offs included, running at once on different Dots. |
+| `TEAM_RELAY_MAX`         | 4       | Dot turns in a row in a group chat without your message (1 to 20).       |

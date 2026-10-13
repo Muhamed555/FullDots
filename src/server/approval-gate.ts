@@ -154,6 +154,8 @@ function describeAction(
       return 'edit a page';
     case 'delegate_to_dot':
       return `hand work to ${clip(String(args.dot ?? 'a teammate'), 40)}`;
+    case 'hand_to_dot':
+      return `hand this chat to ${clip(String(args.dot ?? 'another Dot'), 40)}`;
     case 'computer_click':
       return `click the ${target}`;
     case 'computer_select':

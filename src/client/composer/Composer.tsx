@@ -30,6 +30,8 @@ import {
 import './composer.css';
 
 export interface ComposerTriggerContext extends ComposerTriggerMatch {
+  /** The id the popover's listbox should carry; the textarea's aria-controls points at it. */
+  listId: string;
   /** Replaces the typed token (trigger character included) with `text`. */
   replace(text: string): void;
   /** Hides the popover until the caret leaves this token. */
@@ -44,6 +46,8 @@ export interface ComposerTrigger extends ComposerTriggerSpec {
     event: KeyboardEvent<HTMLTextAreaElement>,
     context: ComposerTriggerContext,
   ): boolean;
+  /** The id of the highlighted option, for the textarea's aria-activedescendant. */
+  activeDescendant?(context: ComposerTriggerContext): string | undefined;
 }
 
 export interface ComposerProps {
@@ -122,6 +126,7 @@ export function Composer({
     trigger && match
       ? {
           ...match,
+          listId: `${popoverId}-list`,
           replace(text) {
             const next = replaceToken(value, match, text);
             onChange(next.value);
@@ -182,7 +187,10 @@ export function Composer({
       aria-label={label}
       aria-describedby={showCount ? countId : undefined}
       aria-autocomplete={triggers?.length ? 'list' : undefined}
-      aria-controls={popover ? popoverId : undefined}
+      aria-controls={popover && context ? context.listId : undefined}
+      aria-activedescendant={
+        popover && context ? trigger?.activeDescendant?.(context) : undefined
+      }
       placeholder={placeholder}
       rows={mode === 'chat' ? 1 : undefined}
       value={value}

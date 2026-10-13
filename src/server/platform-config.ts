@@ -30,6 +30,8 @@ export interface PlatformConfig extends WebConfig {
   teamMaxDepth?: number;
   /** TEAM_RESULT_BATCH_MS, default 1500: how long one turn's hand-off results wait for each other. */
   teamResultBatchMs?: number;
+  /** TEAM_RELAY_MAX, default 4: consecutive Dot turns in a group chat without an owner message. */
+  teamRelayMax?: number;
   /** Where the app is opened (APP_ORIGIN, else the server address); makes notification links absolute. */
   publicOrigin?: string;
 }

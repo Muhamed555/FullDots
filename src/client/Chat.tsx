@@ -32,7 +32,12 @@ import type {
 import { Mascot } from './Mascot';
 import { useVoice } from './useVoice';
 import { CallView } from './CallView';
-import { isBusyMessage, turnErrorMessage } from './chat-errors';
+import {
+  busyKind,
+  threadRunningMessage,
+  turnErrorMessage,
+} from './chat-errors';
+import { useGroupChat } from './room/useGroupChat';
 import { Composer } from './composer/Composer';
 import { useAutoAttach } from './live-attach';
 import { pollInterval } from './live-refresh';
@@ -52,9 +57,12 @@ export function Chat({
   onSchedule,
   onTrigger,
   onComputer,
+  dots,
 }: {
   thread: Conversation;
   dot: Dot;
+  /** Every Dot, for @mentions and the group strip. */
+  dots?: Dot[];
   initialPrompt?: string;
   onConsumed: () => void;
   voiceReady: boolean;
@@ -72,6 +80,11 @@ export function Chat({
     threadId: thread.id,
   });
   const { copilotkit } = useCopilotKit();
+  const room = useGroupChat({
+    threadId: thread.id,
+    host: dot,
+    dots: dots ?? [],
+  });
   const [pageContext, setPageContext] = useState<PageContext | null>();
   const [contextError, setContextError] = useState('');
   const [contextAttempt, setContextAttempt] = useState(0);
@@ -186,6 +199,12 @@ export function Chat({
   };
   const send = async (text: string) => {
     if (!text.trim() || running || !loaded || !contextReady || paused) return;
+    if (room.threadBusy || room.dispatching) return;
+    // A message that mentions other Dots goes to them, one turn each, after the owner's confirm.
+    setDraft('');
+    const routed = await room.send(text, contextualMessage(text, pageContext));
+    if (routed === 'cancelled') setDraft(text);
+    if (routed !== 'host') return;
     agent.addMessage({
       id: crypto.randomUUID(),
       role: 'user',
@@ -334,11 +353,14 @@ export function Chat({
   useLiveEvent('handoff.changed', (event) => {
     if (event.threadId === thread.id) pollHandoff.current?.();
   });
-  const busyWithOther = isBusyMessage(error);
+  const busy = busyKind(error);
+  const busyWithOther = !!busy;
   // Stops the other turn, then sends the kept message once the Dot is free.
   const stopBackground = async () => {
     try {
-      await api(`/dots/${dot.id}/turn/stop`, 'POST', {});
+      // In a group chat the other turn may be another Dot's, in this very chat.
+      if (busy === 'thread') await room.stopThread();
+      else await api(`/dots/${dot.id}/turn/stop`, 'POST', {});
       setError('');
       setTimeout(() => void runTurn(), 800);
     } catch (e) {
@@ -373,6 +395,7 @@ export function Chat({
   );
   // This page's own turn, or one it attached to.
   const working = running || !!attach.remoteRunId;
+  const workingName = (!running && room.runningName) || dot.name;
   const visible = agent.messages.filter(
     (message) =>
       !isInternalVoiceReceipt(message) &&
@@ -411,6 +434,7 @@ export function Chat({
                   : 'Connecting to your conversation…'}
           </span>
         </div>
+        {room.strip}
         <div className="chat-persona-actions">
           <button
             className="icon-button"
@@ -518,6 +542,7 @@ export function Chat({
           }
           approvals={approvals}
           onDecide={decide}
+          group={room.group}
           renderTools={(message) => (
             <CopilotChatToolCallsView
               message={message}
@@ -530,7 +555,7 @@ export function Chat({
             <span />
             <span />
             <span />
-            <span>{dot.name} is thinking</span>
+            <span>{workingName} is thinking</span>
           </div>
         )}
         <div ref={bottom} />
@@ -545,7 +570,9 @@ export function Chat({
       )}
       {(error || voice.error) && (
         <div className="chat-error" role="alert">
-          {error || voice.error}
+          {busy === 'thread'
+            ? threadRunningMessage(room.runningName)
+            : error || voice.error}
           {error && busyWithOther && (
             <>
               <button onClick={() => void runTurn()} disabled={running}>
@@ -570,6 +597,30 @@ export function Chat({
           )}
         </div>
       )}
+      {room.error && (
+        <div className="chat-error" role="alert">
+          {busyKind(room.error) === 'thread'
+            ? threadRunningMessage(room.runningName)
+            : room.error}
+          {room.hasPending && (
+            <>
+              <button onClick={room.retry} disabled={room.dispatching}>
+                Send again
+              </button>
+              {busyKind(room.error) && (
+                <button
+                  onClick={() => void room.stopAndRetry()}
+                  disabled={room.dispatching}
+                >
+                  Stop the other work and send
+                </button>
+              )}
+            </>
+          )}
+          <button onClick={room.clearError}>Dismiss</button>
+        </div>
+      )}
+      {room.dialog}
       <CallView
         key={voice.status === 'idle' ? 'idle' : 'call'}
         dot={dot}
@@ -582,7 +633,15 @@ export function Chat({
         value={draft}
         onChange={setDraft}
         onSubmit={(text) => void send(text)}
-        canSubmit={!running && loaded && contextReady && !paused}
+        canSubmit={
+          !running &&
+          loaded &&
+          contextReady &&
+          !paused &&
+          !room.threadBusy &&
+          !room.dispatching
+        }
+        triggers={[room.mentionTrigger]}
         submitLabel="Send message"
         running={running}
         onStop={() => copilotkit.stopAgent({ agent })}

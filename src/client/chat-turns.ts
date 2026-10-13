@@ -79,7 +79,18 @@ export function turnSource(message: Message): TurnSource | undefined {
 }
 
 export type TranscriptItem =
-  | { kind: 'bubble'; key: string; role: string; content: string }
+  | {
+      kind: 'bubble';
+      key: string;
+      role: string;
+      content: string;
+      /** The message the bubble shows, for its author in a group chat. */
+      messageId?: string;
+      /** Group chat: the Dot an owner message was addressed to (@Name). */
+      to?: string;
+      /** The same owner message again, addressed to the next mentioned Dot. */
+      repeat?: boolean;
+    }
   | { kind: 'event'; key: string; source: TurnSource; content: string }
   | { kind: 'activity'; key: string; calls: ToolCall[] }
   | { kind: 'tools'; key: string; message: AssistantMessage }
@@ -149,6 +160,7 @@ function assistantItems(
     key: `${message.id}:text`,
     role: 'assistant',
     content,
+    messageId: message.id,
   };
   // An intermediate message's text is what the assistant said before acting.
   if (!final) return [bubble, ...actions];
@@ -159,9 +171,21 @@ function assistantItems(
   return [...actions.slice(0, end), bubble, ...actions.slice(end)];
 }
 
+/** The Dot an owner message was addressed to in a group chat (metadata `to`). */
+export function addressedTo(message: Message): string | undefined {
+  const metadata: unknown = message.metadata;
+  return metadata &&
+    typeof metadata === 'object' &&
+    'to' in metadata &&
+    typeof metadata.to === 'string'
+    ? metadata.to
+    : undefined;
+}
+
 /** A text message: the owner's bubble, or an event line when the server started the turn. */
 function textItem(message: Message, content: string): TranscriptItem {
   const source = turnSource(message);
+  const to = message.role === 'user' ? addressedTo(message) : undefined;
   return source
     ? { kind: 'event', key: `${message.id}:text`, source, content }
     : {
@@ -169,6 +193,8 @@ function textItem(message: Message, content: string): TranscriptItem {
         key: `${message.id}:text`,
         role: message.role,
         content,
+        messageId: message.id,
+        ...(to ? { to } : {}),
       };
 }
 
@@ -193,7 +219,22 @@ export function buildTranscriptItems(
       const last = items.at(-1);
       if (item.kind === 'activity' && last?.kind === 'activity')
         last.calls.push(...item.calls);
-      else items.push(item);
+      else {
+        // One message to several Dots is stored once per Dot; show it once.
+        if (item.kind === 'bubble' && item.to) {
+          const previous = items.findLast(
+            (entry) => entry.kind === 'bubble' && entry.role === 'user',
+          );
+          if (
+            previous?.kind === 'bubble' &&
+            previous.to &&
+            previous.to !== item.to &&
+            previous.content === item.content
+          )
+            item.repeat = true;
+        }
+        items.push(item);
+      }
     }
     for (const call of receipts)
       if (call.anchorMessageId === message.id)

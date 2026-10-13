@@ -67,6 +67,7 @@ async function conversationSummaries(
       .map((thread) => [thread.id, Date.parse(thread.updatedAt)]),
   );
   const linked = platform.workspace.linkedThreadIds();
+  const participants = platform.workspace.participants.byThread();
   return Promise.all(
     platform.workspace.conversations().map(async (conversation) => {
       const updatedAt = activity.get(conversation.id) ?? null;
@@ -75,7 +76,12 @@ async function conversationSummaries(
         updatedAt === null &&
         !linked.has(conversation.id) &&
         !(await platform.runner.isRunning({ threadId: conversation.id }));
-      return { ...conversation, updatedAt, empty };
+      return {
+        ...conversation,
+        updatedAt,
+        empty,
+        participantIds: participants.get(conversation.id) ?? [],
+      };
     }),
   );
 }

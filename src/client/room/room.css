@@ -1,0 +1,257 @@
+/* Group chat: the @mention popover, the participant strip, the confirm dialog and attribution. */
+
+/* Mention popover (inside .fd-composer-popover) */
+.fd-mention-list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1);
+}
+.fd-mention-option,
+.fd-room-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 6px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.fd-mention-option.active,
+.fd-room-menu button:hover,
+.fd-room-menu button:focus-visible {
+  background: var(--surface-raised);
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.fd-mention-option .mascot.small,
+.fd-room-menu .mascot.small {
+  width: 28px;
+  height: 28px;
+}
+.fd-mention-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.fd-mention-name {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.fd-mention-role {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fd-mention-status {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.fd-mention-empty {
+  margin: 0;
+  padding: var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-md);
+}
+
+/* Participant strip in the chat header */
+.chat-persona .fd-room-strip {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+.chat-persona .fd-room-strip + .chat-persona-actions {
+  margin-left: var(--space-2);
+}
+/* The app header centres the Dot and pins its actions top right: the strip takes the top left. */
+.template-app .chat-persona .fd-room-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin-left: 0;
+}
+.template-app .chat-persona .fd-room-menu {
+  right: auto;
+  left: 0;
+}
+.fd-room-avatars {
+  display: flex;
+  margin: 0;
+  padding: 0 0 0 var(--space-2);
+  list-style: none;
+}
+.fd-room-avatar {
+  position: relative;
+  margin-left: -10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 3px var(--fd-author, var(--line));
+}
+.chat-persona .fd-room-avatar .mascot,
+.chat-persona .fd-room-avatar .mascot.small {
+  display: block;
+  width: 30px;
+  height: 30px;
+}
+.chat-persona .fd-room-avatar .fd-room-name {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 30;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.fd-room-avatar:hover .fd-room-name,
+.fd-room-avatar:focus-within .fd-room-name {
+  opacity: 1;
+}
+.fd-room-remove {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.fd-room-avatar:hover .fd-room-remove,
+.fd-room-remove:focus-visible {
+  opacity: 1;
+}
+.fd-room-remove:disabled {
+  cursor: default;
+}
+.fd-room-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: min(280px, 80vw);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.chat-persona .fd-room-menu span {
+  color: inherit;
+}
+.chat-persona .fd-room-menu .fd-mention-role {
+  color: var(--muted);
+}
+
+/* Confirm dialog */
+.fd-add-dot-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: #20263466;
+}
+.fd-add-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(360px, 100%);
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.fd-add-dot .mascot {
+  width: 72px;
+  height: 72px;
+}
+.fd-add-dot h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+.fd-add-dot p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-lg);
+}
+.fd-add-dot-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* Attribution */
+.fd-authored {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 2px;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--fd-author, var(--line));
+}
+.fd-authored-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+.fd-authored-head .mascot.small,
+.fd-addressed .mascot.small {
+  width: 22px;
+  height: 22px;
+}
+.fd-addressed {
+  display: flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 4px;
+  margin-bottom: -16px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.fd-addressed--repeat {
+  margin-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-persona .fd-room-avatar .fd-room-name,
+  .fd-room-remove {
+    transition: none;
+  }
+}

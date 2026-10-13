@@ -326,6 +326,8 @@ describe('ApprovalService', () => {
       `Approval ${approval.id} granted for: ${input.summary}. Perform exactly that action now.`,
       expect.any(AbortSignal),
       { source: 'approval', ref: approval.id },
+      // The Dot that asked takes the resumed turn (the host, or a group chat participant).
+      'dot',
     );
   });
 

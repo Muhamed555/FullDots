@@ -17,6 +17,11 @@ import type { ResumeBatches } from './resume-queue.js';
 /** Hand-offs per turn, so one turn cannot fan out without bound. */
 export const DELEGATIONS_PER_TURN = 3;
 
+/** Hand-offs one turn made so far: delegate_to_dot and hand_to_dot share it. */
+export interface HandOffCounter {
+  handed: number;
+}
+
 export interface TeamServiceDeps {
   workspace: WorkspaceStore;
   store: Store;
@@ -273,9 +278,14 @@ export const delegateInput = z
 /** The tools a Dot gets when it has teammates: hand work over, and check on it. */
 export function teamTools(
   team: TeamService,
-  context: { dotId: string; threadId: string; runId?: string },
+  context: {
+    dotId: string;
+    threadId: string;
+    runId?: string;
+    counter?: HandOffCounter;
+  },
 ) {
-  let handed = 0;
+  const counter = context.counter ?? { handed: 0 };
   return [
     defineTool({
       name: 'delegate_to_dot',
@@ -283,7 +293,7 @@ export function teamTools(
         'Hand a piece of work to a teammate Dot. It works in its own conversation with its own tools, and its result comes back to this conversation as a new message. After handing work over, tell the owner and end your turn instead of waiting.',
       parameters: delegateInput,
       execute: async ({ dot, brief, deliverable }) => {
-        if (handed >= DELEGATIONS_PER_TURN)
+        if (counter.handed >= DELEGATIONS_PER_TURN)
           return {
             started: false,
             error: `You can hand over at most ${DELEGATIONS_PER_TURN} pieces of work per turn.`,
@@ -297,7 +307,7 @@ export function teamTools(
             deliverable,
             ...(context.runId ? { runId: context.runId } : {}),
           });
-          handed++;
+          counter.handed++;
           return {
             started: true,
             id: delegation.id,

@@ -159,6 +159,8 @@ export interface IntegrationSettings {
   teamMaxDepth: number;
   /** How long the results of one turn's hand-offs wait for each other before going back. */
   teamResultBatchMs: number;
+  /** Consecutive Dot turns in a group chat without an owner message; then the chat waits for the owner. */
+  teamRelayMax: number;
 }
 
 /** Connector, approval and notification settings from the environment. */
@@ -185,6 +187,7 @@ export function readIntegrationSettings(
     backgroundConcurrency: number(env, 'BACKGROUND_CONCURRENCY', 4, 1, 8),
     teamMaxDepth: number(env, 'TEAM_MAX_DEPTH', 2, 1, 5),
     teamResultBatchMs: number(env, 'TEAM_RESULT_BATCH_MS', 1500, 0, 60_000),
+    teamRelayMax: number(env, 'TEAM_RELAY_MAX', 4, 1, 20),
     dailyTokenWarn: number(
       env,
       'DOT_DAILY_TOKEN_WARN',

@@ -8,6 +8,7 @@ import { approvalRoutes } from './approval-routes.js';
 import { usageRoutes } from './usage-routes.js';
 import { hookRoutes, triggerRoutes } from './trigger-routes.js';
 import { teamRoutes } from './team-routes.js';
+import { groupRoutes } from './group-routes.js';
 import { ruleRoutes } from './rule-routes.js';
 import { promptRoutes } from './prompt-routes.js';
 import { searchRoutes } from './search-routes.js';
@@ -199,6 +200,7 @@ export function createApp({
       }),
     );
   if (platform) app.route('/api', teamRoutes(platform.workspace));
+  if (platform) app.route('/api', groupRoutes(platform));
   if (platform) app.route('/api', ruleRoutes(platform.workspace));
   if (platform) {
     app.route('/api', promptRoutes(platform.workspace));

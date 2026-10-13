@@ -210,6 +210,8 @@ export interface ConversationSummary extends Conversation {
   updatedAt: number | null;
   /** Nothing was ever sent, scheduled, linked or called in it. */
   empty: boolean;
+  /** Group chat: the Dots added besides the host (`dotId`), in the order they joined. */
+  participantIds?: string[];
 }
 export interface CallReceipt {
   anchorMessageId?: string | null;
@@ -239,7 +241,14 @@ export interface WorkspaceState {
 
 /** Who started a server-side turn. Chat turns have no source metadata. */
 export type TurnSource =
-  'task' | 'approval' | 'handoff' | 'trigger' | 'channel' | 'delegation';
+  | 'task'
+  | 'approval'
+  | 'handoff'
+  | 'trigger'
+  | 'channel'
+  | 'delegation'
+  /** A Dot passed the baton to another Dot in a group chat (hand_to_dot). */
+  | 'relay';
 export const TURN_SOURCES: readonly TurnSource[] = [
   'task',
   'approval',
@@ -247,6 +256,7 @@ export const TURN_SOURCES: readonly TurnSource[] = [
   'trigger',
   'channel',
   'delegation',
+  'relay',
 ];
 export interface TurnMetadata {
   source: TurnSource;
@@ -259,6 +269,15 @@ export interface TurnMetadata {
    * in place of AGENT_TURN_TIMEOUT plus grace. Honoured only with source 'delegation'.
    */
   turnLimitMs?: number;
+}
+/**
+ * An owner message addressed to one Dot of a group chat (`@Name`). `source` stays 'chat', so the
+ * turn is treated exactly like a message typed in the chat (approvals, rules, limits).
+ */
+export interface OwnerTurnMetadata {
+  source: 'chat';
+  /** The Dot the owner addressed. */
+  to: string;
 }
 export type ApprovalMode = 'sensitive' | 'writes' | 'off';
 

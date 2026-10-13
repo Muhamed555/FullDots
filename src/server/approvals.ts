@@ -509,6 +509,7 @@ export function categoriesOf(input: ClassifyInput): RuleCategory[] {
       found.add('edit_pages');
       break;
     case 'delegate_to_dot':
+    case 'hand_to_dot':
       found.add('hand_off_work');
       break;
     case 'computer_click':
@@ -740,6 +741,10 @@ export function redactArgs(
     case 'delegate_to_dot':
       // The brief is what the teammate will act on, so the owner reads it in full.
       text = `hand to ${String(args.dot ?? '')}: ${String(args.brief ?? '')}\nDeliverable: ${String(args.deliverable ?? '')}`;
+      break;
+    case 'hand_to_dot':
+      // The note is what the next Dot acts on, so the owner reads it in full.
+      text = `hand this chat to ${String(args.dot ?? '')}: ${String(args.note ?? '')}`;
       break;
     default:
       text = `${tool} ${JSON.stringify(mask(args))}`;
