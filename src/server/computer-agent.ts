@@ -2,12 +2,14 @@
 // snapshot, click, type, key, scroll). This layer turns them into something a model can drive in few
 // steps: every browser action returns the fresh page, a refused action is recovered instead of
 // reported, dropdowns have a tool of their own, and nothing huge or binary reaches the model.
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { ComputerAction } from '../shared/computer-types.js';
 import { ComputerConflictError } from './computer-conflict.js';
 import type {
   ComputerService,
   ComputerSessionCall,
+  ReplayContext,
 } from './computer-service.js';
 
 /** How many elements a result describes. The snapshot tool itself returns up to 200. */
@@ -267,6 +269,8 @@ function stringWithoutBinary(text: string): string {
 export interface AgentComputerOptions {
   /** How long to let a page settle after an action before reading it. Zero skips the wait. */
   settleMs?: number;
+  /** The conversation the turn belongs to. Browser steps are kept for its replay when set. */
+  threadId?: string;
 }
 
 export class AgentComputer implements GateComputer {
@@ -275,6 +279,7 @@ export class AgentComputer implements GateComputer {
   /** Inferred, not read from the page: the element the agent last clicked or typed into. */
   private focus?: Identity;
   private readonly settleMs: number;
+  private readonly threadId?: string;
 
   constructor(
     private readonly service: ComputerService,
@@ -283,13 +288,26 @@ export class AgentComputer implements GateComputer {
     options: AgentComputerOptions = {},
   ) {
     this.settleMs = options.settleMs ?? 250;
+    this.threadId = options.threadId;
   }
 
-  async act(action: AgentAction, input: unknown): Promise<unknown> {
-    return withoutBinary(await this.dispatch(action, input));
+  /** `toolCallId` names the step in the conversation's replay. */
+  async act(
+    action: AgentAction,
+    input: unknown,
+    toolCallId?: string,
+  ): Promise<unknown> {
+    return withoutBinary(await this.dispatch(action, input, toolCallId));
   }
 
-  private dispatch(action: AgentAction, input: unknown): Promise<unknown> {
+  private dispatch(
+    action: AgentAction,
+    input: unknown,
+    toolCallId: string = randomUUID(),
+  ): Promise<unknown> {
+    const replay: ReplayContext | undefined = this.threadId
+      ? { threadId: this.threadId, toolCallId }
+      : undefined;
     switch (action) {
       case 'navigate':
       case 'click':
@@ -298,13 +316,19 @@ export class AgentComputer implements GateComputer {
       case 'scroll': {
         const parsed: Record<string, unknown> =
           this.service.inputs[action].parse(input);
-        return this.session(action, (call) =>
-          this.perform(call, action, parsed, true),
+        return this.session(
+          action,
+          (call) => this.perform(call, action, parsed, true),
+          replay,
         );
       }
       case 'select': {
         const parsed = selectInputSchema.parse(input);
-        return this.session('select', (call) => this.select(call, parsed));
+        return this.session(
+          'select',
+          (call) => this.select(call, parsed),
+          replay,
+        );
       }
       case 'snapshot':
         this.service.inputs.snapshot.parse(input);
@@ -352,8 +376,16 @@ export class AgentComputer implements GateComputer {
   private session<T>(
     label: ComputerAction | 'select',
     body: (call: ComputerSessionCall) => Promise<T>,
+    replay?: ReplayContext,
   ) {
-    return this.service.session(this.dotId, label, 'agent', this.signal, body);
+    return this.service.session(
+      this.dotId,
+      label,
+      'agent',
+      this.signal,
+      body,
+      replay,
+    );
   }
 
   private pause(ms: number): Promise<void> {

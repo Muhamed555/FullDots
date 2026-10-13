@@ -49,10 +49,19 @@ export function computerTools(
 ) {
   const computer =
     options.computer ?? new AgentComputer(service, dotId, signal, options);
-  const run = (action: AgentAction) => async (input: unknown) => {
-    check();
-    return computer.act(action, input);
-  };
+  // The runtime passes the tool call's context as a second argument; its id names the replay step.
+  const run =
+    (action: AgentAction) =>
+    async (input: unknown, context?: { toolCallId?: unknown }) => {
+      check();
+      return computer.act(
+        action,
+        input,
+        typeof context?.toolCallId === 'string'
+          ? context.toolCallId
+          : undefined,
+      );
+    };
   const tools = Object.entries(service.inputs)
     .filter(([name]) => !name.startsWith('human_'))
     .map(([name, parameters]) =>

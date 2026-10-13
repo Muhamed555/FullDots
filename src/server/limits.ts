@@ -25,6 +25,8 @@ export interface Limits extends ComputerInputLimits {
   delegationTimeoutMs: number;
   computerRequestMs: number;
   computerResponseBytes: number;
+  /** Replay steps kept per Dot; the oldest go first. Zero keeps none. */
+  computerReplayFrames: number;
 }
 
 export const defaultLimits: Limits = {
@@ -37,6 +39,7 @@ export const defaultLimits: Limits = {
   delegationTimeoutMs: 300_000,
   computerRequestMs: 70_000,
   computerResponseBytes: 4_000_000,
+  computerReplayFrames: 300,
 };
 
 type Env = Record<string, string | undefined>;
@@ -133,6 +136,13 @@ export function readLimits(env: Env = process.env): Limits {
     ),
     computerResponseBytes:
       number(env, 'COMPUTER_RESPONSE_MAX_MB', 4, 1, 64) * 1_000_000,
+    computerReplayFrames: number(
+      env,
+      'COMPUTER_REPLAY_FRAMES',
+      defaultLimits.computerReplayFrames,
+      0,
+      10_000,
+    ),
   };
 }
 

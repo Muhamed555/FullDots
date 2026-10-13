@@ -327,7 +327,9 @@ export class DotAgent extends AbstractAgent {
         const adapter = models.adapterFor(resolved);
         // One instance per turn, shared by the computer tools and the approval gate.
         const agentComputer = computer.configured
-          ? new AgentComputer(computer, dot.id, controller.signal)
+          ? new AgentComputer(computer, dot.id, controller.signal, {
+              threadId: input.threadId,
+            })
           : undefined;
         const mcpTools = connectors
           ? mcpToolsForDot(connectors, this.workspace.connectors, {

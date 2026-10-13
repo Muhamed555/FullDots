@@ -10,6 +10,7 @@ import {
 } from '../src/client/computer-panel/PanelView';
 import { PanelHeader } from '../src/client/computer-panel/PanelHeader';
 import { SettingsSheet } from '../src/client/computer-panel/SettingsSheet';
+import { TakeoverBanner } from '../src/client/computer-panel/TakeoverBanner';
 import {
   MORE_OPEN_KEY,
   PAST_LABELS,
@@ -226,11 +227,17 @@ describe('panel states', () => {
     );
   });
 
-  it('shows the owner in control with the way out and a hint', () => {
+  it('shows the owner in control with a banner across the top and one way back', () => {
     const html = body(view({ status: running({ control: control('human') }) }));
-    expect(html).toContain('Give control back');
-    expect(html).toContain('Click and type directly on the screen.');
-    expect(html).toContain('Shift+Esc to stop typing.');
+    expect(html).toContain(
+      '<strong>You are in control.</strong> Dot is paused',
+    );
+    expect(html).toContain('sees nothing you type.');
+    expect(html.match(/Hand back to Dot<\/button>/g)).toHaveLength(1);
+    expect(html).toContain('Shift+Esc stops typing.');
+    // The banner comes before the screen, and the control bar steps aside for it.
+    expect(html.indexOf('cp-takeover')).toBeLessThan(html.indexOf('cp-stage'));
+    expect(html).not.toContain('cp-control-human');
     expect(html).not.toContain('Take control</button>');
     expect(tag(html, 'cp-stage')).toContain('is-human');
     expect(tag(html, 'cp-address')).toBeTruthy();
@@ -346,21 +353,16 @@ describe('control bar', () => {
     dotName: 'Dot',
     disabled: false,
     onTake: vi.fn(),
-    onRelease: vi.fn(),
   };
-  it('takes control from the Dot and gives it back', () => {
+  it('takes control from the Dot, and steps aside while the owner drives', () => {
     const onTake = vi.fn();
-    const onRelease = vi.fn();
     (
-      button(ControlBar({ ...props, human: false, onTake, onRelease }), 'Take')
-        ?.props.onClick as () => void
-    )();
-    (
-      button(ControlBar({ ...props, human: true, onTake, onRelease }), 'Give')
-        ?.props.onClick as () => void
+      button(ControlBar({ ...props, human: false, onTake }), 'Take')?.props
+        .onClick as () => void
     )();
     expect(onTake).toHaveBeenCalledOnce();
-    expect(onRelease).toHaveBeenCalledOnce();
+    // The take-over banner holds the way back instead.
+    expect(ControlBar({ ...props, human: true })).toBeNull();
   });
 
   it('disables the button while another request is running', () => {
@@ -403,7 +405,8 @@ describe('settings sheet', () => {
       expect(text).toContain(title);
     expect(text).toContain('never on your device');
     expect(text).toContain('Dot’s workspace');
-    expect(switches(sheet())).toHaveLength(4);
+    // The four permissions, then the replay.
+    expect(switches(sheet())).toHaveLength(5);
   });
 
   it('reflects the saved permissions and flips a switch the moment it is pressed', () => {
@@ -413,12 +416,40 @@ describe('settings sheet', () => {
       true,
       true,
       false,
+      true,
     ]);
     expect(
       switches(sheet({ status, optimistic: { shell: true } })).map(
         (el) => el.props.checked,
       ),
-    ).toEqual([true, true, true, true]);
+    ).toEqual([true, true, true, true, true]);
+  });
+
+  it('keeps a replay by default with Browser, and lets the owner turn it off', () => {
+    const onSetPermission = vi.fn();
+    const replay = (over: Partial<Parameters<typeof SettingsSheet>[0]> = {}) =>
+      switches(sheet(over)).at(-1)!;
+    expect(textOf(sheet())).toContain('Keep a replay');
+    expect(replay().props.checked).toBe(true);
+    expect(replay().props.disabled).toBe(false);
+    (replay({ onSetPermission }).props.onChange as (e: unknown) => void)({
+      target: { checked: false },
+    });
+    expect(onSetPermission).toHaveBeenCalledWith('replay', false);
+    const off = running({ permissions: { ...permissions, replay: false } });
+    expect(replay({ status: off }).props.checked).toBe(false);
+    expect(
+      replay({ status: off, optimistic: { replay: true } }).props.checked,
+    ).toBe(true);
+    // Without Browser there is nothing to replay.
+    const noBrowser = running({
+      permissions: { ...permissions, browser: false },
+    });
+    expect(replay({ status: noBrowser }).props.checked).toBe(false);
+    expect(replay({ status: noBrowser }).props.disabled).toBe(true);
+    expect(textOf(sheet({ status: noBrowser }))).toContain(
+      'Turn on Browser to use it.',
+    );
   });
 
   it('reports a change through the right permission', () => {
@@ -718,7 +749,6 @@ describe('handoff', () => {
     dotName: 'Dot',
     disabled: false,
     onTake: vi.fn(),
-    onRelease: vi.fn(),
   };
   const handoff = {
     id: 'h1',
@@ -781,23 +811,43 @@ describe('handoff', () => {
     );
   });
 
-  it('reminds the owner that the secret stays off the Dot while they hold control', () => {
-    const bar = ControlBar({ ...props, human: true, handoff });
-    expect(button(bar, 'Give control back')).toBeDefined();
-    expect(textOf(bar)).toContain(
-      'Type the secret on the screen; the Dot never sees it.',
+  it('reminds the owner why the Dot asked while they hold control', () => {
+    const html = renderToStaticMarkup(
+      <TakeoverBanner
+        dotId="dot-1"
+        dotName="Scout"
+        reason="Sign in to GitHub"
+        disabled={false}
+        onRelease={() => {}}
+      />,
     );
-    expect(button(bar, 'Dismiss')).toBeUndefined();
+    expect(html).toContain('Scout is paused and sees nothing you type.');
+    expect(html).toContain('Scout asked: Sign in to GitHub');
+    expect(html).toMatch(/<button[^>]*cp-btn-block[^>]*>.*Hand back to Scout/);
+    expect(html).not.toContain('Dismiss');
+    // The status line is what a screen reader announces when the banner appears.
+    expect(html).toMatch(/role="status"[^>]*>.*You are in control\./);
+    expect(ControlBar({ ...props, human: true, handoff })).toBeNull();
+  });
+
+  it('disables the way back while a request is running, and needs no reason', () => {
+    const html = renderToStaticMarkup(
+      <TakeoverBanner
+        dotId="dot-1"
+        dotName="Scout"
+        disabled
+        onRelease={() => {}}
+      />,
+    );
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>.*Hand back to Scout/);
+    expect(html).not.toContain('asked:');
   });
 
   it('is unchanged without a handoff', () => {
     const bot = ControlBar({ ...props, human: false });
     expect(textOf(bot)).toBe('Dot is in controlTake control');
     expect(button(bot, 'Dismiss')).toBeUndefined();
-    const human = ControlBar({ ...props, human: true });
-    expect(textOf(human)).toBe(
-      'Give control backClick and type directly on the screen. Shift+Esc to stop typing.',
-    );
+    expect(ControlBar({ ...props, human: true })).toBeNull();
     expect(renderToStaticMarkup(bot)).not.toContain('Your turn');
   });
 
@@ -819,7 +869,7 @@ describe('handoff', () => {
       control: control('human'),
     });
     expect(body(view({ status: taken }))).not.toContain('Needs you');
-    expect(body(view({ status: taken }))).toContain('never sees it');
+    expect(body(view({ status: taken }))).toContain('Dot asked: Solve it');
   });
 
   it('labels the handoff requests in the activity list and does not call them live work', () => {

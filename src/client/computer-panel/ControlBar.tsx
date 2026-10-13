@@ -1,4 +1,4 @@
-import { Hand, LoaderCircle, Undo2 } from 'lucide-react';
+import { Hand, LoaderCircle } from 'lucide-react';
 import type { Working } from './PanelHeader';
 
 /** What the owner is asked to do on the screen, by the kind of thing the Dot got stuck on. */
@@ -16,7 +16,7 @@ const HANDOFF_HINTS: Record<string, string> = {
  * waiting state is its own line rather than a disabled button.
  *
  * When the Dot has asked for help (`handoff`), the bar says so and offers Dismiss next to Take
- * control; once the owner holds control the same handoff only adds a reminder.
+ * control. Once the owner holds control the bar steps aside for the take-over banner.
  */
 export function ControlBar({
   dotName,
@@ -25,7 +25,6 @@ export function ControlBar({
   disabled,
   handoff,
   onTake,
-  onRelease,
   onDismiss,
 }: {
   dotName: string;
@@ -36,7 +35,6 @@ export function ControlBar({
   /** A request for the owner's help that has not been answered yet. */
   handoff?: { id: string; reason: string; kind: string };
   onTake: () => void;
-  onRelease: () => void;
   onDismiss?: () => void;
 }) {
   if (waiting)
@@ -50,29 +48,8 @@ export function ControlBar({
         </span>
       </div>
     );
-  if (human)
-    return (
-      <div className="cp-control cp-control-human">
-        <button
-          type="button"
-          className="cp-btn cp-btn-primary cp-btn-block"
-          onClick={onRelease}
-          disabled={disabled}
-        >
-          <Undo2 size={15} aria-hidden="true" />
-          Give control back
-        </button>
-        <p className="cp-hint">
-          Click and type directly on the screen. Shift+Esc to stop typing.
-        </p>
-        {handoff && (
-          <p className="cp-hint">
-            Type the secret on the screen; the Dot never sees it. Give control
-            back when you are done.
-          </p>
-        )}
-      </div>
-    );
+  // While the owner drives, the take-over banner at the top of the panel holds the way back.
+  if (human) return null;
   if (handoff) {
     const hint = HANDOFF_HINTS[handoff.kind];
     return (

@@ -37,6 +37,7 @@ import { Composer } from './composer/Composer';
 import { useAutoAttach } from './live-attach';
 import { pollInterval } from './live-refresh';
 import { useLiveEvent, useLiveStatus } from './useLiveEvents';
+import { takeOverHere } from './computer-panel/take-over';
 // These tools draw no UI of their own, so their arguments are not inspected.
 const anyArguments = z.looseObject({});
 export function Chat({
@@ -510,6 +511,11 @@ export function Chat({
           running={running}
           dotName={dot.name}
           onViewComputer={onComputer}
+          onTakeOver={
+            onComputer
+              ? () => takeOverHere({ dotId: dot.id, open: onComputer })
+              : undefined
+          }
           approvals={approvals}
           onDecide={decide}
           renderTools={(message) => (

@@ -1,5 +1,6 @@
 import { ApprovalStore } from './approval-store.js';
 import { ComputerStore } from './computer-store.js';
+import { ComputerFrameStore } from './computer-frames.js';
 import { ConnectorAuthStore } from './connector-auth-store.js';
 import { loadConnectorKey } from './connector-crypto.js';
 import { ConnectorStore } from './connector-store.js';
@@ -34,6 +35,8 @@ export class WorkspaceStore {
   private db: DatabaseSync;
   readonly pages: Pages;
   readonly computers: ComputerStore;
+  /** Computer replay steps and their pictures. */
+  readonly frames: ComputerFrameStore;
   readonly connectors: ConnectorStore;
   readonly connectorAuth: ConnectorAuthStore;
   /** Model providers whose API keys are stored encrypted; Dots reference them by id. */
@@ -92,6 +95,7 @@ export class WorkspaceStore {
         COMMIT;`);
     }
     this.computers = new ComputerStore(this.db);
+    this.frames = new ComputerFrameStore(this.db);
     this.connectors = new ConnectorStore(this.db);
     const connectorKey =
       options.connectorKey ??
@@ -395,6 +399,7 @@ export class WorkspaceStore {
         'DELETE FROM resume_markers WHERE threadId=?',
         'DELETE FROM trigger_events WHERE triggerId IN (SELECT id FROM triggers WHERE threadId=?)',
         'DELETE FROM triggers WHERE threadId=?',
+        'DELETE FROM computer_frames WHERE threadId=?',
       ])
         this.db.prepare(sql).run(id);
       this.db

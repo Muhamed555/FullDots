@@ -6,6 +6,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { WorkspaceStore } from '../src/server/workspace.js';
 import { ComputerService } from '../src/server/computer-service.js';
 import { attachComputerStream } from '../src/server/computer-stream.js';
+import { LiveFrames } from '../src/server/computer-frames.js';
 import { computerRoutes } from '../src/server/computer-routes.js';
 import type { ComputerStreamMessage } from '../src/shared/computer-types.js';
 
@@ -417,4 +418,19 @@ it('mints a ticket over the API only while Browser access is on', async () => {
   expect(await denied.json()).toEqual({
     error: 'Computer permission is disabled.',
   });
+});
+
+it('keeps the newest frame for the replay while the screen is open, and forgets it after', async () => {
+  const f = await fixture();
+  f.service.liveFrames = new LiveFrames();
+  const view = await f.watch();
+  await until(() => f.computer.connections.length === 1);
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9]);
+  f.computer.connections[0].socket.send(
+    JSON.stringify({ type: 'frame', data: jpeg.toString('base64') }),
+  );
+  await until(() => view.messages.length === 1);
+  expect(f.service.liveFrames.recent(f.id, 1000)).toEqual(jpeg);
+  view.socket.close();
+  await until(() => !f.service.liveFrames.recent(f.id, 1000));
 });

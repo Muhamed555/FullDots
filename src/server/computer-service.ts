@@ -6,6 +6,7 @@ import {
   type ComputerInputLimits,
   type ComputerInputs,
   computerPermissionsSchema,
+  replayEnabled,
   type ComputerAction,
   type ComputerControl,
   type ComputerStatus,
@@ -20,6 +21,8 @@ import {
   classifyConflict,
 } from './computer-conflict.js';
 export { ComputerConflictError } from './computer-conflict.js';
+import { liveFrames, type LiveFrames } from './computer-frames.js';
+import { keyframeFromPng } from './frame-image.js';
 const stateSchema = z.object({
   botId: z.string(),
   container: z.string(),
@@ -46,6 +49,43 @@ export interface ComputerStreamTarget {
   /** Strips this computer's credentials from text that came back from it. */
   redact: (text: string) => string;
 }
+/** Which tool call of which conversation a browser step belongs to, for the replay. */
+export interface ReplayContext {
+  threadId: string;
+  toolCallId: string;
+}
+/** Steps that change the page, so a picture of the screen after them is worth keeping. */
+const REPLAY_ACTIONS = new Set<string>([
+  'navigate',
+  'click',
+  'type',
+  'select',
+  'key',
+  'scroll',
+]);
+/** A live-screen frame at most this old stands in for a screenshot. */
+const LIVE_FRAME_MS = 1000;
+const REPLAY_FRAME_WIDTH = 1024;
+const REPLAY_FRAME_QUALITY = 60;
+/** The page a step ended on, from the result the agent layer built. */
+function pageOf(result: unknown): { url: string; title: string } {
+  const record =
+    result && typeof result === 'object'
+      ? (result as Record<string, unknown>)
+      : {};
+  const page =
+    record.page && typeof record.page === 'object'
+      ? (record.page as Record<string, unknown>)
+      : {};
+  const text = (value: unknown) => (typeof value === 'string' ? value : '');
+  return {
+    url: text(page.url) || text(record.url),
+    title: text(page.title) || text(record.title),
+  };
+}
+/** Lets other work run between the slow parts of making a keyframe. */
+const yieldToEvents = () =>
+  new Promise<void>((resolve) => setImmediate(resolve));
 /** One call to the computer inside a {@link ComputerService.session}. */
 export type ComputerSessionCall = (
   action: ComputerAction,
@@ -68,6 +108,11 @@ const OWNER_REFRESHABLE = new Set<ComputerAction>([
 export class ComputerService {
   private readonly inputLimits: ComputerInputLimits;
   private readonly responseBytes: number;
+  private readonly replayFrames: number;
+  /** Keyframes still being made; see {@link framesSettled}. */
+  private readonly pendingFrames = new Set<Promise<void>>();
+  /** Where recent live-screen frames are found. Replaceable in tests. */
+  liveFrames: LiveFrames = liveFrames;
   private readonly streamTickets = new Map<
     string,
     { dotId: string; expires: number }
@@ -94,6 +139,7 @@ export class ComputerService {
       typeChars: limits.typeChars,
     };
     this.responseBytes = limits.computerResponseBytes;
+    this.replayFrames = limits.computerReplayFrames;
     this.inputs = computerInputSchemas(this.inputLimits);
     this.streamInput = computerStreamInputSchema(this.inputLimits);
   }
@@ -179,15 +225,9 @@ export class ComputerService {
         }
         chunks.push(value);
       }
-      // Infrastructure secrets must never leave the gateway even if an upstream response reflects one.
-      let text = Buffer.concat(chunks).toString('utf8');
-      for (const secret of [
-        token,
-        this.config.computerToken?.trim(),
-        this.config.computerSupervisorToken?.trim(),
-      ])
-        if (secret) text = text.split(secret).join('[redacted]');
-      return JSON.parse(text);
+      return JSON.parse(
+        this.redact(Buffer.concat(chunks).toString('utf8'), token),
+      );
     } catch (error) {
       if (combined.aborted)
         throw new Error('Computer request was cancelled or timed out.', {
@@ -206,6 +246,16 @@ export class ComputerService {
     } finally {
       clearTimeout(timeout);
     }
+  }
+  /** Infrastructure secrets must never leave the gateway even if an upstream response reflects one. */
+  private redact(text: string, token: string) {
+    for (const secret of [
+      token,
+      this.config.computerToken?.trim(),
+      this.config.computerSupervisorToken?.trim(),
+    ])
+      if (secret) text = text.split(secret).join('[redacted]');
+    return text;
   }
   private supervisor(path: string, body?: unknown, signal?: AbortSignal) {
     return this.json(
@@ -510,6 +560,10 @@ export class ComputerService {
    * through `call` must need that same permission. A compound action such as choosing a dropdown option
    * uses several calls but is still one thing the owner sees: permissions are re-checked before and
    * after each call and cancel the work in flight as soon as the owner revokes them.
+   *
+   * With `replay`, a page-changing step is also kept for the conversation's replay. Its picture is
+   * taken through this same session, after the step, without holding up what comes next; see
+   * {@link keepReplayStep}.
    */
   async session<T>(
     id: string,
@@ -517,6 +571,7 @@ export class ComputerService {
     actor: 'owner' | 'agent',
     signal: AbortSignal | undefined,
     body: (call: ComputerSessionCall) => Promise<T>,
+    replay?: ReplayContext,
   ): Promise<T> {
     return this.audited(id, label, actor, async () => {
       if (actor === 'agent' && label.startsWith('human_'))
@@ -563,11 +618,98 @@ export class ComputerService {
           }
           return result;
         };
-        return await body(call);
+        let result: T;
+        try {
+          result = await body(call);
+        } catch (error) {
+          if (replay) this.keepReplayStep(id, label, replay, undefined);
+          throw error;
+        }
+        if (replay) this.keepReplayStep(id, label, replay, result, call);
+        return result;
       } finally {
         clearInterval(watcher);
       }
     });
+  }
+  /**
+   * Records a step for the replay and, when it can, a small picture of the screen after it.
+   *
+   * The step row is written at once. The picture is a recent live-screen frame when the owner is
+   * watching, otherwise a screenshot taken through the step's own `call`: it is part of the same
+   * audited action, so the activity list still shows one entry. Taking and shrinking it runs in the
+   * background; a failure only means the step has no picture.
+   */
+  private keepReplayStep(
+    id: string,
+    label: string,
+    context: ReplayContext,
+    result: unknown,
+    call?: ComputerSessionCall,
+  ) {
+    try {
+      if (
+        !REPLAY_ACTIONS.has(label) ||
+        this.replayFrames <= 0 ||
+        !replayEnabled(this.workspace.computers.permissions(id))
+      )
+        return;
+      const failed =
+        result === undefined ||
+        (!!result &&
+          typeof result === 'object' &&
+          typeof (result as { error?: unknown }).error === 'string');
+      const live = call
+        ? this.liveFrames.recent(id, LIVE_FRAME_MS, (text) =>
+            this.redact(text, this.token(id)),
+          )
+        : undefined;
+      const stepId = this.workspace.frames.add(
+        {
+          dotId: id,
+          threadId: context.threadId,
+          toolCallId: context.toolCallId,
+          action: label,
+          ...pageOf(result),
+          outcome: failed ? 'failed' : 'succeeded',
+          ...(live ? { jpeg: live } : {}),
+        },
+        this.replayFrames,
+      );
+      if (live || !call) return;
+      const capture = (async () => {
+        const shot = await call('screenshot');
+        const base64 =
+          shot && typeof shot === 'object'
+            ? (shot as { base64?: unknown }).base64
+            : undefined;
+        if (typeof base64 !== 'string') return;
+        await yieldToEvents();
+        const jpeg = keyframeFromPng(
+          Buffer.from(base64, 'base64'),
+          REPLAY_FRAME_WIDTH,
+          REPLAY_FRAME_QUALITY,
+        );
+        this.workspace.frames.attach(stepId, jpeg);
+      })().catch((error: unknown) => {
+        // Names the failure only: messages from the computer are already generic.
+        console.error(
+          'Replay frame was not kept:',
+          error instanceof Error ? error.message : 'unknown error',
+        );
+      });
+      this.pendingFrames.add(capture);
+      void capture.finally(() => this.pendingFrames.delete(capture));
+    } catch (error) {
+      console.error(
+        'Replay step was not kept:',
+        error instanceof Error ? error.message : 'unknown error',
+      );
+    }
+  }
+  /** Resolves once every keyframe started so far is stored or given up. */
+  async framesSettled() {
+    while (this.pendingFrames.size) await Promise.all(this.pendingFrames);
   }
   /**
    * A one-time ticket for opening the live screen.

@@ -51,6 +51,8 @@ export class FakeComputer {
   private requests = 0;
   /** The next call to this path (for example '/control/cancel') fails with HTTP 500. */
   failNext?: string;
+  /** What `/screenshot` returns as its base64 image, in place of the default filler. */
+  screenshotBase64?: string;
 
   private count(path: string, body: unknown) {
     this.calls.push(path);
@@ -285,7 +287,7 @@ export class FakeComputer {
         });
       case '/screenshot':
         return Response.json({
-          base64: 'iVBORw0KGgo'.repeat(6000),
+          base64: this.screenshotBase64 ?? 'iVBORw0KGgo'.repeat(6000),
           width: 1280,
           height: 800,
           capturedAt: '2026-01-01T00:00:00.000Z',

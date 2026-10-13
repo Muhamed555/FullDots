@@ -199,7 +199,10 @@ export function attachComputerStream(
       timers.clear();
       if (flushTimer) clearInterval(flushTimer);
       abort.abort();
-      if (live.get(dotId)?.end === end) live.delete(dotId);
+      if (live.get(dotId)?.end === end) {
+        live.delete(dotId);
+        computers.liveFrames.forget(dotId);
+      }
       if (client.readyState === WebSocket.OPEN) {
         send({ type: 'ended', reason, message });
         client.close(code);
@@ -308,7 +311,11 @@ export function attachComputerStream(
       socket.on('message', (data, isBinary) => {
         if (isBinary) return;
         const body = text(data);
-        if (body.startsWith(FRAME_PREFIX)) return deliver(body);
+        if (body.startsWith(FRAME_PREFIX)) {
+          // Kept so a replay step can reuse it instead of taking a screenshot.
+          computers.liveFrames.note(dotId, body);
+          return deliver(body);
+        }
         if (body.length > MAX_CONTROL_BYTES) return;
         let message: unknown;
         try {

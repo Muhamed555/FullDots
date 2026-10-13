@@ -663,6 +663,7 @@ export function App() {
                 key={dot.id}
                 dots={workspace.dots}
                 defaultDotId={dot.id}
+                threadId={thread?.id}
                 latest={capture}
                 dotState="idle"
                 onClose={() => setPane(false)}

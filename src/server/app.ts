@@ -1,4 +1,5 @@
 import { computerRoutes } from './computer-routes.js';
+import { computerReplayRoutes } from './computer-replay-routes.js';
 import { connectorRoutes } from './connector-routes.js';
 import { connectorAuthRoutes } from './connector-auth-routes.js';
 import { modelProviderRoutes } from './model-provider-routes.js';
@@ -118,6 +119,7 @@ export function createApp({
         },
       }),
     );
+    app.route('/api', computerReplayRoutes(platform.workspace));
     app.route(
       '/api',
       turnRoutes(platform.turns, platform.workspace, (dotId) => {

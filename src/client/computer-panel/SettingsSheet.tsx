@@ -15,6 +15,58 @@ import {
 export type SaveNote = 'saving' | 'saved' | 'error';
 
 /**
+ * One labelled switch with its help text and a note while it saves. A plain function rather than a
+ * component, so the sheet stays a tree of host elements.
+ */
+function settingSwitch({
+  id,
+  title,
+  help,
+  note,
+  checked,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  title: string;
+  help: string;
+  note?: SaveNote;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <li key={id} className="cp-setting">
+      <div className="cp-setting-text">
+        <label htmlFor={id}>{title}</label>
+        <p id={`${id}-help`}>{help}</p>
+        <span className={`cp-save cp-save-${note ?? 'none'}`}>
+          <span role="status">
+            {note === 'saving' && 'Saving…'}
+            {note === 'saved' && (
+              <>
+                <Check size={12} aria-hidden="true" /> Saved
+              </>
+            )}
+            {note === 'error' && 'Could not save. Try again.'}
+          </span>
+        </span>
+      </div>
+      <input
+        id={id}
+        type="checkbox"
+        role="switch"
+        className="cp-switch"
+        aria-describedby={`${id}-help`}
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+    </li>
+  );
+}
+
+/**
  * Permissions and power, one plain sentence each. Slides over the panel's body; the header, with
  * its gear, stays where it is.
  */
@@ -107,38 +159,32 @@ export function SettingsSheet({
       )}
       <h4 className="cp-section-title">What {dot.name} can use</h4>
       <ul className="cp-settings">
-        {PERMISSION_COPY.map(({ key, title, description }) => {
-          const note = notes[key];
-          const checked = optimistic[key] ?? status.permissions[key];
-          return (
-            <li key={key} className="cp-setting">
-              <div className="cp-setting-text">
-                <label htmlFor={`${id}-${key}`}>{title}</label>
-                <p id={`${id}-${key}-help`}>{description(dot.name)}</p>
-                <span className={`cp-save cp-save-${note ?? 'none'}`}>
-                  <span role="status">
-                    {note === 'saving' && 'Saving…'}
-                    {note === 'saved' && (
-                      <>
-                        <Check size={12} aria-hidden="true" /> Saved
-                      </>
-                    )}
-                    {note === 'error' && 'Could not save. Try again.'}
-                  </span>
-                </span>
-              </div>
-              <input
-                id={`${id}-${key}`}
-                type="checkbox"
-                role="switch"
-                className="cp-switch"
-                aria-describedby={`${id}-${key}-help`}
-                checked={checked}
-                disabled={!status.configured || busy}
-                onChange={(event) => onSetPermission(key, event.target.checked)}
-              />
-            </li>
-          );
+        {PERMISSION_COPY.map(({ key, title, description }) =>
+          settingSwitch({
+            id: `${id}-${key}`,
+            title,
+            help: description(dot.name),
+            note: notes[key],
+            checked: !!(optimistic[key] ?? status.permissions[key]),
+            disabled: !status.configured || busy,
+            onChange: (value) => onSetPermission(key, value),
+          }),
+        )}
+      </ul>
+      <h4 className="cp-section-title">Replay</h4>
+      <ul className="cp-settings">
+        {settingSwitch({
+          id: `${id}-replay`,
+          title: 'Keep a replay',
+          help: `Save a small picture of the screen after each browser step ${dot.name} takes, so you can step back through it. The oldest go first, and a conversation’s pictures go when you delete it.${
+            status.permissions.browser ? '' : ' Turn on Browser to use it.'
+          }`,
+          note: notes.replay,
+          checked:
+            optimistic.replay ??
+            (status.permissions.browser && status.permissions.replay !== false),
+          disabled: !status.configured || busy || !status.permissions.browser,
+          onChange: (value) => onSetPermission('replay', value),
         })}
       </ul>
       <h4 className="cp-section-title">Power</h4>

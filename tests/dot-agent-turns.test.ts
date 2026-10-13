@@ -517,6 +517,16 @@ it('lets the model fill a form from the page each action returns, with no extra 
     ],
   });
   await f.run();
-  // navigate + its page, then type + its page: the model never called computer_snapshot.
-  expect(computer.calls).toEqual(['navigate', 'snapshot', 'type', 'snapshot']);
+  // navigate + its page, then type + its page: the model never called computer_snapshot. The
+  // screenshots are the replay's keyframes, taken after each step and never sent to the model.
+  expect(computer.calls.filter((call) => call !== 'screenshot')).toEqual([
+    'navigate',
+    'snapshot',
+    'type',
+    'snapshot',
+  ]);
+  // Each step is kept for the conversation's replay under the tool call that made it.
+  expect(
+    f.workspace.frames.steps(f.dot.id, 'thread').map((step) => step.toolCallId),
+  ).toEqual(['nav', 'type']);
 });

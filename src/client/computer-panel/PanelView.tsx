@@ -13,8 +13,10 @@ import { ControlBar } from './ControlBar';
 import { EmptyState } from './EmptyState';
 import { MoreTools } from './MoreTools';
 import { PanelHeader, type Working } from './PanelHeader';
+import { ReplayPanel } from './ReplayView';
 import { ScreenStage, type PagePosition, type Snapshot } from './ScreenStage';
 import { SettingsSheet, type SaveNote } from './SettingsSheet';
+import { TakeoverBanner } from './TakeoverBanner';
 import {
   ActivityTool,
   FilesTool,
@@ -52,11 +54,17 @@ export interface PanelActions {
   onFrameSize: (size: Frame | undefined) => void;
 }
 
+export type PanelTab = 'live' | 'replay';
+
 export interface PanelViewProps {
   dot: Dot;
   dots?: readonly Dot[];
   onSelectDot?: (id: string) => void;
   onClose?: () => void;
+  /** The open conversation, whose browser steps the Replay tab shows. */
+  threadId?: string;
+  /** Opens on the Replay tab instead of the live screen. */
+  initialView?: PanelTab;
   status?: ComputerStatus;
   /** Whether the first load failed, as opposed to still being under way. */
   loadFailed: boolean;
@@ -86,6 +94,8 @@ export function PanelView({
   dots,
   onSelectDot,
   onClose,
+  threadId,
+  initialView = 'live',
   status,
   loadFailed,
   error,
@@ -106,6 +116,8 @@ export function PanelView({
   const settingsId = useId();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [more, setMore] = useState(readMorePrefs);
+  const [tab, setTab] = useState<PanelTab>(initialView);
+  const tabsId = useId();
   const gear = useRef<HTMLButtonElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
@@ -177,84 +189,154 @@ export function PanelView({
         onClose={onClose}
       />
       <div className="cp-body" hidden={settingsOpen}>
-        {error && phase !== 'unreachable' && (
-          <div className="cp-alert" role="alert">
-            <span>{error}</span>
-            <button
-              type="button"
-              className="cp-icon-btn"
-              aria-label="Dismiss message"
-              onClick={onDismissError}
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
-          </div>
-        )}
-        {phase === 'running' && status ? (
-          <>
-            <ScreenStage
-              dotId={dot.id}
-              dotName={dot.name}
-              browser={browser}
-              human={human}
-              typeChars={status.limits?.typeChars ?? 16_000}
-              streamKey={streamKey}
-              stream={stream}
-              snapshot={snapshot}
-              snapshotError={snapshotError}
-              page={page}
-              activity={activity}
-              busy={busy}
-              onPhase={actions.onPhase}
-              onFrameSize={actions.onFrameSize}
-              onRetryStream={actions.retryStream}
-              onClickSnapshot={actions.clickSnapshot}
-              onOpenSettings={openSettings}
-            />
-            {browser && (
-              <>
-                <ControlBar
-                  dotName={dot.name}
-                  human={human}
-                  waiting={
-                    waiting === 'take' || waiting === 'release'
-                      ? waiting
-                      : undefined
-                  }
-                  disabled={busy}
-                  handoff={handoff}
-                  onTake={actions.take}
-                  onRelease={actions.release}
-                  onDismiss={
-                    handoff
-                      ? () => actions.dismissHandoff(handoff.id)
-                      : undefined
-                  }
-                />
-                <AddressBar
-                  disabled={busy || human}
-                  placeholder={
-                    human
-                      ? 'Give control back to open a page'
-                      : 'Open a website'
-                  }
-                  onOpen={actions.navigate}
-                />
-              </>
-            )}
-          </>
-        ) : (
-          <EmptyState
-            phase={phase === 'running' ? 'loading' : phase}
+        {phase === 'running' && browser && human && !waiting && (
+          <TakeoverBanner
+            dotId={dot.id}
             dotName={dot.name}
-            status={status}
-            error={error}
-            working={working}
-            onStart={actions.start}
-            onEnable={actions.enable}
-            onRetry={actions.refresh}
+            reason={handoff?.reason}
+            disabled={busy}
+            onRelease={actions.release}
           />
         )}
+        {status?.configured && (
+          <div
+            className="cp-segments cp-view-tabs"
+            role="tablist"
+            aria-label="Screen"
+            onKeyDown={(event) => {
+              if (
+                !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)
+              )
+                return;
+              event.preventDefault();
+              const next: PanelTab =
+                event.key === 'Home'
+                  ? 'live'
+                  : event.key === 'End'
+                    ? 'replay'
+                    : tab === 'live'
+                      ? 'replay'
+                      : 'live';
+              setTab(next);
+              document.getElementById(`${tabsId}-${next}`)?.focus();
+            }}
+          >
+            {(['live', 'replay'] as const).map((name) => (
+              <button
+                key={name}
+                id={`${tabsId}-${name}`}
+                type="button"
+                role="tab"
+                aria-selected={tab === name}
+                aria-controls={`${tabsId}-${name}-panel`}
+                tabIndex={tab === name ? 0 : -1}
+                onClick={() => setTab(name)}
+              >
+                {name === 'live' ? 'Live' : 'Replay'}
+              </button>
+            ))}
+          </div>
+        )}
+        {status?.configured && tab === 'replay' && (
+          <div
+            id={`${tabsId}-replay-panel`}
+            role="tabpanel"
+            aria-labelledby={`${tabsId}-replay`}
+          >
+            <ReplayPanel
+              dotId={dot.id}
+              dotName={dot.name}
+              threadId={threadId}
+              onJumpToLive={() => setTab('live')}
+              onOpenSettings={openSettings}
+            />
+          </div>
+        )}
+        <div
+          className="cp-live"
+          id={`${tabsId}-live-panel`}
+          role={status?.configured ? 'tabpanel' : undefined}
+          aria-labelledby={status?.configured ? `${tabsId}-live` : undefined}
+          hidden={!!status?.configured && tab !== 'live'}
+        >
+          {error && phase !== 'unreachable' && (
+            <div className="cp-alert" role="alert">
+              <span>{error}</span>
+              <button
+                type="button"
+                className="cp-icon-btn"
+                aria-label="Dismiss message"
+                onClick={onDismissError}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </div>
+          )}
+          {phase === 'running' && status ? (
+            <>
+              <ScreenStage
+                dotId={dot.id}
+                dotName={dot.name}
+                browser={browser}
+                human={human}
+                typeChars={status.limits?.typeChars ?? 16_000}
+                streamKey={streamKey}
+                stream={stream}
+                snapshot={snapshot}
+                snapshotError={snapshotError}
+                page={page}
+                activity={activity}
+                busy={busy}
+                onPhase={actions.onPhase}
+                onFrameSize={actions.onFrameSize}
+                onRetryStream={actions.retryStream}
+                onClickSnapshot={actions.clickSnapshot}
+                onOpenSettings={openSettings}
+              />
+              {browser && (
+                <>
+                  <ControlBar
+                    dotName={dot.name}
+                    human={human}
+                    waiting={
+                      waiting === 'take' || waiting === 'release'
+                        ? waiting
+                        : undefined
+                    }
+                    disabled={busy}
+                    handoff={handoff}
+                    onTake={actions.take}
+                    onDismiss={
+                      handoff
+                        ? () => actions.dismissHandoff(handoff.id)
+                        : undefined
+                    }
+                  />
+                  <AddressBar
+                    disabled={busy || human}
+                    placeholder={
+                      human
+                        ? `Hand back to ${dot.name} to open a page`
+                        : 'Open a website'
+                    }
+                    onOpen={actions.navigate}
+                  />
+                </>
+              )}
+            </>
+          ) : (
+            <EmptyState
+              phase={phase === 'running' ? 'loading' : phase}
+              dotName={dot.name}
+              status={status}
+              error={error}
+              working={working}
+              onStart={actions.start}
+              onEnable={actions.enable}
+              onRetry={actions.refresh}
+            />
+          )}
+        </div>
         {status?.configured && (
           <MoreTools
             open={more.open}

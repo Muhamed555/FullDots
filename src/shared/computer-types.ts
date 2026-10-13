@@ -5,9 +5,33 @@ export const computerPermissionsSchema = z
     browser: z.boolean(),
     files: z.boolean(),
     shell: z.boolean(),
+    /** Keep a replay of browser steps. Unset means on whenever Browser is on. */
+    replay: z.boolean().optional(),
   })
   .strict();
 export type ComputerPermissions = z.infer<typeof computerPermissionsSchema>;
+/** Whether a Dot's browser steps are recorded for replay. */
+export const replayEnabled = (permissions: ComputerPermissions) =>
+  permissions.enabled && permissions.browser && permissions.replay !== false;
+/** One browser step of a conversation as the replay keeps it. */
+export interface ReplayStep {
+  id: string;
+  toolCallId: string;
+  createdAt: number;
+  /** The computer action, e.g. `navigate` or `select`. */
+  action: string;
+  /** The page after the step. */
+  url: string;
+  title: string;
+  outcome: 'succeeded' | 'failed';
+  /** Whether a picture of the screen after the step was kept. */
+  hasFrame: boolean;
+}
+export interface ComputerReplay {
+  /** Whether new steps are being recorded. */
+  replay: boolean;
+  steps: ReplayStep[];
+}
 export interface ComputerAudit {
   id: string;
   action: string;

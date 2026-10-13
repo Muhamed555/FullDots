@@ -1,0 +1,231 @@
+/* Computer replay and take-over. Scoped under .cp-panel and built from its colours
+   (see computer-panel.css). */
+
+/* Live and Replay */
+.cp-panel .cp-view-tabs {
+  margin: 12px 16px 0;
+}
+.cp-live {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cp-live > :is(.cp-control, .cp-address, .cp-notice, .cp-alert) {
+  margin-inline: 16px;
+}
+
+/* The owner holds the computer */
+.cp-takeover {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 16px 0;
+  padding: 12px 14px 14px;
+  border: 1px solid color-mix(in srgb, var(--cp-focus) 35%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--cp-focus) 9%, var(--cp-surface));
+  animation: cp-takeover-in 0.24s ease-out;
+}
+.cp-takeover-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.cp-takeover-text .mascot {
+  flex: none;
+}
+.cp-takeover-text > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.cp-panel .cp-takeover-title {
+  font-size: 14px;
+}
+.cp-panel .cp-takeover-reason {
+  color: var(--cp-ink);
+}
+.cp-panel .cp-takeover .cp-btn-block {
+  min-height: 48px;
+  font-size: 15px;
+}
+@keyframes cp-takeover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* Replay */
+.cp-replay {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 16px;
+}
+.cp-replay-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cp-panel .cp-replay-head h3 {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+}
+.cp-panel .cp-replay-turn select {
+  min-height: 34px;
+  max-width: 200px;
+  padding: 0 8px;
+  border: 1px solid var(--cp-edge);
+  border-radius: 9px;
+  background: var(--cp-surface);
+  color: var(--cp-ink);
+  font-size: 12px;
+}
+.cp-panel .cp-replay-empty,
+.cp-panel .cp-replay-note {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--cp-soft);
+  color: var(--cp-muted);
+}
+.cp-panel .cp-replay-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 8px 8px 12px;
+  font-size: 12px;
+}
+.cp-replay-frame {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--cp-line);
+  border-radius: 12px;
+  background: #fff;
+  aspect-ratio: 16 / 10;
+}
+.cp-replay-frame[data-state='failed'] {
+  border-color: color-mix(in srgb, var(--cp-bad) 45%, transparent);
+}
+.cp-replay-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: top;
+  animation: cp-replay-fade 0.18s ease-out;
+}
+@keyframes cp-replay-fade {
+  from {
+    opacity: 0.4;
+  }
+}
+.cp-replay-noframe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  padding: 16px;
+  background: var(--cp-soft);
+  color: var(--cp-muted);
+  text-align: center;
+}
+.cp-replay-scrub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cp-replay-track {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--cp-soft);
+  cursor: pointer;
+}
+.cp-panel .cp-replay-track:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+.cp-replay-tick {
+  flex: 1;
+  height: 8px;
+  min-width: 3px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cp-ink) 22%, transparent);
+  transition: height 0.15s ease;
+}
+.cp-replay-tick[data-frame='yes'] {
+  background: color-mix(in srgb, var(--cp-focus) 55%, transparent);
+}
+.cp-replay-tick[data-state='failed'] {
+  background: color-mix(in srgb, var(--cp-bad) 60%, transparent);
+}
+.cp-replay-tick[data-current='yes'] {
+  height: 18px;
+  background: var(--cp-focus);
+}
+.cp-replay-tick[data-current='yes'][data-state='failed'] {
+  background: var(--cp-bad);
+}
+.cp-replay-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cp-panel .cp-replay-what {
+  overflow-wrap: anywhere;
+}
+.cp-replay-count {
+  margin-right: 6px;
+  color: var(--cp-muted);
+  font-variant-numeric: tabular-nums;
+}
+.cp-panel .cp-replay-where {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--cp-muted);
+  font-size: 12px;
+}
+.cp-replay-title,
+.cp-replay-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cp-replay-title {
+  color: var(--cp-ink);
+}
+.cp-replay-url {
+  flex: 1;
+}
+.cp-panel .cp-replay-outcome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--cp-muted);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-takeover,
+  .cp-replay-frame img,
+  .cp-replay-tick {
+    animation: none;
+    transition: none;
+  }
+}

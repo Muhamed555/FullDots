@@ -1,6 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
 import {
   Clock,
+  Hand,
   KeyRound,
   LoaderCircle,
   MonitorSmartphone,
@@ -299,10 +300,28 @@ export function handoffIcon(kind: HandoffKind): LucideIcon {
 function HandoffCard({
   result,
   onViewComputer,
+  onTakeOver,
 }: {
   result: HandoffResult;
   onViewComputer?: () => void;
+  onTakeOver?: () => Promise<void>;
 }) {
+  const [taking, setTaking] = useState(false);
+  const [error, setError] = useState('');
+  const takeOver = async () => {
+    if (!onTakeOver) return;
+    setTaking(true);
+    setError('');
+    try {
+      await onTakeOver();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Could not take control.',
+      );
+    } finally {
+      setTaking(false);
+    }
+  };
   return (
     <section
       className="approval-card is-handoff"
@@ -317,19 +336,45 @@ function HandoffCard({
       </header>
       <p className="approval-reason">{result.reason}</p>
       <p className="approval-hint">{HANDOFF_HINT}</p>
-      {onViewComputer && (
+      {(onViewComputer || onTakeOver) && (
         <div className="approval-footer">
           <div className="approval-buttons">
-            <button
-              type="button"
-              className="approval-btn is-primary"
-              onClick={onViewComputer}
-            >
-              <MonitorSmartphone size={14} aria-hidden="true" />
-              Open live computer
-            </button>
+            {onViewComputer && (
+              <button
+                type="button"
+                className={`approval-btn ${onTakeOver ? 'is-secondary' : 'is-primary'}`}
+                onClick={onViewComputer}
+              >
+                <MonitorSmartphone size={14} aria-hidden="true" />
+                Open live computer
+              </button>
+            )}
+            {onTakeOver && (
+              <button
+                type="button"
+                className="approval-btn is-primary"
+                disabled={taking}
+                onClick={() => void takeOver()}
+              >
+                {taking ? (
+                  <LoaderCircle
+                    size={14}
+                    className="approval-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Hand size={14} aria-hidden="true" />
+                )}
+                {taking ? 'Taking over…' : 'Take over here'}
+              </button>
+            )}
           </div>
         </div>
+      )}
+      {error && (
+        <p className="approval-error" role="alert">
+          {error}
+        </p>
       )}
     </section>
   );
@@ -345,14 +390,23 @@ export function ApprovalCard({
   approval,
   onDecide,
   onViewComputer,
+  onTakeOver,
 }: {
   result: ApprovalToolResult;
   approval?: Approval;
   onDecide?: DecideApproval;
   onViewComputer?: () => void;
+  /** Opens the computer and takes control in one click, for a handoff. */
+  onTakeOver?: () => Promise<void>;
 }) {
   if (result.status === 'handoff')
-    return <HandoffCard result={result} onViewComputer={onViewComputer} />;
+    return (
+      <HandoffCard
+        result={result}
+        onViewComputer={onViewComputer}
+        onTakeOver={onTakeOver}
+      />
+    );
   const asked: PendingApprovalResult = result;
   const status: ApprovalStatus = approval?.status ?? 'pending';
   const advisory = asked.advisory === true || approval?.argsHash === null;

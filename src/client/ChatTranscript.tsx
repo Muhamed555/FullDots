@@ -92,6 +92,7 @@ export function ChatTranscript({
   running = false,
   dotName = 'Your Dot',
   onViewComputer,
+  onTakeOver,
   approvals,
   onDecide,
 }: {
@@ -106,6 +107,8 @@ export function ChatTranscript({
   dotName?: string;
   /** Opens the computer side panel. */
   onViewComputer?: () => void;
+  /** Opens the computer side panel and takes control, from a handoff card. */
+  onTakeOver?: () => Promise<void>;
   /** Live approval rows by id, for the status of each approval card. */
   approvals?: ReadonlyMap<string, Approval>;
   /** Answers a pending approval card. */
@@ -157,6 +160,7 @@ export function ChatTranscript({
                 }
                 onDecide={onDecide}
                 onViewComputer={onViewComputer}
+                onTakeOver={onTakeOver}
               />
             );
           case 'activity': {

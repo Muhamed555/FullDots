@@ -21,6 +21,7 @@ const TABLES: [table: string, column: string][] = [
   ['chat_runs', 'threadId'],
   ['chat_threads', 'threadId'],
   ['thread_authors', 'threadId'],
+  ['computer_frames', 'threadId'],
 ];
 
 class ReplyAgent extends AbstractAgent {
@@ -90,6 +91,13 @@ it('DELETE /api/conversations/:id leaves no rows of that thread in any per-threa
       new AbortController().signal,
     );
   }
+  // Tables no plain chat turn writes to get a row of their own for each thread.
+  for (const id of ['drop', 'keep'])
+    reader
+      .prepare(
+        'INSERT INTO computer_frames(id,dotId,threadId,toolCallId,createdAt) VALUES (?,?,?,?,?)',
+      )
+      .run(`frame-${id}`, dot.id, id, 'call-1', Date.now());
   const count = (table: string, column: string, id: string) =>
     Number(
       reader

@@ -19,9 +19,12 @@ export function ResultPane({
   onClose,
   dots,
   defaultDotId,
+  threadId,
 }: {
   dots: Dot[];
   defaultDotId: string;
+  /** The open conversation, for the computer's Replay tab. */
+  threadId?: string;
   latest?: Result | null;
   status?: Status;
   dotState: string;
@@ -67,6 +70,7 @@ export function ResultPane({
               dot={computerDot}
               dots={dots}
               onSelectDot={setComputerDotId}
+              threadId={threadId}
             />
           ) : (
             <p className="computer-panel">

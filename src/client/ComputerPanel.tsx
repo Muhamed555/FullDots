@@ -17,6 +17,7 @@ import {
   isUsable,
   type PermissionKey,
 } from './computer-panel/model';
+import { COMPUTER_CHANGED_EVENT } from './computer-panel/take-over';
 
 const POLL_MS = 4000;
 /** While the Dot is acting, the panel looks more often so "Dot is clicking…" is not stale. */
@@ -32,18 +33,21 @@ type Outcome = { ok: true; result: unknown } | { ok: false };
  * away. This component owns the polling and every request; what is drawn lives in `computer-panel/`.
  *
  * `dots` and `onSelectDot` let the settings offer a switch between Dots, and `onClose` adds a close
- * button. Without them the panel is just this one Dot's.
+ * button. Without them the panel is just this one Dot's. `threadId` is the open conversation, whose
+ * browser steps the Replay tab shows.
  */
 export function ComputerPanel({
   dot,
   dots,
   onSelectDot,
   onClose,
+  threadId,
 }: {
   dot: Dot;
   dots?: readonly Dot[];
   onSelectDot?: (id: string) => void;
   onClose?: () => void;
+  threadId?: string;
 }) {
   const [status, setStatus] = useState<ComputerStatus>();
   // When the status was fetched, so "a moment ago" can be judged without reading the clock in render.
@@ -199,6 +203,15 @@ export function ComputerPanel({
       for (const handle of Object.values(timers)) clearTimeout(handle);
     };
   }, [refresh]);
+  // A take-over started outside the panel (the chat's handoff card) shows here at once.
+  useEffect(() => {
+    const changed = (event: Event) => {
+      if ((event as CustomEvent<{ dotId?: string }>).detail?.dotId === dot.id)
+        void refresh();
+    };
+    window.addEventListener(COMPUTER_CHANGED_EVENT, changed);
+    return () => window.removeEventListener(COMPUTER_CHANGED_EVENT, changed);
+  }, [dot.id, refresh]);
   /** Sends one request on the panel's busy lock, then refreshes. `path` is relative to `/api`. */
   const send = async (
     path: string,
@@ -312,6 +325,7 @@ export function ComputerPanel({
       dots={dots}
       onSelectDot={onSelectDot}
       onClose={onClose}
+      threadId={threadId}
       status={status}
       loadFailed={!!error}
       error={error || actionError}
