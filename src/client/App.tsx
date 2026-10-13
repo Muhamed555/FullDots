@@ -4,12 +4,10 @@ import { SpaceWorkspace } from './SpaceWorkspace';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { CopilotKitProvider } from '@copilotkit/react-core/v2';
 import {
-  ArrowUp,
   ArrowUpRight,
   BookOpen,
   Clock3,
   Menu,
-  MessageCircle,
   Monitor,
   MoreHorizontal,
   Pause,
@@ -51,7 +49,14 @@ import { TaskActions } from './TaskActions';
 import { WorkspaceDialog, type Dialog } from './WorkspaceDialog';
 import { TriggerDialog } from './TriggerDialog';
 import { AutomationsPanel } from './AutomationsPanel';
-import { submitComposerOnEnter } from './chat-composer';
+import { Composer } from './composer/Composer';
+import { useLiveRefresh } from './live-refresh';
+
+const STARTERS = [
+  'Help me think this through',
+  'Research a public page',
+  'Make a plan I can follow',
+];
 
 function describeFailure(error: unknown, fallback: string) {
   return {
@@ -197,11 +202,8 @@ export function App() {
       );
     }
   }, []);
-  useEffect(() => {
-    void refresh();
-    const timer = setInterval(() => void refresh(), 3000);
-    return () => clearInterval(timer);
-  }, [refresh]);
+  // Live events refetch at once; polling stays as a fallback (15 s, or 3 s while the feed is down).
+  useLiveRefresh(refresh);
   useEffect(() => {
     setCapture(undefined);
     if (!selectedThread) return;
@@ -623,62 +625,24 @@ export function App() {
                       </div>
                     </div>
                   )}
-                  <form
-                    className="composer"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void newConversation(prompt);
-                    }}
-                  >
-                    <textarea
-                      ref={composer}
-                      aria-label="Start a conversation"
-                      placeholder={
-                        configured
-                          ? `Message ${dot.name}…`
-                          : 'Your first conversation starts after setup.'
-                      }
-                      value={prompt}
-                      maxLength={4000}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      onKeyDown={(e) =>
-                        submitComposerOnEnter(
-                          e,
-                          configured && !busy && !!prompt.trim(),
-                        )
-                      }
-                      disabled={!configured}
-                    />
-                    <div className="composer-bottom">
-                      <span>
-                        <MessageCircle size={14} />
-                        Text and calls, one continuing conversation
-                      </span>
-                      <button
-                        className="send-button"
-                        aria-label="Start conversation"
-                        disabled={!configured || busy || !prompt.trim()}
-                      >
-                        <ArrowUp size={19} />
-                      </button>
-                    </div>
-                  </form>
-                  <div className="starter-suggestions">
-                    {[
-                      'Help me think this through',
-                      'Research a public page',
-                      'Make a plan I can follow',
-                    ].map((text) => (
-                      <button
-                        key={text}
-                        disabled={!configured}
-                        onClick={() => setPrompt(text)}
-                      >
-                        {text}
-                        <ArrowUpRight size={12} />
-                      </button>
-                    ))}
-                  </div>
+                  <Composer
+                    mode="new"
+                    textareaRef={composer}
+                    label="Start a conversation"
+                    placeholder={
+                      configured
+                        ? `Message ${dot.name}…`
+                        : 'Your first conversation starts after setup.'
+                    }
+                    value={prompt}
+                    onChange={setPrompt}
+                    onSubmit={(text) => void newConversation(text)}
+                    canSubmit={configured && !busy}
+                    disabled={!configured}
+                    submitLabel="Start conversation"
+                    note="Text and calls, one continuing conversation"
+                    starters={STARTERS}
+                  />
                   <div className="connection-note">
                     <span
                       className={`online-dot ${workspace.setup.search ? '' : 'off'}`}

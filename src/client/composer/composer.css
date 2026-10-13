@@ -1,0 +1,177 @@
+/*
+ * Composer extras on top of the existing .composer / .chat-composer rules in style.css, which keep
+ * the layout. Selectors carry .template-app where they must outrank style.css (loaded later).
+ */
+.fd-composer {
+  position: relative;
+  transition:
+    border-color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out);
+}
+.template-app .fd-composer:focus-within {
+  border-color: color-mix(in srgb, var(--accent-soft) 55%, var(--line));
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent-soft) 14%, transparent),
+    var(--shadow-md);
+}
+.fd-composer textarea {
+  overflow-y: auto;
+}
+.fd-composer--new textarea {
+  max-height: 240px;
+}
+.template-app .fd-composer--chat textarea {
+  max-height: 200px;
+}
+
+/* Send and Stop */
+.fd-composer .send-button {
+  display: inline-grid;
+  place-items: center;
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    background var(--dur-fast) var(--ease-out);
+}
+.fd-composer .send-button:not(:disabled) {
+  animation: fd-composer-pop var(--dur-med) var(--ease-spring);
+}
+.fd-composer .send-button:hover:not(:disabled) {
+  transform: scale(1.08);
+}
+.fd-composer .send-button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.fd-composer .send-button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--accent-soft);
+}
+.template-app .fd-composer .fd-composer-stop {
+  animation: fd-composer-breathe 1.6s var(--ease-out) infinite;
+}
+
+/* Hint and character count */
+.fd-composer-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+  margin-right: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.fd-composer--chat .fd-composer-meta {
+  margin: 0;
+}
+.fd-composer-hint kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+.fd-composer-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--warning);
+}
+.fd-composer-count[data-level='full'] {
+  color: var(--danger);
+  font-weight: 600;
+}
+.fd-composer--chat .chat-compose-note {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+
+/* Starter chips (new chat) */
+.template-app .fd-composer-chips button {
+  border-radius: var(--radius-pill);
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.template-app .fd-composer-chips button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Trigger popover (P2 @mentions, P8 /prompts) */
+.fd-composer-popover {
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: calc(100% + var(--space-2));
+  z-index: 20;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: fd-composer-rise var(--dur-med) var(--ease-spring);
+}
+
+@media (max-width: 700px), (pointer: coarse) {
+  .fd-composer-hint {
+    display: none;
+  }
+}
+
+@keyframes fd-composer-pop {
+  from {
+    transform: scale(0.82);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes fd-composer-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-soft) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-soft) 0%, transparent);
+  }
+}
+@keyframes fd-composer-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-composer,
+  .fd-composer .send-button,
+  .template-app .fd-composer-chips button {
+    transition: none;
+  }
+  .fd-composer .send-button,
+  .fd-composer .send-button:not(:disabled),
+  .template-app .fd-composer .fd-composer-stop,
+  .fd-composer-popover {
+    animation: none;
+  }
+  .fd-composer .send-button:hover:not(:disabled),
+  .fd-composer .send-button:active:not(:disabled),
+  .template-app .fd-composer-chips button:hover:not(:disabled) {
+    transform: none;
+  }
+}

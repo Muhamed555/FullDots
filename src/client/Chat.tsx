@@ -12,17 +12,7 @@ import {
   useAgent,
   useCopilotKit,
 } from '@copilotkit/react-core/v2';
-import {
-  FilePlus,
-  ArrowUp,
-  Clock3,
-  Zap,
-  Link2,
-  Phone,
-  PhoneOff,
-  Square,
-  X,
-} from 'lucide-react';
+import { FilePlus, Clock3, Zap, Phone, PhoneOff } from 'lucide-react';
 import { ChatTranscript, isInternalVoiceReceipt } from './ChatTranscript';
 import {
   ComputerAutoOpen,
@@ -42,8 +32,11 @@ import type {
 import { Mascot } from './Mascot';
 import { useVoice } from './useVoice';
 import { CallView } from './CallView';
-import { shouldSubmitComposerOnKeyDown } from './chat-composer';
 import { isBusyMessage, turnErrorMessage } from './chat-errors';
+import { Composer } from './composer/Composer';
+import { useAutoAttach } from './live-attach';
+import { pollInterval } from './live-refresh';
+import { useLiveEvent, useLiveStatus } from './useLiveEvents';
 // These tools draw no UI of their own, so their arguments are not inspected.
 const anyArguments = z.looseObject({});
 export function Chat({
@@ -106,8 +99,6 @@ export function Chat({
     };
   }, [thread.id, contextAttempt]);
   const [draft, setDraft] = useState('');
-  const [source, setSource] = useState('');
-  const [sourceOpen, setSourceOpen] = useState(false);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [running, setRunning] = useState(false);
@@ -157,6 +148,15 @@ export function Chat({
     agent.setMessages([]);
     return copilotkit.connectAgent({ agent });
   };
+  // A turn this page did not start (a resume, a schedule, another tab) streams in as it starts.
+  const live = useLiveStatus();
+  const attach = useAutoAttach({
+    threadId: thread.id,
+    agent,
+    ready: loaded,
+    running,
+    reconnect,
+  });
   /** Runs the agent on the messages as they are: a new message, or the kept one after a refusal. */
   const runTurn = async () => {
     setError('');
@@ -164,6 +164,7 @@ export function Chat({
     setRunning(true);
     followOutput.current = true;
     autoOpen.current.beginTurn(agent.messages);
+    attach.beginLocalRun();
     try {
       const result = await copilotkit.runAgent({ agent });
       if (!result.newMessages.some((message) => message.role === 'assistant'))
@@ -177,6 +178,7 @@ export function Chat({
           : 'The turn failed. Your conversation remains saved.',
       );
     } finally {
+      attach.endLocalRun();
       autoOpen.current.endTurn();
       setRunning(false);
     }
@@ -189,8 +191,6 @@ export function Chat({
       content: contextualMessage(text, pageContext),
     });
     setDraft('');
-    setSource('');
-    setSourceOpen(false);
     await runTurn();
   };
   useEffect(() => {
@@ -256,9 +256,15 @@ export function Chat({
     if (!idsKey) return;
     void refreshApprovals();
     if (!waitingOnOwner) return;
-    const timer = setInterval(() => void refreshApprovals(), 3000);
+    const timer = setInterval(
+      () => void refreshApprovals(),
+      pollInterval(live),
+    );
     return () => clearInterval(timer);
-  }, [idsKey, waitingOnOwner, refreshApprovals]);
+  }, [idsKey, waitingOnOwner, refreshApprovals, live]);
+  useLiveEvent('approval.changed', (event) => {
+    if (idsKey && event.threadId === thread.id) void refreshApprovals();
+  });
   const decide = async (
     id: string,
     decision: 'approve' | 'deny',
@@ -270,12 +276,15 @@ export function Chat({
         ...(note ? { note } : {}),
       });
       // The server resumes the Dot in this conversation; reconnecting streams that turn live.
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      await reconnect().catch((e: unknown) =>
-        setError(
-          e instanceof Error ? e.message : 'Conversation could not connect.',
-        ),
-      );
+      // With the live feed open, its turn.started attaches instead.
+      if (live !== 'open') {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        await reconnect().catch((e: unknown) =>
+          setError(
+            e instanceof Error ? e.message : 'Conversation could not connect.',
+          ),
+        );
+      }
     } finally {
       await refreshApprovals();
     }
@@ -285,9 +294,16 @@ export function Chat({
   // reconnect to stream the resumed turn.
   const latestHandoff = handoffIds(toolResults(agent.messages)).at(-1);
   const handoffWaiting = useRef(false);
+  const handoffFor = useRef<string>(undefined);
+  const pollHandoff = useRef<() => void>(undefined);
+  const liveRef = useRef(live);
+  liveRef.current = live;
   useEffect(() => {
     if (!latestHandoff) return;
-    handoffWaiting.current = false;
+    if (handoffFor.current !== latestHandoff) {
+      handoffFor.current = latestHandoff;
+      handoffWaiting.current = false;
+    }
     let active = true;
     const poll = async () => {
       try {
@@ -296,7 +312,7 @@ export function Chat({
         );
         if (!active) return;
         const waiting = data.handoffs.some((row) => row.id === latestHandoff);
-        if (handoffWaiting.current && !waiting) {
+        if (handoffWaiting.current && !waiting && liveRef.current !== 'open') {
           await new Promise((resolve) => setTimeout(resolve, 400));
           if (active) await reconnect().catch(() => {});
         }
@@ -306,12 +322,17 @@ export function Chat({
       }
     };
     void poll();
-    const timer = setInterval(() => void poll(), 3000);
+    pollHandoff.current = () => void poll();
+    const timer = setInterval(() => void poll(), pollInterval(live));
     return () => {
       active = false;
+      pollHandoff.current = undefined;
       clearInterval(timer);
     };
-  }, [latestHandoff, dot.id, agent, copilotkit]);
+  }, [latestHandoff, dot.id, agent, copilotkit, live]);
+  useLiveEvent('handoff.changed', (event) => {
+    if (event.threadId === thread.id) pollHandoff.current?.();
+  });
   const busyWithOther = isBusyMessage(error);
   // Stops the other turn, then sends the kept message once the Dot is free.
   const stopBackground = async () => {
@@ -349,6 +370,8 @@ export function Chat({
     { name: 'request_handoff', parameters: anyArguments, render: () => null },
     [],
   );
+  // This page's own turn, or one it attached to.
+  const working = running || !!attach.remoteRunId;
   const visible = agent.messages.filter(
     (message) =>
       !isInternalVoiceReceipt(message) &&
@@ -371,7 +394,7 @@ export function Chat({
           color={dot.color}
           name={dot.name}
           small
-          state={running ? 'working' : paused ? 'paused' : 'idle'}
+          state={working ? 'working' : paused ? 'paused' : 'idle'}
         />
         <div>
           <strong>{dot.name}</strong>
@@ -380,7 +403,7 @@ export function Chat({
               ? dot.paused
                 ? 'Paused. Resume it from its menu in the sidebar.'
                 : 'Paused'
-              : running
+              : working
                 ? 'Thinking…'
                 : loaded && contextReady
                   ? 'Here with you'
@@ -496,7 +519,7 @@ export function Chat({
             />
           )}
         />
-        {running && (
+        {working && (
           <div className="thinking">
             <span />
             <span />
@@ -546,84 +569,24 @@ export function Chat({
         dot={dot}
         voice={voice}
       />
-      <form
-        className="chat-composer"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send(`${source ? `From ${source}:\n\n` : ''}${draft}`);
-        }}
-      >
-        {sourceOpen && (
-          <div className="source-input">
-            <Link2 size={15} />
-            <input
-              aria-label="Source page URL"
-              type="url"
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              placeholder="https://example.com/page"
-            />
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Remove source"
-              onClick={() => {
-                setSourceOpen(false);
-                setSource('');
-              }}
-            >
-              <X size={14} />
-            </button>
-          </div>
-        )}
-        <div className="chat-compose-row">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Add source page link"
-            onClick={() => setSourceOpen(!sourceOpen)}
-          >
-            <Link2 size={19} />
-          </button>
-          <textarea
-            aria-label="Message your Dot"
-            placeholder={`Message ${dot.name}…`}
-            rows={1}
-            value={draft}
-            maxLength={4000}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (shouldSubmitComposerOnKeyDown(e)) {
-                e.preventDefault();
-                e.currentTarget.form?.requestSubmit();
-              }
-            }}
-          />
-          {running ? (
-            <button
-              type="button"
-              className="send-button"
-              aria-label="Stop response"
-              onClick={() => copilotkit.stopAgent({ agent })}
-            >
-              <Square size={16} />
-            </button>
-          ) : (
-            <button
-              className="send-button"
-              aria-label="Send message"
-              disabled={!draft.trim() || !loaded || !contextReady || paused}
-            >
-              <ArrowUp size={19} />
-            </button>
-          )}
-        </div>
-        <div className="chat-compose-note">
-          {voiceReady
+      <Composer
+        mode="chat"
+        label="Message your Dot"
+        placeholder={`Message ${dot.name}…`}
+        value={draft}
+        onChange={setDraft}
+        onSubmit={(text) => void send(text)}
+        canSubmit={!running && loaded && contextReady && !paused}
+        submitLabel="Send message"
+        running={running}
+        onStop={() => copilotkit.stopAgent({ agent })}
+        sourceLink
+        note={
+          voiceReady
             ? 'Text and voice, one conversation.'
-            : 'Text is ready. Voice needs separate server configuration.'}
-        </div>
-      </form>
+            : 'Text is ready. Voice needs separate server configuration.'
+        }
+      />
     </div>
   );
 }
