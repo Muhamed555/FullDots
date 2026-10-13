@@ -1,3 +1,9 @@
+/** True when the model provider said it is overloaded or briefly down (after FullDots' retries). */
+export const isProviderBusyMessage = (text: string) =>
+  /\b(429|50[234]) status code|service unavailable|high demand|overloaded|rate limit/i.test(
+    text,
+  );
+
 /** True when the server refused the turn because the Dot was busy with other work. */
 export const isBusyMessage = (text: string) => /busy with /i.test(text);
 
@@ -32,6 +38,8 @@ export function turnErrorMessage(
     return threadRunningMessage(runningName);
   if (isBusyMessage(runError))
     return `${runError} Your message is kept: send it again when the Dot is free.`;
+  if (isProviderBusyMessage(runError))
+    return 'The AI provider is overloaded right now. FullDots tried again a few times without luck. Send your message again in a minute, or pick another model in Settings → Models.';
   return runError
     ? `The model could not answer: ${runError}`
     : 'The current turn returned no response. Check the runtime connection and retry.';

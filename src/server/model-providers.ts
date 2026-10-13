@@ -151,7 +151,45 @@ export interface ProviderFetchOptions {
   /** Extra headers (the request's own headers win). */
   headers?: Record<string, string>;
   redact?: (text: string) => string;
+  /**
+   * Pauses before each retry of a chat request the provider refused as busy or briefly broken
+   * (429, 500, 502, 503, 504). Default: three retries. List requests are never retried.
+   */
+  retryDelaysMs?: readonly number[];
 }
+
+/** Statuses a provider sends when it is overloaded or briefly down; the same request may work soon. */
+const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+export const PROVIDER_RETRY_DELAYS_MS = [1500, 4000, 9000] as const;
+/** The longest Retry-After a chat waits for; a longer one is the provider's answer, not a blip. */
+const MAX_RETRY_AFTER_MS = 20_000;
+
+/** How long to wait before the next try: the provider's Retry-After when sane, else our own pause. */
+export function retryDelay(response: Response, fallbackMs: number): number {
+  const header = response.headers.get('retry-after');
+  if (!header) return fallbackMs;
+  const seconds = Number(header);
+  const ms = Number.isFinite(seconds)
+    ? seconds * 1000
+    : Date.parse(header) - Date.now();
+  return Number.isFinite(ms) && ms >= 0
+    ? Math.min(ms, MAX_RETRY_AFTER_MS)
+    : fallbackMs;
+}
+
+const pause = (ms: number, signal?: AbortSignal | null) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 
 const ABORT_NAMES = new Set(['AbortError', 'TimeoutError']);
 
@@ -254,7 +292,23 @@ export function providerFetch(
       let body = dropBodyFields(next.body, dropFields);
       if (gemini) body = addThoughtSignatures(body);
       if (body !== next.body) next.body = body as BodyInit;
-      const response = await send(target, next);
+      // A busy provider often answers the same request a moment later. Only a body that can be
+      // sent again (a string) is retried, and only before any of the reply has streamed.
+      const delays =
+        list || typeof next.body !== 'string'
+          ? []
+          : (options.retryDelaysMs ?? PROVIDER_RETRY_DELAYS_MS);
+      let response = await send(target, next);
+      for (const fallback of delays) {
+        if (!RETRY_STATUSES.has(response.status)) break;
+        const wait = retryDelay(response, fallback);
+        await response.body?.cancel().catch(() => undefined);
+        console.warn(
+          `${preset.name} answered ${response.status}; trying again in ${Math.round(wait / 100) / 10} s.`,
+        );
+        await pause(wait, next.signal);
+        response = await send(target, next);
+      }
       return gemini ? captureThoughtSignatures(response) : response;
     } catch (error) {
       if (!(error instanceof Error) || ABORT_NAMES.has(error.name)) throw error;
