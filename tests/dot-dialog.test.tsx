@@ -112,13 +112,24 @@ describe('Dot dialog', () => {
 
   it('renders the two permissions as real switches', () => {
     const html = render({ type: 'dot', dot, spaceId: 's1' });
-    expect(html.match(/role="switch"/g)).toHaveLength(2);
+    // The Notes section has its own switch (proposals), ahead of the two permissions in Access.
+    expect(html.match(/role="switch"/g)).toHaveLength(3);
     expect(html).toContain('Public-page research');
     expect(html).toContain('Use saved memories');
-    const research = html.match(/<input[^>]*role="switch"[^>]*>/g)!;
+    const research = html.match(/<input[^>]*role="switch"[^>]*>/g)!.slice(1);
     expect(research[0]).toContain('checked=""');
     // memoryAllowed is false for this Dot.
     expect(research[1]).not.toContain('checked=""');
+  });
+
+  it('has a Notes section for an existing Dot only', () => {
+    const html = render({ type: 'dot', dot, spaceId: 's1' });
+    expect(html).toContain('id="dot-sec-notes"');
+    expect(html).toContain('What Scout remembers about you');
+    expect(html).toContain('Let Scout propose notes');
+    expect(render({ type: 'dot', spaceId: 's1' })).not.toContain(
+      'dot-sec-notes',
+    );
   });
 
   it('shows the model picker with the default model on its trigger', () => {

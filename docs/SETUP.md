@@ -63,6 +63,12 @@ To restore: stop FullDots, copy the backup over the database file, put the key b
 
 **Pause all Dots** in the top bar stops every Dot. To pause one Dot, use **Pause Dot** in its sidebar menu. A paused Dot starts no turns: chat shows that it is paused, its running turn is stopped, and its running background tasks are marked Interrupted. Its scheduled tasks, goals, trigger events, hand-offs and resumes wait until you resume it. Webhooks are still accepted and queued; polls wait.
 
+## Dot notes
+
+Each Dot has one note, "What <Dot> remembers about you". Open it from **Notes** in the chat header or the Notes section of the Dot's settings. You write it, edit it and clear it; nothing is ever stored in it without your click. Every edit and every clear keeps the previous text under **History**, where **Restore** brings it back. The note is limited to 8,000 characters and goes into the Dot's instructions as untrusted preferences, next to the saved memories, so it follows the same rules: it is used only while saved memories are allowed for the workspace and for that Dot, and it never counts as an instruction.
+
+**Let <Dot> propose notes** is off by default. When you turn it on, the Dot gets one extra tool, `remember_preference`, to suggest a short line (up to 300 characters). A suggestion changes nothing and unlocks nothing: it appears in the Inbox under **Memory**, and only **Save** adds the line to the note (a version of the old text is kept). **Discard** just archives it. Neither wakes the Dot. With the switch off the tool is not offered at all. Notes live in the `dot_notes` and `dot_note_versions` tables of the workspace database.
+
 ## Pages and page conversations
 
 Select a Space to open its page library. Search for a document, switch between grid and list views, or create a new page. The visual editor supports formatting, headings, lists, checklists, tables, and slash commands. Use `/` to insert a block and Cmd/Ctrl+S to save immediately. Pages autosave after editing pauses; the save status tells you whether changes reached the server.

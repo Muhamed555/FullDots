@@ -38,6 +38,8 @@ const dotSchema = z
     approvalMode: z.enum(['sensitive', 'writes', 'off']).optional(),
     // null clears the colour: the palette then follows the Dot's id again.
     color: z.enum(DOT_COLORS).nullable().optional(),
+    // Lets the Dot propose lines for its note; they wait in the inbox. Off until the owner says so.
+    notesProposals: z.boolean().optional(),
   })
   .strict();
 const conversationPatch = z
@@ -212,7 +214,9 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
     );
   });
   app.post('/dots', async (c) => {
+    // A new Dot starts with proposals off; the switch is for an existing Dot.
     const data = dotSchema
+      .omit({ notesProposals: true })
       .extend({ spaceId: z.string() })
       .safeParse(await c.req.json().catch(() => null));
     if (!data.success)

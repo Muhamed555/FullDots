@@ -39,6 +39,7 @@ import {
 } from './chat-errors';
 import { useGroupChat } from './room/useGroupChat';
 import { Composer } from './composer/Composer';
+import { DotNotesButton } from './DotNotes';
 import { useAutoAttach } from './live-attach';
 import { pollInterval } from './live-refresh';
 import { useLiveEvent, useLiveStatus } from './useLiveEvents';
@@ -498,6 +499,7 @@ export function Chat({
           >
             <Clock3 size={18} />
           </button>
+          <DotNotesButton dot={dot} />
           {onTrigger && (
             <button
               className="icon-button"

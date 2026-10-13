@@ -4,6 +4,8 @@
 .inbox-view {
   --inbox-question: var(--dot-lilac-dark);
   --inbox-question-bg: #f6f2ff;
+  --inbox-memory: var(--dot-amber-dark);
+  --inbox-memory-bg: #fff8e8;
   --inbox-result: var(--dot-mint-dark);
   --inbox-result-bg: #ecfaf5;
 }
@@ -95,6 +97,10 @@
 .inbox-chip.is-questions .inbox-chip-count {
   background: var(--inbox-question-bg);
   color: var(--inbox-question);
+}
+.inbox-chip.is-memory .inbox-chip-count {
+  background: var(--inbox-memory-bg);
+  color: var(--inbox-memory);
 }
 .inbox-chip.is-results .inbox-chip-count {
   background: var(--inbox-result-bg);
@@ -216,6 +222,44 @@
   border-color: var(--inbox-question);
   outline: none;
   box-shadow: 0 0 0 3px var(--inbox-question-bg);
+}
+
+/* ---- Memory proposals ------------------------------------------------------- */
+
+.inbox-card.is-memory {
+  border-color: var(--dot-amber-light);
+  background: linear-gradient(180deg, var(--inbox-memory-bg), #fff 60%);
+}
+.inbox-memory-intro {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+/* A little sticky note with a folded corner. */
+.inbox-memory-line {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-xs);
+  background:
+    linear-gradient(
+        135deg,
+        transparent 0 calc(100% - 20px),
+        var(--dot-amber-light) 0
+      )
+      top right / 20px 20px no-repeat,
+    #fffdf5;
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-xl);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.inbox-memory-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 /* ---- Finished work --------------------------------------------------------- */

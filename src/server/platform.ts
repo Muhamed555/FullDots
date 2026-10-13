@@ -29,6 +29,7 @@ import { included } from './mcp-tools.js';
 import { EventBus } from './events.js';
 import { wireLiveEvents } from './live-wiring.js';
 import { InboxService, type FinishedWork } from './inbox-service.js';
+import { DotNotesService } from './dot-notes-service.js';
 import type { DotAgentServices } from './dot-agent.js';
 import type { TurnMetadata } from '../shared/types.js';
 const DEFAULT_APPROVAL_TTL_MS = 7 * 24 * 3600_000;
@@ -52,6 +53,8 @@ export class Platform {
   readonly group: GroupChat;
   /** The owner's inbox: questions and the results of finished background work. */
   readonly inbox: InboxService;
+  /** What a Dot may propose for its note; the owner saves or discards in the inbox. */
+  readonly dotNotes: DotNotesService;
   /** The live event feed (GET /api/events): ids and small enums only. */
   readonly events = new EventBus();
   constructor(
@@ -162,6 +165,12 @@ export class Platform {
       waitsForOwner: (threadId) => this.waitsForOwner(threadId),
       redact: (text) => this.models.redact(text),
     });
+    this.dotNotes = new DotNotesService({
+      notes: workspace.notes,
+      inbox: workspace.inbox,
+      dot: (dotId) => workspace.dot(dotId),
+      changed: () => this.events.emit('inbox.changed', {}),
+    });
     this.approvals = new ApprovalService({
       approvals: workspace.approvals,
       resumes: this.resumes,
@@ -261,6 +270,7 @@ export class Platform {
       team: this.team,
       group: this.group,
       questions: this.inbox,
+      notes: this.dotNotes,
       goals: {
         isOpenGoal: (taskId) => {
           const task = this.store.task(taskId);

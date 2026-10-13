@@ -1,9 +1,10 @@
 // The owner's inbox and mission control, as the API returns them. Questions come from a Dot's
-// `ask_owner` call; results are written once when a background turn finishes. Approvals and
+// `ask_owner` call; results are written once when a background turn finishes; memory items are a
+// Dot's proposal for its note (`remember_preference`), kept or dropped by the owner. Approvals and
 // handoffs keep their own tables and are listed beside them.
 import type { Approval, DotColor, Handoff, TurnSource } from './types.js';
 
-export type InboxKind = 'question' | 'result';
+export type InboxKind = 'question' | 'result' | 'memory';
 
 export interface InboxItem {
   id: string;
@@ -14,7 +15,7 @@ export interface InboxItem {
   teamRunId: string | null;
   /** Short, written by the server: never the prompt or the result text. */
   title: string;
-  /** The question, or an excerpt of the Dot's final reply. */
+  /** The question, an excerpt of the Dot's final reply, or the line a Dot proposes to remember. */
   text: string;
   createdAt: number;
   readAt: number | null;
@@ -25,11 +26,13 @@ export interface InboxItem {
 }
 
 /** The inbox sections; `#/approvals` opens the first one. */
-export type InboxSection = 'approvals' | 'handoffs' | 'questions' | 'results';
+export type InboxSection =
+  'approvals' | 'handoffs' | 'questions' | 'memory' | 'results';
 export const INBOX_SECTIONS: readonly InboxSection[] = [
   'approvals',
   'handoffs',
   'questions',
+  'memory',
   'results',
 ];
 
@@ -50,6 +53,8 @@ export interface InboxResponse {
   approvals: Approval[];
   handoffs: Handoff[];
   questions: InboxItem[];
+  /** Lines Dots propose for their notes; nothing is saved until the owner says so. */
+  memory: InboxItem[];
   results: InboxItem[];
 }
 

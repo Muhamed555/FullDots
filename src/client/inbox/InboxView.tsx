@@ -12,6 +12,7 @@ import {
   Archive,
   Bell,
   BellOff,
+  BookmarkPlus,
   Check,
   LoaderCircle,
   MessageSquare,
@@ -43,6 +44,7 @@ const SECTION_LABELS: Record<InboxSection, string> = {
   approvals: 'Approvals',
   handoffs: 'Your turn on the computer',
   questions: 'Questions',
+  memory: 'Memory',
   results: 'Finished work',
 };
 
@@ -63,6 +65,8 @@ export interface InboxViewProps {
   onDismissHandoff: (id: string) => Promise<void>;
   onAnswer: (id: string, text: string) => Promise<void>;
   onArchive: (id: string) => Promise<void>;
+  /** Saves a Dot's proposed line into its note. */
+  onSaveNote: (id: string) => Promise<void>;
   onRead: (id: string) => Promise<void>;
   /** The notification switch, injectable for tests. */
   notifications?: ReactNode;
@@ -297,6 +301,77 @@ function QuestionCard({
   );
 }
 
+/** A line a Dot would like to remember. Nothing is saved until the owner clicks Save. */
+function MemoryCard({
+  item,
+  dot,
+  where,
+  onSave,
+  onDiscard,
+  onOpenThread,
+}: {
+  item: InboxItem;
+  dot?: Dot;
+  where: string;
+  onSave: (id: string) => Promise<void>;
+  onDiscard: (id: string) => Promise<void>;
+  onOpenThread: (threadId: string) => void;
+}) {
+  const [error, setError] = useState('');
+  const run = (action: (id: string) => Promise<void>) => async () => {
+    setError('');
+    try {
+      await action(item.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not do that.');
+    }
+  };
+  const name = dot?.name ?? 'The Dot';
+  return (
+    <li className="approval-card inbox-card is-memory">
+      <Who dot={dot} where={where} at={item.createdAt} />
+      <p className="inbox-memory-intro">{name} would like to remember:</p>
+      <blockquote className="inbox-memory-line">{item.text}</blockquote>
+      <p className="inbox-memory-hint">
+        Nothing is saved until you click Save. It then joins what {name}{' '}
+        remembers about you, and you can edit or clear it any time.
+      </p>
+      <div className="approval-footer">
+        <div className="approval-footer-start">
+          <button
+            type="button"
+            className="approval-link has-icon"
+            onClick={() => onOpenThread(item.threadId)}
+          >
+            <MessageSquare size={13} aria-hidden="true" />
+            Open conversation
+          </button>
+        </div>
+        <div className="approval-buttons">
+          <ActionButton
+            label="Discard"
+            busyLabel="Discarding…"
+            icon={<Archive size={14} aria-hidden="true" />}
+            onAction={run(onDiscard)}
+          />
+          <ActionButton
+            tone="primary"
+            label="Save"
+            busyLabel="Saving…"
+            icon={<BookmarkPlus size={14} aria-hidden="true" />}
+            onAction={run(onSave)}
+          />
+        </div>
+      </div>
+      {error && (
+        <p className="approval-error" role="alert">
+          {error}
+        </p>
+      )}
+    </li>
+  );
+}
+
 function ResultCard({
   item,
   dot,
@@ -412,6 +487,7 @@ export function InboxView(props: InboxViewProps) {
           ['approvals', inbox.approvals.length],
           ['handoffs', inbox.handoffs.length],
           ['questions', inbox.questions.length],
+          ['memory', inbox.memory.length],
           ['results', inbox.results.length],
         ] as const
       )
@@ -474,7 +550,9 @@ export function InboxView(props: InboxViewProps) {
                     ? inbox!.approvals.length
                     : section === 'handoffs'
                       ? inbox!.handoffs.length
-                      : inbox!.questions.length}
+                      : section === 'memory'
+                        ? inbox!.memory.length
+                        : inbox!.questions.length}
               </span>
             </button>
           ))}
@@ -591,6 +669,24 @@ export function InboxView(props: InboxViewProps) {
         </Section>
       )}
 
+      {inbox && inbox.memory.length > 0 && (
+        <Section section="memory" count={inbox.memory.length}>
+          <ul className="approvals-list">
+            {inbox.memory.map((item) => (
+              <MemoryCard
+                key={item.id}
+                item={item}
+                dot={dotOf(item.dotId)}
+                where={where(item.threadId)}
+                onSave={props.onSaveNote}
+                onDiscard={props.onArchive}
+                onOpenThread={props.onOpenThread}
+              />
+            ))}
+          </ul>
+        </Section>
+      )}
+
       {inbox && inbox.results.length > 0 && (
         <Section section="results" count={inbox.results.length}>
           <ul className="approvals-list">
@@ -616,7 +712,7 @@ export function InboxView(props: InboxViewProps) {
 export function InboxPage(
   props: Omit<
     InboxViewProps,
-    'onAnswer' | 'onArchive' | 'onRead' | 'onTakeOver'
+    'onAnswer' | 'onArchive' | 'onRead' | 'onTakeOver' | 'onSaveNote'
   > & { onRefresh: () => Promise<void> | void },
 ) {
   const { onRefresh, ...view } = props;
@@ -645,6 +741,7 @@ export function InboxPage(
         post(`/inbox/${encodeURIComponent(id)}/answer`, { text })
       }
       onArchive={(id) => post(`/inbox/${encodeURIComponent(id)}/archive`)}
+      onSaveNote={(id) => post(`/inbox/${encodeURIComponent(id)}/save-note`)}
       onRead={(id) => post(`/inbox/${encodeURIComponent(id)}/read`)}
       onTakeOver={(handoff) =>
         takeOverHere({

@@ -196,6 +196,8 @@ export interface Dot {
   approvalMode?: ApprovalMode | null;
   /** Chosen palette; unset means the palette derived from the id. */
   color?: DotColor;
+  /** Off by default: when on, the Dot may propose a line for its note, which waits in the inbox. */
+  notesProposals?: boolean;
 }
 export interface Conversation {
   id: string;

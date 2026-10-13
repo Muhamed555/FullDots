@@ -112,6 +112,7 @@ const inbox: InboxResponse = {
   approvals: [approval],
   handoffs: [handoff],
   questions: [item({})],
+  memory: [],
   results: [
     item({
       id: 'r1',
@@ -221,6 +222,7 @@ const renderInbox = (data?: InboxResponse) =>
       onDismissHandoff={noop}
       onAnswer={noop}
       onArchive={noop}
+      onSaveNote={noop}
       onRead={noop}
       notifications={<span>switch</span>}
     />,
@@ -274,6 +276,7 @@ describe('Inbox view', () => {
       approvals: [],
       handoffs: [],
       questions: [],
+      memory: [],
       results: [],
     };
     const html = renderInbox(empty);

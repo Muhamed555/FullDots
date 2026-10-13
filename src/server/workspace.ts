@@ -17,6 +17,7 @@ import { ParticipantStore } from './participant-store.js';
 import { PinStore } from './pin-store.js';
 import { copyThreadRows } from './thread-branch.js';
 import { InboxStore } from './inbox-store.js';
+import { DotNotesStore } from './dot-notes-store.js';
 import { Pages } from './pages.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -63,6 +64,8 @@ export class WorkspaceStore {
   readonly pins: PinStore;
   /** Questions from `ask_owner` and results of finished background turns. */
   readonly inbox: InboxStore;
+  /** What each Dot remembers about the owner, with every earlier text kept. */
+  readonly notes: DotNotesStore;
   constructor(
     path: string,
     readonly ownerId: string,
@@ -89,6 +92,7 @@ export class WorkspaceStore {
       // A branch remembers the conversation and message it was copied from.
       ['thread_bindings', 'branchedFromThreadId', 'TEXT'],
       ['thread_bindings', 'branchedFromMessageId', 'TEXT'],
+      ['dots', 'notesProposals', 'INTEGER NOT NULL DEFAULT 0'],
     ]) {
       if (
         !this.db
@@ -134,6 +138,7 @@ export class WorkspaceStore {
     this.search = new SearchStore(this.db, ownerId);
     this.pins = new PinStore(this.db);
     this.inbox = new InboxStore(this.db);
+    this.notes = new DotNotesStore(this.db);
     if (
       !this.db
         .prepare('PRAGMA table_info(calls)')
@@ -195,6 +200,7 @@ export class WorkspaceStore {
           paused: !!row.paused,
           approvalMode: row.approvalMode ?? 'sensitive',
           modelProviderId: row.modelProviderId ?? null,
+          notesProposals: !!row.notesProposals,
         })) as unknown as Dot[]
     );
   }
@@ -226,6 +232,7 @@ export class WorkspaceStore {
       modelProviderId,
       approvalMode,
       paused: false,
+      notesProposals: false,
       ...(color ? { color } : {}),
       createdAt: Date.now(),
     };
@@ -282,6 +289,8 @@ export class WorkspaceStore {
       approvalMode?: ApprovalMode | null;
       /** Undefined keeps the current colour; null clears it. */
       color?: DotColor | null;
+      /** Undefined keeps the current choice. */
+      notesProposals?: boolean;
     },
   ): Dot {
     const current = this.dot(id);
@@ -299,11 +308,13 @@ export class WorkspaceStore {
       patch.approvalMode ?? current.approvalMode ?? 'sensitive';
     const color =
       patch.color === undefined ? (current.color ?? null) : patch.color;
+    const notesProposals =
+      patch.notesProposals ?? current.notesProposals ?? false;
     this.db.exec('BEGIN');
     try {
       this.db
         .prepare(
-          'UPDATE dots SET name=?, instructions=?, researchAllowed=?, memoryAllowed=?, model=?, approvalMode=?, modelProviderId=?, color=? WHERE id=?',
+          'UPDATE dots SET name=?, instructions=?, researchAllowed=?, memoryAllowed=?, model=?, approvalMode=?, modelProviderId=?, color=?, notesProposals=? WHERE id=?',
         )
         .run(
           patch.name,
@@ -314,6 +325,7 @@ export class WorkspaceStore {
           approvalMode,
           modelProviderId,
           color,
+          +notesProposals,
           id,
         );
       this.db

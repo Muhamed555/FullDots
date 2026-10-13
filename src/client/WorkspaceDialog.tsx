@@ -11,6 +11,7 @@ import {
   Cpu,
   FolderLock,
   Info,
+  NotebookPen,
   ListChecks,
   Plug,
   Users,
@@ -28,6 +29,7 @@ import {
   type GrantInput,
 } from './DotConnectorGrants';
 import { DotColorPicker } from './DotColorPicker';
+import { DotNotes } from './DotNotes';
 import { DotRulesEditor } from './DotRulesEditor';
 import { Mascot } from './Mascot';
 import { ModelPicker, modelFields, type ModelChoice } from './ModelPicker';
@@ -690,6 +692,16 @@ export function WorkspaceDialog({
                     }}
                   />
                 </DotSection>
+                {dialog.dot && (
+                  <DotSection
+                    id="notes"
+                    icon={NotebookPen}
+                    title="Notes"
+                    description="What this Dot remembers about you. You write it, you clear it."
+                  >
+                    <DotNotes dot={dialog.dot} />
+                  </DotSection>
+                )}
                 <DotSection
                   id="access"
                   icon={FolderLock}

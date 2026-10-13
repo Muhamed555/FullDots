@@ -1,13 +1,13 @@
-// The owner's inbox: questions a Dot asked with `ask_owner` and the results of finished background
-// turns. Approvals and handoffs keep their own tables. Rows belong to a thread and go with it
-// (WorkspaceStore.deleteThread).
+// The owner's inbox: questions a Dot asked with `ask_owner`, the results of finished background
+// turns and the lines a Dot proposes for its note (kind `memory`). Approvals and handoffs keep
+// their own tables. Rows belong to a thread and go with it (WorkspaceStore.deleteThread).
 import type { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import type { InboxItem, InboxKind } from '../shared/inbox.js';
 
 const toItem = (row: Record<string, unknown>): InboxItem => ({
   id: String(row.id),
-  kind: row.kind === 'question' ? 'question' : 'result',
+  kind: row.kind === 'question' || row.kind === 'memory' ? row.kind : 'result',
   dotId: String(row.dotId),
   threadId: String(row.threadId),
   teamRunId: row.teamRunId === null ? null : String(row.teamRunId),
@@ -88,9 +88,19 @@ export class InboxStore {
       .prepare(
         kind === 'question'
           ? `SELECT * FROM inbox_items WHERE ${OPEN} ${NEWEST} LIMIT ?`
-          : `SELECT * FROM inbox_items WHERE kind='result' AND archivedAt IS NULL ${NEWEST} LIMIT ?`,
+          : `SELECT * FROM inbox_items WHERE kind=? AND archivedAt IS NULL ${NEWEST} LIMIT ?`,
       )
-      .all(limit)
+      .all(...(kind === 'question' ? [] : [kind]), limit)
+      .map(toItem);
+  }
+
+  /** Proposals of one Dot that wait for the owner. */
+  openMemory(dotId: string): InboxItem[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM inbox_items WHERE kind='memory' AND dotId=? AND archivedAt IS NULL ${NEWEST}`,
+      )
+      .all(dotId)
       .map(toItem);
   }
 

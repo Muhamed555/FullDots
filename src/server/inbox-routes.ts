@@ -25,6 +25,7 @@ export function inboxSnapshot(workspace: WorkspaceStore): InboxResponse {
     limit: LIST_LIMIT,
   });
   const questions = workspace.inbox.list('question', LIST_LIMIT);
+  const memory = workspace.inbox.list('memory', LIST_LIMIT);
   const results = workspace.inbox.list('result', LIST_LIMIT);
   const counts = workspace.inbox.counts();
   return {
@@ -39,6 +40,7 @@ export function inboxSnapshot(workspace: WorkspaceStore): InboxResponse {
     approvals,
     handoffs,
     questions,
+    memory,
     results,
   };
 }

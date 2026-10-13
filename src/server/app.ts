@@ -16,6 +16,7 @@ import { messageActionRoutes } from './message-action-routes.js';
 import { turnRoutes } from './turn-routes.js';
 import { liveRoutes, workspaceChanges } from './live-routes.js';
 import { inboxRoutes } from './inbox-routes.js';
+import { dotNotesRoutes } from './dot-notes-routes.js';
 import { missionRoutes } from './mission.js';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -206,6 +207,13 @@ export function createApp({
     app.route(
       '/api',
       inboxRoutes({ workspace: platform.workspace, inbox: platform.inbox }),
+    );
+    app.route(
+      '/api',
+      dotNotesRoutes({
+        workspace: platform.workspace,
+        notes: platform.dotNotes,
+      }),
     );
     app.route(
       '/api',
