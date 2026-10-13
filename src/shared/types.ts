@@ -203,6 +203,8 @@ export interface Conversation {
   ownerId: string;
   title: string;
   createdAt: number;
+  /** Set on a branch: the conversation and message it was copied from (null: before the first). */
+  branchedFrom?: { threadId: string; messageId: string | null };
 }
 /** A conversation as the sidebar lists it, with activity facts from the server. */
 export interface ConversationSummary extends Conversation {

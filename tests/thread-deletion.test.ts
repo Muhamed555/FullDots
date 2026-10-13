@@ -23,6 +23,7 @@ const TABLES: [table: string, column: string][] = [
   ['thread_authors', 'threadId'],
   ['computer_frames', 'threadId'],
   ['thread_participants', 'threadId'],
+  ['pinned_messages', 'threadId'],
 ];
 
 class ReplyAgent extends AbstractAgent {
@@ -93,12 +94,14 @@ it('DELETE /api/conversations/:id leaves no rows of that thread in any per-threa
     );
   }
   // Tables no plain chat turn writes to get a row of their own for each thread.
-  for (const id of ['drop', 'keep'])
+  for (const id of ['drop', 'keep']) {
     reader
       .prepare(
         'INSERT INTO computer_frames(id,dotId,threadId,toolCallId,createdAt) VALUES (?,?,?,?,?)',
       )
       .run(`frame-${id}`, dot.id, id, 'call-1', Date.now());
+    workspace.pins.pin(id, platform.runner.getThreadMessages(id)[0].id);
+  }
   const guest = workspace.createDot(
     dot.spaceId,
     'Guest',

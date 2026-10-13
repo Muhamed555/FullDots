@@ -12,6 +12,7 @@ import { groupRoutes } from './group-routes.js';
 import { ruleRoutes } from './rule-routes.js';
 import { promptRoutes } from './prompt-routes.js';
 import { searchRoutes } from './search-routes.js';
+import { messageActionRoutes } from './message-action-routes.js';
 import { turnRoutes } from './turn-routes.js';
 import { liveRoutes, workspaceChanges } from './live-routes.js';
 import { Hono } from 'hono';
@@ -205,6 +206,7 @@ export function createApp({
   if (platform) {
     app.route('/api', promptRoutes(platform.workspace));
     app.route('/api', searchRoutes(platform.workspace, platform.runner));
+    app.route('/api', messageActionRoutes(platform));
   }
   if (platform)
     app.route(

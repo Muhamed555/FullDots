@@ -13,6 +13,7 @@ import {
   type Message,
 } from '@ag-ui/client';
 import type { TurnFinishStatus } from '../shared/live-events.js';
+import { copyHistoryPrefix } from './thread-branch.js';
 import {
   AgentRunner,
   finalizeRunEvents,
@@ -346,6 +347,12 @@ export class SqliteAgentRunner extends AgentRunner {
       this.db.exec('ROLLBACK');
       throw error;
     }
+  }
+
+  /** Copies a thread's history up to a message into a new thread: see thread-branch.ts. */
+  branchRuns(from: string, to: string, atMessageId: string | null): number {
+    if (this.active.has(to)) throw new ThreadRunningError();
+    return copyHistoryPrefix(this.db, from, to, atMessageId);
   }
 
   clearThreads() {

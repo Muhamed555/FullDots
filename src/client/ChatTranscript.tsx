@@ -11,6 +11,9 @@ import { ApprovalCard, type DecideApproval } from './ApprovalCard';
 import { describeComputerSteps } from './ComputerToolCard';
 import { buildTranscriptItems, toolResults } from './chat-turns';
 import { AddressedLine, AuthoredBubble } from './room/AuthorBubble';
+import { EarlierAttempts } from './message-actions/EarlierAttempts';
+import { foldRetries } from './message-actions/retries';
+import type { BubbleInfo } from './message-actions/useMessageActions';
 // These markers only control rendering; they do not confer trust or permissions.
 export function isInternalVoiceReceipt(message: Message): boolean {
   const metadata = message.metadata;
@@ -65,10 +68,22 @@ function Markdown({ content }: { content: string }) {
     </ReactMarkdown>
   );
 }
-function Bubble({ role, content }: { role: string; content: string }) {
+function Bubble({
+  role,
+  content,
+  messageId,
+  actions,
+}: {
+  role: string;
+  content: string;
+  messageId?: string;
+  /** The message actions toolbar, shown on hover or keyboard focus. */
+  actions?: ReactNode;
+}) {
   return (
-    <div className={`chat-bubble ${role}`}>
+    <div className={`chat-bubble ${role}`} data-message-id={messageId}>
       <Markdown content={content} />
+      {actions}
     </div>
   );
 }
@@ -98,6 +113,7 @@ export function ChatTranscript({
   approvals,
   onDecide,
   group,
+  bubbleActions,
 }: {
   messages: Message[];
   calls: CallReceipt[];
@@ -121,9 +137,13 @@ export function ChatTranscript({
     authorOf(messageId: string): Dot | undefined;
     dot(id: string): Dot | undefined;
   };
+  /** The actions toolbar of each text bubble (pin, retry, branch, edit, copy). */
+  bubbleActions?: (bubble: BubbleInfo) => ReactNode;
 }) {
   const results = toolResults(allMessages ?? messages);
-  const items = buildTranscriptItems(messages, calls, results);
+  // A retried message's earlier answers fold under it; nothing is dropped.
+  const folded = foldRetries(messages);
+  const items = buildTranscriptItems(folded.messages, calls, results);
   const lastActivity = items.findLastIndex((item) => item.kind === 'activity');
   const lastUser = items.findLastIndex(
     (item) =>
@@ -136,29 +156,48 @@ export function ChatTranscript({
           case 'receipt':
             return <Receipt key={item.key} call={item.call} />;
           case 'bubble': {
-            const bubble = <Bubble role={item.role} content={item.content} />;
+            const earlier = folded.earlier.get(item.messageId);
             const author =
-              item.role === 'assistant' && item.messageId
+              item.role === 'assistant'
                 ? group?.authorOf(item.messageId)
                 : undefined;
             const to = item.to ? group?.dot(item.to) : undefined;
             if (to && item.repeat)
               return <AddressedLine key={item.key} to={to} repeat />;
-            if (author)
-              return (
-                <AuthoredBubble key={item.key} author={author}>
-                  {bubble}
-                </AuthoredBubble>
-              );
-            if (to)
-              return (
-                <Fragment key={item.key}>
-                  <AddressedLine to={to} />
-                  {bubble}
-                </Fragment>
-              );
+            const bubble = (
+              <Bubble
+                role={item.role}
+                content={item.content}
+                messageId={item.messageId}
+                actions={bubbleActions?.(item)}
+              />
+            );
             return (
-              <Bubble key={item.key} role={item.role} content={item.content} />
+              <Fragment key={item.key}>
+                {to && !author && <AddressedLine to={to} />}
+                {author ? (
+                  <AuthoredBubble author={author}>{bubble}</AuthoredBubble>
+                ) : (
+                  bubble
+                )}
+                {earlier && (
+                  <EarlierAttempts count={earlier.length}>
+                    {earlier.map((attempt) => (
+                      <ChatTranscript
+                        key={attempt[0].id}
+                        messages={attempt}
+                        calls={[]}
+                        allMessages={allMessages ?? messages}
+                        dotName={dotName}
+                        renderTools={renderTools}
+                        approvals={approvals}
+                        bubbleActions={bubbleActions}
+                        group={group}
+                      />
+                    ))}
+                  </EarlierAttempts>
+                )}
+              </Fragment>
             );
           }
           case 'event':

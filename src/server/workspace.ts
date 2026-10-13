@@ -14,6 +14,8 @@ import { RuleStore } from './rule-store.js';
 import { PromptStore } from './prompt-store.js';
 import { SearchStore } from './search-store.js';
 import { ParticipantStore } from './participant-store.js';
+import { PinStore } from './pin-store.js';
+import { copyThreadRows } from './thread-branch.js';
 import { Pages } from './pages.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -56,6 +58,8 @@ export class WorkspaceStore {
   readonly search: SearchStore;
   /** Group chats: Dots added to a conversation besides its host. */
   readonly participants: ParticipantStore;
+  /** Messages pinned to the top of a conversation. */
+  readonly pins: PinStore;
   constructor(
     path: string,
     readonly ownerId: string,
@@ -79,6 +83,9 @@ export class WorkspaceStore {
       ['dots', 'paused', 'INTEGER NOT NULL DEFAULT 0'],
       ['dots', 'modelProviderId', 'TEXT'],
       ['dots', 'color', 'TEXT'],
+      // A branch remembers the conversation and message it was copied from.
+      ['thread_bindings', 'branchedFromThreadId', 'TEXT'],
+      ['thread_bindings', 'branchedFromMessageId', 'TEXT'],
     ]) {
       if (
         !this.db
@@ -122,6 +129,7 @@ export class WorkspaceStore {
     );
     this.prompts = new PromptStore(this.db);
     this.search = new SearchStore(this.db, ownerId);
+    this.pins = new PinStore(this.db);
     if (
       !this.db
         .prepare('PRAGMA table_info(calls)')
@@ -332,9 +340,23 @@ export class WorkspaceStore {
   conversations(): Conversation[] {
     return this.db
       .prepare(
-        'SELECT id, dotId, ownerId, title, createdAt FROM thread_bindings WHERE ownerId=? ORDER BY createdAt DESC',
+        'SELECT id, dotId, ownerId, title, createdAt, branchedFromThreadId, branchedFromMessageId FROM thread_bindings WHERE ownerId=? ORDER BY createdAt DESC',
       )
-      .all(this.ownerId) as unknown as Conversation[];
+      .all(this.ownerId)
+      .map(({ branchedFromThreadId, branchedFromMessageId, ...row }) => ({
+        ...(row as unknown as Conversation),
+        ...(typeof branchedFromThreadId === 'string'
+          ? {
+              branchedFrom: {
+                threadId: branchedFromThreadId,
+                messageId:
+                  typeof branchedFromMessageId === 'string'
+                    ? branchedFromMessageId
+                    : null,
+              },
+            }
+          : {}),
+      }));
   }
   bindThread(id: string, dotId: string, title: string): Conversation {
     const dot = this.dot(dotId);
@@ -352,6 +374,33 @@ export class WorkspaceStore {
       )
       .run(id, dotId, this.ownerId, title, value.createdAt);
     return value;
+  }
+  /**
+   * Binds a branch of `source` for the same Dot, recording where it came from, and copies the
+   * source's participants when the group chat's table exists. One transaction; the chat history is
+   * copied before this by thread-branch.ts.
+   */
+  bindBranch(
+    id: string,
+    source: Conversation,
+    messageId: string | null,
+    title: string,
+  ): Conversation {
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      const value = this.bindThread(id, source.dotId, title);
+      this.db
+        .prepare(
+          'UPDATE thread_bindings SET branchedFromThreadId=?, branchedFromMessageId=? WHERE id=?',
+        )
+        .run(source.id, messageId, id);
+      copyThreadRows(this.db, 'thread_participants', source.id, id);
+      this.db.exec('COMMIT');
+      return { ...value, branchedFrom: { threadId: source.id, messageId } };
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
   }
   /** The owner's conversation; with `dotId`, only when that Dot is its host or a participant. */
   requireThread(id: string, dotId?: string): Conversation {
@@ -385,15 +434,16 @@ export class WorkspaceStore {
   }
   /**
    * Ids of conversations that something other than chat history points at: a
-   * page conversation, a scheduled task or a call receipt. Such a conversation
-   * is never "empty" even before its first message is stored.
+   * page conversation, a scheduled task, a call receipt or a pinned message.
+   * Such a conversation is never "empty" even before its first message is stored.
    */
   linkedThreadIds(): Set<string> {
     const rows = this.db
       .prepare(
         `SELECT threadId FROM task_threads
          UNION SELECT threadId FROM page_threads
-         UNION SELECT threadId FROM calls`,
+         UNION SELECT threadId FROM calls
+         UNION SELECT threadId FROM pinned_messages`,
       )
       .all();
     return new Set(rows.map((row) => String(row.threadId)));
@@ -428,6 +478,7 @@ export class WorkspaceStore {
         'DELETE FROM triggers WHERE threadId=?',
         'DELETE FROM computer_frames WHERE threadId=?',
         'DELETE FROM thread_participants WHERE threadId=?',
+        'DELETE FROM pinned_messages WHERE threadId=?',
       ])
         this.db.prepare(sql).run(id);
       this.db

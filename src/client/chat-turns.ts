@@ -82,10 +82,9 @@ export type TranscriptItem =
   | {
       kind: 'bubble';
       key: string;
+      messageId: string;
       role: string;
       content: string;
-      /** The message the bubble shows, for its author in a group chat. */
-      messageId?: string;
       /** Group chat: the Dot an owner message was addressed to (@Name). */
       to?: string;
       /** The same owner message again, addressed to the next mentioned Dot. */
@@ -158,9 +157,9 @@ function assistantItems(
   const bubble: TranscriptItem = {
     kind: 'bubble',
     key: `${message.id}:text`,
+    messageId: message.id,
     role: 'assistant',
     content,
-    messageId: message.id,
   };
   // An intermediate message's text is what the assistant said before acting.
   if (!final) return [bubble, ...actions];
@@ -191,9 +190,9 @@ function textItem(message: Message, content: string): TranscriptItem {
     : {
         kind: 'bubble',
         key: `${message.id}:text`,
+        messageId: message.id,
         role: message.role,
         content,
-        messageId: message.id,
         ...(to ? { to } : {}),
       };
 }

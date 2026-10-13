@@ -43,6 +43,10 @@ import { useAutoAttach } from './live-attach';
 import { pollInterval } from './live-refresh';
 import { useLiveEvent, useLiveStatus } from './useLiveEvents';
 import { takeOverHere } from './computer-panel/take-over';
+import type { Message } from '@ag-ui/core';
+import { useMessageActions } from './message-actions/useMessageActions';
+import { retryMessage } from './message-actions/retries';
+import { branchDraft } from './message-actions/branch-drafts';
 // These tools draw no UI of their own, so their arguments are not inspected.
 const anyArguments = z.looseObject({});
 export function Chat({
@@ -58,6 +62,7 @@ export function Chat({
   onTrigger,
   onComputer,
   dots,
+  onOpenThread,
 }: {
   thread: Conversation;
   dot: Dot;
@@ -73,6 +78,8 @@ export function Chat({
   /** Adds a webhook or poll trigger that starts work in this conversation. */
   onTrigger?: () => void;
   onComputer?: () => void;
+  /** Opens another conversation: a branch made from this one. */
+  onOpenThread?: (id: string) => void;
 }) {
   const { agent, isReady } = useAgent({
     agentId: `chat-${thread.id}`,
@@ -112,7 +119,8 @@ export function Chat({
       active = false;
     };
   }, [thread.id, contextAttempt]);
-  const [draft, setDraft] = useState('');
+  // Edit and resend opens a branch with the edited text already in the composer.
+  const [draft, setDraft] = useState(() => branchDraft(thread.id) ?? '');
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [running, setRunning] = useState(false);
@@ -410,6 +418,28 @@ export function Chat({
               call.function.name === pageReviewTool.name,
           ))),
   );
+  // Retry sends the owner's message again as a new turn; the earlier answer stays (folded).
+  const retry = (message: Message) => {
+    if (working || !loaded || !contextReady || paused) return;
+    agent.addMessage(retryMessage(message, crypto.randomUUID()));
+    void runTurn();
+  };
+  const actions = useMessageActions({
+    threadId: thread.id,
+    messages: agent.messages,
+    visible,
+    dotName: dot.name,
+    retryBlocked: working
+      ? 'Wait for the reply to finish'
+      : paused
+        ? 'Paused'
+        : !loaded || !contextReady
+          ? 'Connecting…'
+          : undefined,
+    onRetry: retry,
+    onOpenThread,
+    onError: setError,
+  });
   return (
     <div className="live-chat">
       <header className="chat-persona">
@@ -509,6 +539,7 @@ export function Chat({
           </a>
         </div>
       )}
+      {actions.pinnedBar}
       <div
         className="chat-transcript"
         onScroll={(event) => {
@@ -543,6 +574,7 @@ export function Chat({
           approvals={approvals}
           onDecide={decide}
           group={room.group}
+          bubbleActions={actions.bubbleActions}
           renderTools={(message) => (
             <CopilotChatToolCallsView
               message={message}
@@ -645,6 +677,7 @@ export function Chat({
         submitLabel="Send message"
         running={running}
         onStop={() => copilotkit.stopAgent({ agent })}
+        textareaRef={actions.composerRef}
         sourceLink
         note={
           voiceReady

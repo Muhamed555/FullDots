@@ -471,6 +471,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A branched chat: a small branch mark and where it came from. */
+.sb .sb-chat-branch {
+  flex-shrink: 0;
+  color: var(--sb-muted);
+}
+.sb-chat-from {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--sb-muted);
+  font-size: var(--text-xs, 11px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sb .sb-chat-dot {
   display: inline-grid;
   flex-shrink: 0;

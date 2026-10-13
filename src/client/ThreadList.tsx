@@ -5,7 +5,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { GitBranch, Pencil, Trash2 } from 'lucide-react';
 import type { ConversationSummary, Dot } from '../shared/types';
 import { MAX_CONVERSATION_TITLE_LENGTH } from '../shared/conversation-title';
 import { Mascot } from './Mascot';
@@ -17,6 +17,7 @@ type Mode = 'idle' | 'rename' | 'confirm';
 function ChatRow({
   chat,
   dot,
+  branchOf,
   active,
   onSelect,
   onRename,
@@ -26,6 +27,8 @@ function ChatRow({
   chat: ConversationSummary;
   /** Set only when the workspace has several Dots, so the row can say which. */
   dot?: Dot;
+  /** For a branch: the title of the chat it came from (undefined once that chat is gone). */
+  branchOf?: string;
   active: boolean;
   onSelect: () => void;
   onRename: (title: string) => Promise<boolean>;
@@ -153,7 +156,18 @@ function ChatRow({
         type="button"
         className="sb-chat-main"
         title={chat.title}
-        aria-label={dot ? `${chat.title}, ${dot.name}` : undefined}
+        aria-label={
+          dot || chat.branchedFrom
+            ? [
+                chat.title,
+                dot?.name,
+                chat.branchedFrom &&
+                  (branchOf ? `branch of ${branchOf}` : 'branch'),
+              ]
+                .filter(Boolean)
+                .join(', ')
+            : undefined
+        }
         aria-current={active ? 'page' : undefined}
         onClick={onSelect}
         onKeyDown={hotkeys}
@@ -169,7 +183,15 @@ function ChatRow({
             />
           </span>
         )}
+        {chat.branchedFrom && (
+          <GitBranch size={12} className="sb-chat-branch" aria-hidden="true" />
+        )}
         <span className="sb-chat-title">{chat.title}</span>
+        {chat.branchedFrom && branchOf && (
+          <span className="sb-chat-from" aria-hidden="true">
+            from {branchOf}
+          </span>
+        )}
       </button>
       <RowMenu
         label={`Actions for ${chat.title}`}
@@ -258,6 +280,11 @@ export function ThreadList({
               chat={chat}
               dot={
                 many ? dots.find((item) => item.id === chat.dotId) : undefined
+              }
+              branchOf={
+                chat.branchedFrom &&
+                chats.find((item) => item.id === chat.branchedFrom?.threadId)
+                  ?.title
               }
               active={selectedId === chat.id}
               onSelect={() => onSelect(chat.id)}

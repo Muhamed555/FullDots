@@ -581,6 +581,9 @@ export function App() {
                   paused={state.settings.paused || !!dot.paused}
                   onSaved={refresh}
                   onComputer={() => setPane(true)}
+                  onOpenThread={(id) =>
+                    void refresh().then(() => selectThread(id))
+                  }
                   onSchedule={() =>
                     setDialog({ type: 'schedule', threadId: thread.id })
                   }
