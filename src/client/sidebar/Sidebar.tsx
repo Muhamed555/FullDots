@@ -10,6 +10,8 @@ import {
   ChevronRight,
   Clock3,
   Command,
+  Inbox,
+  LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
   Pause,
@@ -18,7 +20,6 @@ import {
   Plus,
   Search,
   Settings2,
-  ShieldQuestion,
   SquarePen,
   X,
 } from 'lucide-react';
@@ -34,7 +35,8 @@ import '../sidebar.css';
 import { BrandMark } from '../DotCharacter';
 import { shortcutLabel } from '../palette/palette-model';
 
-export type NavView = 'chat' | 'tasks' | 'memories' | 'space' | 'approvals';
+export type NavView =
+  'chat' | 'tasks' | 'memories' | 'space' | 'inbox' | 'mission';
 
 export interface SidebarProps {
   workspace: WorkspaceState;
@@ -45,7 +47,7 @@ export interface SidebarProps {
   pageId?: string;
   taskCount: number;
   memoryCount: number;
-  /** Pending approvals plus waiting handoffs. */
+  /** What needs the owner: pending approvals, waiting handoffs and open questions. */
   approvalCount?: number;
   configured: boolean;
   /** Desktop slim icon-only mode. Ignored on phones, which use the drawer. */
@@ -63,7 +65,7 @@ export interface SidebarProps {
   onRenameThread: (id: string, title: string) => Promise<boolean>;
   onDeleteThreads: (ids: string[]) => Promise<boolean>;
   onOpenPage: (spaceId: string, pageId?: string) => void;
-  onView: (view: 'tasks' | 'memories' | 'approvals') => void;
+  onView: (view: 'tasks' | 'memories' | 'inbox' | 'mission') => void;
   onDialog: (dialog: Dialog) => void;
   /** Opens the Ctrl+K palette, optionally with the text typed in the title filter. */
   onOpenPalette?: (query?: string) => void;
@@ -477,15 +479,23 @@ export function Sidebar({
         </button>
         <button
           type="button"
-          className={`sb-icon sb-foot-button ${view === 'approvals' ? 'active' : ''}`}
-          aria-label={
-            approvalCount > 0 ? `Approvals (${approvalCount})` : 'Approvals'
-          }
-          title="Approvals"
-          aria-current={view === 'approvals' ? 'page' : undefined}
-          onClick={() => onView('approvals')}
+          className={`sb-icon sb-foot-button ${view === 'mission' ? 'active' : ''}`}
+          aria-label="Mission control"
+          title="Mission control"
+          aria-current={view === 'mission' ? 'page' : undefined}
+          onClick={() => onView('mission')}
         >
-          <ShieldQuestion size={17} aria-hidden />
+          <LayoutGrid size={17} aria-hidden />
+        </button>
+        <button
+          type="button"
+          className={`sb-icon sb-foot-button ${view === 'inbox' ? 'active' : ''}`}
+          aria-label={approvalCount > 0 ? `Inbox (${approvalCount})` : 'Inbox'}
+          title="Inbox"
+          aria-current={view === 'inbox' ? 'page' : undefined}
+          onClick={() => onView('inbox')}
+        >
+          <Inbox size={17} aria-hidden />
           {approvalCount > 0 && (
             <span
               className="sb-badge"

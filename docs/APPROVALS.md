@@ -1,6 +1,6 @@
 # Approvals
 
-Approvals stop a Dot before an action that could be hard to undo. You decide on a card in the conversation, or in the Approvals view. This page covers which actions pause, the rules you can set per Dot, how an approval applies, how a Dot resumes afterwards, and how handoffs work when a page needs a person. Connector grants are described in [Connectors](CONNECTORS.md).
+Approvals stop a Dot before an action that could be hard to undo. You decide on a card in the conversation, or in the Inbox. This page covers which actions pause, the rules you can set per Dot, how an approval applies, how a Dot resumes afterwards, and how handoffs work when a page needs a person. Connector grants are described in [Connectors](CONNECTORS.md).
 
 ## Approval modes
 
@@ -144,7 +144,7 @@ The approval card has two labelled parts:
 
 Text typed into a field with a secret-looking name, such as password, passcode, secret, PIN, CVV, card number, one-time or OTP, is shown as `[hidden]`.
 
-Approve or deny, with an optional note of up to 1,000 characters. Pending approvals appear in the Approvals view, which has a count in the sidebar, and on the card in the conversation.
+Approve or deny, with an optional note of up to 1,000 characters. Pending approvals appear in the Inbox, which has a count in the sidebar and in the browser tab title, and on the card in the conversation.
 
 ## How a paused turn resumes
 
@@ -183,9 +183,24 @@ Chat messages still reach a Dot that is waiting for a handoff. A browser action 
 
 **Never paste passwords, codes or other secrets into the chat.** Type them on the live screen. Chat messages are saved in the conversation on this machine, and the Dot is told never to ask for them.
 
+## The Inbox
+
+The Inbox (the tray icon in the sidebar footer, or `#/inbox`) collects everything that waits for you, with a badge counting it in the sidebar and in the tab title, for example "(3) FullDots". It has four sections:
+
+- **Approvals:** the same card as in the conversation, with **Open conversation**.
+- **Your turn on the computer:** waiting handoffs. **Take over here** opens the Dot's conversation and computer and takes control in one click; **Decline** dismisses the handoff.
+- **Questions:** what a Dot asked with `ask_owner` while it worked in the background. Write an answer and press **Send answer** (or Ctrl+Enter). **Skip** archives the question without an answer. Either way the Dot gets one new turn in the same conversation, shown as **Your answer**; after Skip it is told there is no answer. A question unlocks nothing: approvals still apply to whatever the Dot does next. While a question is open, scheduled work in its conversation waits, like it does for a pending approval.
+- **Finished work:** results of background work; see [Always-on work](AUTOMATIONS.md#results-and-questions-in-the-inbox). **Open chat** marks one read; **Mark read** and **Archive** do what they say.
+
+`#/approvals` still works: it opens the Inbox on the Approvals section, so older notification links and bookmarks keep working.
+
+### Desktop notifications
+
+Press **Enable desktop notifications** in the Inbox to let the browser show a notification when a new approval, handoff or question arrives while FullDots is open in a tab. The browser asks for permission only after that click. A notification names the Dot and the kind of request, for example "Scout needs your approval"; it never contains the prompt, the action's arguments, the question or a result. Clicking it opens the Inbox. Nothing is shown for the chat you are looking at, and finished work never notifies.
+
 ## Notifications
 
-Set `NOTIFY_WEBHOOK_URL` to receive a POST for each new approval (title "Approval needed") and each new handoff (title "Your turn on the computer").
+Set `NOTIFY_WEBHOOK_URL` to receive a POST for each new approval (title "Approval needed"), each new handoff (title "Your turn on the computer") and each new question (title "<Dot> has a question"; `text` is the question).
 
 - The body is JSON with `title`, `text` and `url`. `text` is the short summary, cut to 500 characters. It does not include the arguments, the exact action or any secret.
 - The webhook only notifies. You cannot approve or deny from it.

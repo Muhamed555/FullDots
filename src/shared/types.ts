@@ -250,7 +250,8 @@ export type TurnSource =
   | 'channel'
   | 'delegation'
   /** A Dot passed the baton to another Dot in a group chat (hand_to_dot). */
-  | 'relay';
+  | 'relay'
+  | 'question';
 export const TURN_SOURCES: readonly TurnSource[] = [
   'task',
   'approval',
@@ -259,6 +260,7 @@ export const TURN_SOURCES: readonly TurnSource[] = [
   'channel',
   'delegation',
   'relay',
+  'question',
 ];
 export interface TurnMetadata {
   source: TurnSource;
@@ -430,7 +432,7 @@ export interface HandoffResult {
   note?: string;
 }
 export interface PausedResult {
-  paused: 'approval pending' | 'handoff pending';
+  paused: 'approval pending' | 'handoff pending' | 'question pending';
   ref: string;
 }
 export interface ActionAuditEntry {

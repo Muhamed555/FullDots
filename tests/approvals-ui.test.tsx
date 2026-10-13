@@ -128,7 +128,7 @@ it('lists decided approvals as a muted recent list', () => {
   expect(html).not.toContain('>Approve<');
 });
 
-it('counts approvals in the sidebar footer only when something is waiting', () => {
+it('counts what needs the owner on the sidebar Inbox only when something is waiting', () => {
   const workspace = {
     spaces: [
       {
@@ -170,10 +170,10 @@ it('counts approvals in the sidebar footer only when something is waiting', () =
         onDialog={() => {}}
       />,
     );
-  expect(sidebar()).toContain('aria-label="Approvals"');
+  expect(sidebar()).toContain('aria-label="Inbox"');
   expect(sidebar()).not.toContain('sb-badge');
   expect(sidebar(3)).toMatch(/class="sb-badge"[^>]*>3</);
-  expect(sidebar(3)).toContain('aria-label="Approvals (3)"');
+  expect(sidebar(3)).toContain('aria-label="Inbox (3)"');
 });
 
 const asked = {

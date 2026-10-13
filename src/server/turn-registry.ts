@@ -39,6 +39,8 @@ export interface RegistryLookups {
   pendingApprovalThreads: () => string[];
   /** Dots with a handoff in status 'waiting'. */
   waitingHandoffDots: () => string[];
+  /** Threads with an open `ask_owner` question (not answered, not archived). */
+  openQuestionThreads: () => string[];
 }
 
 export class TurnRegistry {
@@ -51,6 +53,7 @@ export class TurnRegistry {
     this.lookups = {
       pendingApprovalThreads: lookups.pendingApprovalThreads ?? (() => []),
       waitingHandoffDots: lookups.waitingHandoffDots ?? (() => []),
+      openQuestionThreads: lookups.openQuestionThreads ?? (() => []),
     };
   }
 
@@ -135,6 +138,7 @@ export class TurnRegistry {
     const dotIds = new Set(this.turns.keys());
     try {
       for (const id of this.lookups.pendingApprovalThreads()) threadIds.add(id);
+      for (const id of this.lookups.openQuestionThreads()) threadIds.add(id);
       for (const id of this.lookups.waitingHandoffDots()) dotIds.add(id);
     } catch (error) {
       console.error(

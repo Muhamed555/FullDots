@@ -7,8 +7,8 @@ import type { TurnSource } from '../shared/types.js';
 export interface ResumeMarker {
   id: string;
   /** relay: a Dot passed the baton to another Dot in a group chat (hand_to_dot). */
-  kind: 'approval' | 'handoff' | 'delegation' | 'relay';
-  /** Approval id, handoff id, ... (passed to the turn as `ref`). */
+  kind: 'approval' | 'handoff' | 'delegation' | 'relay' | 'question';
+  /** Approval id, handoff id, question (inbox item) id, ... (passed to the turn as `ref`). */
   refId: string;
   threadId: string;
   dotId: string;

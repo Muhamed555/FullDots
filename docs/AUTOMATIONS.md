@@ -22,7 +22,17 @@ A run that is cut off by a restart, a settings change or an expired lease is mar
 
 ## Parallel background work
 
-Several Dots can work in the background at the same time. `BACKGROUND_CONCURRENCY` sets how many (default 4, at most 8). A Dot never runs two turns at once, so two tasks of the same Dot still wait for each other. Tasks of a conversation that waits for your approval or handoff are skipped until you decide.
+Several Dots can work in the background at the same time. `BACKGROUND_CONCURRENCY` sets how many (default 4, at most 8). A Dot never runs two turns at once, so two tasks of the same Dot still wait for each other. Tasks of a conversation that waits for your approval, handoff or answer are skipped until you decide.
+
+## Results and questions in the Inbox
+
+When a background turn finishes (a scheduled task, a goal run, a trigger, the turn in which a Dot receives its teammates' results, or the turn after you answered a question), FullDots writes one **Finished work** item in the [Inbox](APPROVALS.md#the-inbox): a short title such as "Scout finished a scheduled task" and the first 600 characters of the Dot's final reply. Nothing else from the turn is copied. Your own chat turns write nothing, and neither does a teammate's turn on handed-over work (its result goes to the Dot that asked). A turn that ended waiting for you (an approval, a handoff or a question) writes no result: its own Inbox item stands for it.
+
+A Dot working in the background can ask you something with `ask_owner({ question })`. The question lands in the Inbox under **Questions**, the turn ends with a short note, and scheduled work in that conversation waits. Your answer starts one new turn in the same conversation; skipping the question starts one too, telling the Dot there is no answer. A Dot cannot use `ask_owner` in a chat with you: there it simply asks in its reply.
+
+## Mission control
+
+Mission control (the grid icon in the sidebar footer, `#/mission`, or "Open Mission control" in the Ctrl+K palette) shows one card per Dot: its character in its live state (working while it holds a turn, waiting when something needs you, paused, idle), the conversation it works in and its latest computer step, its queued tasks, what waits for you, and today's tokens against its daily budget. Each card has **Open chat**, **Pause** or **Resume**, and **Stop** for a running turn. The view updates live.
 
 ## Triggers
 
@@ -61,9 +71,9 @@ FullDots records the tokens each Dot uses per UTC day, from the usage the model 
 
 ## Settings
 
-| Variable                 | Default   | Purpose                                          |
-| ------------------------ | --------- | ------------------------------------------------ |
-| `BACKGROUND_CONCURRENCY` | 4         | Background tasks running at once (1 to 8).       |
-| `DOT_DAILY_TOKEN_WARN`   | 2,000,000 | Tokens per Dot per day before the warning.       |
-| `NOTIFY_WEBHOOK_URL`     | none      | Where warnings, approvals and handoffs are sent. |
-| `APP_ORIGIN`             | none      | The address used in webhook URLs.                |
+| Variable                 | Default   | Purpose                                                     |
+| ------------------------ | --------- | ----------------------------------------------------------- |
+| `BACKGROUND_CONCURRENCY` | 4         | Background tasks running at once (1 to 8).                  |
+| `DOT_DAILY_TOKEN_WARN`   | 2,000,000 | Tokens per Dot per day before the warning.                  |
+| `NOTIFY_WEBHOOK_URL`     | none      | Where warnings, approvals, handoffs and questions are sent. |
+| `APP_ORIGIN`             | none      | The address used in webhook URLs.                           |

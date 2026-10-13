@@ -1,8 +1,9 @@
 import { expect, it } from 'vitest';
 import { parseAppHash } from '../src/client/app-hash';
 
-it('parses the approvals, thread and space hashes', () => {
-  expect(parseAppHash('#/approvals')).toEqual({ view: 'approvals' });
+it('parses the inbox, mission, thread and space hashes', () => {
+  expect(parseAppHash('#/inbox')).toEqual({ view: 'inbox' });
+  expect(parseAppHash('#/mission')).toEqual({ view: 'mission' });
   expect(parseAppHash('#/dots/dot-1/threads/th-9')).toEqual({
     view: 'thread',
     dotId: 'dot-1',
@@ -25,12 +26,22 @@ it('parses the approvals, thread and space hashes', () => {
   });
 });
 
+it('keeps #/approvals as an alias that opens the inbox on its Approvals section', () => {
+  expect(parseAppHash('#/approvals')).toEqual({
+    view: 'inbox',
+    section: 'approvals',
+  });
+});
+
 it('ignores unknown or malformed hashes', () => {
   for (const hash of [
     '',
     '#',
     '#/',
     '#/approvals/extra',
+    '#/inbox/',
+    '#/inbox/questions/x',
+    '#/mission/1',
     '#/dots/d1',
     '#/dots/d1/threads',
     '#/dots/d1/threads/t1/more',

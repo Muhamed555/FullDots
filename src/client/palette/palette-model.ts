@@ -31,6 +31,7 @@ export type PaletteAction =
   | { type: 'settings' }
   | { type: 'prompts' }
   | { type: 'approvals' }
+  | { type: 'mission' }
   | { type: 'scheduled' }
   | { type: 'pause-dot'; dotId: string }
   | { type: 'resume-dot'; dotId: string };
@@ -53,6 +54,7 @@ export type PaletteIcon =
   | 'create-space'
   | 'settings'
   | 'approvals'
+  | 'mission'
   | 'scheduled'
   | 'pause'
   | 'resume';
@@ -239,7 +241,8 @@ export function buildActions(context: ActionContext): PaletteItem[] {
     }),
     action('settings', 'Open Settings', 'settings', { type: 'settings' }),
     action('prompts', 'Open saved prompts', 'prompt', { type: 'prompts' }),
-    action('approvals', 'Open Approvals', 'approvals', { type: 'approvals' }),
+    action('approvals', 'Open Inbox', 'approvals', { type: 'approvals' }),
+    action('mission', 'Open Mission control', 'mission', { type: 'mission' }),
     action('scheduled', 'Scheduled and activity', 'scheduled', {
       type: 'scheduled',
     }),

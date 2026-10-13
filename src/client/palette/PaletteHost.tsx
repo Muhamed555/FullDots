@@ -14,7 +14,7 @@ export interface PaletteHostProps {
   /** The Dot the owner is working with. */
   dot: Dot;
   configured: boolean;
-  view: 'chat' | 'tasks' | 'memories' | 'space' | 'approvals';
+  view: 'chat' | 'tasks' | 'memories' | 'space' | 'inbox' | 'mission';
   selectedThread?: string;
   spaceId: string;
   pageId?: string;
@@ -24,7 +24,7 @@ export interface PaletteHostProps {
   /** Starts a fresh chat with a Dot, optionally with text already in the composer. */
   onNewChat: (dot: Dot, text?: string) => void;
   onTogglePause: (dot: Dot) => void;
-  onView: (view: 'tasks' | 'approvals') => void;
+  onView: (view: 'tasks' | 'inbox' | 'mission') => void;
   onDialog: (dialog: Dialog) => void;
   onError: (message: string) => void;
 }
@@ -64,7 +64,10 @@ export function PaletteHost(props: PaletteHostProps) {
         props.onDialog({ type: 'settings', tab: 'prompts' });
         break;
       case 'approvals':
-        props.onView('approvals');
+        props.onView('inbox');
+        break;
+      case 'mission':
+        props.onView('mission');
         break;
       case 'scheduled':
         props.onView('tasks');

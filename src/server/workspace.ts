@@ -16,6 +16,7 @@ import { SearchStore } from './search-store.js';
 import { ParticipantStore } from './participant-store.js';
 import { PinStore } from './pin-store.js';
 import { copyThreadRows } from './thread-branch.js';
+import { InboxStore } from './inbox-store.js';
 import { Pages } from './pages.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -60,6 +61,8 @@ export class WorkspaceStore {
   readonly participants: ParticipantStore;
   /** Messages pinned to the top of a conversation. */
   readonly pins: PinStore;
+  /** Questions from `ask_owner` and results of finished background turns. */
+  readonly inbox: InboxStore;
   constructor(
     path: string,
     readonly ownerId: string,
@@ -130,6 +133,7 @@ export class WorkspaceStore {
     this.prompts = new PromptStore(this.db);
     this.search = new SearchStore(this.db, ownerId);
     this.pins = new PinStore(this.db);
+    this.inbox = new InboxStore(this.db);
     if (
       !this.db
         .prepare('PRAGMA table_info(calls)')
@@ -434,7 +438,7 @@ export class WorkspaceStore {
   }
   /**
    * Ids of conversations that something other than chat history points at: a
-   * page conversation, a scheduled task, a call receipt or a pinned message.
+   * page conversation, a scheduled task, a call receipt, a pinned message or an inbox item.
    * Such a conversation is never "empty" even before its first message is stored.
    */
   linkedThreadIds(): Set<string> {
@@ -443,7 +447,8 @@ export class WorkspaceStore {
         `SELECT threadId FROM task_threads
          UNION SELECT threadId FROM page_threads
          UNION SELECT threadId FROM calls
-         UNION SELECT threadId FROM pinned_messages`,
+         UNION SELECT threadId FROM pinned_messages
+         UNION SELECT threadId FROM inbox_items`,
       )
       .all();
     return new Set(rows.map((row) => String(row.threadId)));
@@ -479,6 +484,7 @@ export class WorkspaceStore {
         'DELETE FROM computer_frames WHERE threadId=?',
         'DELETE FROM thread_participants WHERE threadId=?',
         'DELETE FROM pinned_messages WHERE threadId=?',
+        'DELETE FROM inbox_items WHERE threadId=?',
       ])
         this.db.prepare(sql).run(id);
       this.db

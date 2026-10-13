@@ -28,6 +28,7 @@ import { runConflict } from './group-routes.js';
 import { included } from './mcp-tools.js';
 import { EventBus } from './events.js';
 import { wireLiveEvents } from './live-wiring.js';
+import { InboxService, type FinishedWork } from './inbox-service.js';
 import type { DotAgentServices } from './dot-agent.js';
 import type { TurnMetadata } from '../shared/types.js';
 const DEFAULT_APPROVAL_TTL_MS = 7 * 24 * 3600_000;
@@ -49,6 +50,8 @@ export class Platform {
   readonly team: TeamService;
   /** Group chats: participants, the baton tool and the relay cap. */
   readonly group: GroupChat;
+  /** The owner's inbox: questions and the results of finished background work. */
+  readonly inbox: InboxService;
   /** The live event feed (GET /api/events): ids and small enums only. */
   readonly events = new EventBus();
   constructor(
@@ -71,6 +74,7 @@ export class Platform {
     turns.setLookups({
       pendingApprovalThreads: () => workspace.approvals.pendingThreadIds(),
       waitingHandoffDots: () => workspace.handoffs.waitingDotIds(),
+      openQuestionThreads: () => workspace.inbox.openQuestionThreadIds(),
     });
     this.computers.setHandoffs(workspace.handoffs);
     this.oauth = new ConnectorOAuthService({
@@ -125,6 +129,14 @@ export class Platform {
           outcome: 'failed',
         }),
       onDelivered: (marker, text) => {
+        // Team results and answered questions finish background work: the owner gets the result.
+        if (marker.kind === 'delegation' || marker.kind === 'question')
+          this.inbox.finished({
+            dotId: marker.dotId,
+            threadId: marker.threadId,
+            work: marker.kind,
+            text,
+          });
         const taskId = workspace.threadTask(marker.threadId);
         if (taskId)
           store.event(
@@ -141,6 +153,15 @@ export class Platform {
       config.publicOrigin,
     );
     this.notify = notify;
+    this.inbox = new InboxService({
+      inbox: workspace.inbox,
+      resumes: this.resumes,
+      dotName: (dotId) => workspace.dot(dotId)?.name,
+      notify,
+      changed: () => this.events.emit('inbox.changed', {}),
+      waitsForOwner: (threadId) => this.waitsForOwner(threadId),
+      redact: (text) => this.models.redact(text),
+    });
     this.approvals = new ApprovalService({
       approvals: workspace.approvals,
       resumes: this.resumes,
@@ -239,6 +260,7 @@ export class Platform {
       usage: (dotId, tokens) => this.recordUsage(dotId, tokens),
       team: this.team,
       group: this.group,
+      questions: this.inbox,
       goals: {
         isOpenGoal: (taskId) => {
           const task = this.store.task(taskId);
@@ -248,6 +270,29 @@ export class Platform {
           !!this.store.completeGoal(taskId, summary),
       },
     };
+  }
+  /** True while a thread waits for the owner: a pending approval, a waiting handoff, an open question. */
+  waitsForOwner(threadId: string): boolean {
+    const { approvals, handoffs, inbox } = this.workspace;
+    return (
+      approvals.pendingThreadIds().includes(threadId) ||
+      handoffs
+        .list({ status: 'waiting' })
+        .some((handoff) => handoff.threadId === threadId) ||
+      !!inbox.openQuestion(threadId)
+    );
+  }
+  /** Records the result of a finished background turn in the inbox (never throws). */
+  finishedWork(threadId: string, work: FinishedWork, text: string) {
+    try {
+      const { dotId } = this.workspace.requireThread(threadId);
+      this.inbox.finished({ dotId, threadId, work, text });
+    } catch (error) {
+      console.error(
+        'Inbox result skipped:',
+        error instanceof Error ? error.message : 'unknown error',
+      );
+    }
   }
   /** Adds a finished turn's tokens and warns the owner once a day when a Dot uses a lot. */
   recordUsage(

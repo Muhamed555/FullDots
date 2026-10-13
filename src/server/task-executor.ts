@@ -81,6 +81,17 @@ export function createBackgroundRunner(platform: Platform, research: Config) {
         throw error;
       }
       if (delegation) platform.team.completed(claim.id, text);
+      // The owner's inbox gets the result of their own background work; a teammate's goes to its lead.
+      else
+        platform.finishedWork(
+          threadId,
+          claim.kind === 'goal'
+            ? 'goal'
+            : claim.kind === 'event'
+              ? 'trigger'
+              : 'task',
+          text,
+        );
       return { text, sources: [], sample: false };
     },
     runTimeouts(limits),

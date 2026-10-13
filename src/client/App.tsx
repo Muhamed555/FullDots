@@ -39,7 +39,11 @@ import {
 import { deriveTitle } from '../shared/conversation-title';
 import { Mascot } from './Mascot';
 import { Chat } from './Chat';
-import { ApprovalsView } from './ApprovalsView';
+import { InboxPage } from './inbox/InboxView';
+import { useInbox, useNeedsYouTitle } from './inbox/useInbox';
+import { useDesktopNotifications } from './inbox/notifications';
+import { MissionPage } from './mission/MissionView';
+import type { InboxSection } from '../shared/inbox';
 import { Sidebar } from './sidebar/Sidebar';
 import { readFlag, writeFlag } from './sidebar/hooks';
 import { latestChat } from './sidebar/chat-groups';
@@ -74,8 +78,9 @@ export function App() {
   const [selectedDot, setSelectedDot] = useState('');
   const [selectedThread, setSelectedThread] = useState<string>();
   const [view, rawSetView] = useState<
-    'chat' | 'tasks' | 'memories' | 'space' | 'approvals'
+    'chat' | 'tasks' | 'memories' | 'space' | 'inbox' | 'mission'
   >('chat');
+  const [inboxFocus, setInboxFocus] = useState<InboxSection>();
   const dirtyPage = useRef(false);
   const [spaceId, setSpaceId] = useState('');
   const [pageId, setPageId] = useState<string>();
@@ -86,6 +91,7 @@ export function App() {
     if (dirtyPage.current && !window.confirm('Leave your unsaved page draft?'))
       return;
     dirtyPage.current = false;
+    setInboxFocus(undefined);
     if (next !== 'space')
       history.replaceState(null, '', location.pathname + location.search);
     rawSetView(next);
@@ -116,7 +122,11 @@ export function App() {
           setSelectedThread(target.threadId);
           setPane(true);
           rawSetView('chat');
-        } else rawSetView('approvals');
+        } else if (target.view === 'mission') rawSetView('mission');
+        else {
+          setInboxFocus(target.section);
+          rawSetView('inbox');
+        }
         history.replaceState(null, '', location.pathname + location.search);
         acceptedHash = '';
       }
@@ -207,6 +217,14 @@ export function App() {
   }, []);
   // Live events refetch at once; polling stays as a fallback (15 s, or 3 s while the feed is down).
   useLiveRefresh(refresh);
+  const { inbox, refresh: refreshInbox } = useInbox();
+  const needsYou =
+    inbox?.counts.needsYou ?? pendingApprovals.length + waitingHandoffs.length;
+  useNeedsYouTitle(needsYou);
+  useDesktopNotifications(inbox, {
+    openThreadId: view === 'chat' ? selectedThread : undefined,
+    dotName: (id) => workspace?.dots.find((item) => item.id === id)?.name,
+  });
   useEffect(() => {
     setCapture(undefined);
     if (!selectedThread) return;
@@ -444,7 +462,7 @@ export function App() {
         pageId={pageId}
         taskCount={state.tasks.length}
         memoryCount={state.memories.length}
-        approvalCount={pendingApprovals.length + waitingHandoffs.length}
+        approvalCount={needsYou}
         configured={configured}
         collapsed={navCollapsed}
         onToggleCollapsed={toggleCollapsed}
@@ -488,9 +506,11 @@ export function App() {
                   ? 'Activity'
                   : view === 'space'
                     ? 'Pages'
-                    : view === 'approvals'
-                      ? 'Approvals'
-                      : 'Memories'}
+                    : view === 'inbox'
+                      ? 'Inbox'
+                      : view === 'mission'
+                        ? 'Mission control'
+                        : 'Memories'}
             </strong>
           </div>
           <div className="top-actions">
@@ -678,12 +698,13 @@ export function App() {
               />
             )}
           </div>
-        ) : view === 'approvals' ? (
-          <ApprovalsView
-            approvals={pendingApprovals}
-            handoffs={waitingHandoffs}
+        ) : view === 'inbox' ? (
+          <InboxPage
+            inbox={inbox}
+            focus={inboxFocus}
             dots={workspace.dots}
             conversations={workspace.conversations}
+            onRefresh={refreshInbox}
             onDecide={decideApproval}
             onOpenThread={selectThread}
             onOpenComputer={(handoff) => {
@@ -692,6 +713,15 @@ export function App() {
               setPane(true);
             }}
             onDismissHandoff={dismissHandoff}
+          />
+        ) : view === 'mission' ? (
+          <MissionPage
+            onOpenThread={selectThread}
+            onNewChat={(id) => {
+              const target = workspace.dots.find((item) => item.id === id);
+              if (target) startNewChat(target);
+            }}
+            onOpenInbox={() => setView('inbox')}
           />
         ) : (
           <main className="main-content">
@@ -803,7 +833,7 @@ export function App() {
                           pendingApprovals,
                           waitingHandoffs,
                         )}
-                        onWaitingClick={() => setView('approvals')}
+                        onWaitingClick={() => setView('inbox')}
                         onClick={() =>
                           void api<Detail>(`/tasks/${task.id}`)
                             .then(setTaskDetail)

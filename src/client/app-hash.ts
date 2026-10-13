@@ -1,5 +1,8 @@
+import type { InboxSection } from '../shared/inbox';
+
 export type AppHashTarget =
-  | { view: 'approvals' }
+  | { view: 'inbox'; section?: InboxSection }
+  | { view: 'mission' }
   | { view: 'space'; spaceId: string; pageId?: string }
   | { view: 'thread'; dotId: string; threadId: string };
 
@@ -12,11 +15,14 @@ const decode = (value: string): string | undefined => {
 };
 
 /**
- * Where a `location.hash` points: `#/approvals`, `#/spaces/<id>[/pages/<id>]` or
+ * Where a `location.hash` points: `#/inbox`, `#/approvals` (kept for notification links and
+ * bookmarks: the inbox, on its Approvals section), `#/mission`, `#/spaces/<id>[/pages/<id>]` or
  * `#/dots/<dotId>/threads/<threadId>`. Anything else is `undefined` and ignored.
  */
 export function parseAppHash(hash: string): AppHashTarget | undefined {
-  if (hash === '#/approvals') return { view: 'approvals' };
+  if (hash === '#/inbox') return { view: 'inbox' };
+  if (hash === '#/approvals') return { view: 'inbox', section: 'approvals' };
+  if (hash === '#/mission') return { view: 'mission' };
   const space = hash.match(/^#\/spaces\/([^/]+)(?:\/pages\/([^/]+))?$/);
   if (space) return { view: 'space', spaceId: space[1]!, pageId: space[2] };
   const thread = hash.match(/^#\/dots\/([^/]+)\/threads\/([^/]+)$/);

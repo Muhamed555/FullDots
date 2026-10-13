@@ -39,6 +39,8 @@ import {
 import { selectInputSchema, type GateComputer } from './computer-agent.js';
 import { detectChallenge, detectTypeHandoff } from './handoff-detect.js';
 import type { TurnBudget } from './turn-budget.js';
+import { askOwnerInput, type QuestionResult } from './inbox-tools.js';
+import type { InboxService } from './inbox-service.js';
 
 export type { GateComputer };
 
@@ -74,11 +76,13 @@ export interface GateDeps {
   rules?: () => Partial<DotRules>;
   /** Zod parse for computer tools (defaults applied), the raw object for the others. See {@link gateParse}. */
   parse: (toolName: string, args: unknown) => Record<string, unknown>;
+  /** Stores `ask_owner` questions; given only on turns that offer the tool. */
+  questions?: Pick<InboxService, 'ask'>;
 }
 
 export interface TurnGate {
-  paused?: { kind: 'approval' | 'handoff'; ref: string };
-  pause(kind: 'approval' | 'handoff', ref: string): void;
+  paused?: { kind: 'approval' | 'handoff' | 'question'; ref: string };
+  pause(kind: 'approval' | 'handoff' | 'question', ref: string): void;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -386,6 +390,27 @@ export function approvalGate(deps: GateDeps): {
     });
   }
 
+  /** A question for the owner: stored, and the turn wraps up. It unlocks nothing. */
+  function askOwner(args: unknown) {
+    const questions = deps.questions;
+    if (!questions) return undefined;
+    const input = askOwnerInput.safeParse(args);
+    if (!input.success) return skip({ error: zodText(input.error) });
+    const item = questions.ask({
+      dotId: deps.dotId,
+      threadId: deps.threadId,
+      question: input.data.question,
+    });
+    gate.pause('question', item.id);
+    deps.budget.wrapUp = 'question';
+    const result: QuestionResult = {
+      status: 'question',
+      questionId: item.id,
+      note: "The question is in the owner's inbox. You will be resumed in this conversation with the answer.",
+    };
+    return skip(result);
+  }
+
   const middleware = defineChatMiddleware({
     name: 'approval-gate',
     onBeforeToolCall(_ctx, { toolName, toolCallId, args }) {
@@ -394,6 +419,7 @@ export function approvalGate(deps: GateDeps): {
       if (toolName === 'request_approval')
         return requestApproval(toolCallId, args);
       if (toolName === 'request_handoff') return requestHandoff(args);
+      if (toolName === 'ask_owner' && deps.questions) return askOwner(args);
 
       let parsed: Record<string, unknown>;
       try {

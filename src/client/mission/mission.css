@@ -1,0 +1,309 @@
+/* Mission control: a grid of Dot cards. Colours, radii, spacing and motion come from tokens.css;
+   each card is tinted with its Dot's colour through --mission-dot. */
+
+main.mission-view {
+  max-width: 1120px;
+  color: var(--ink);
+}
+.mission-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  margin-bottom: var(--space-5);
+}
+.mission-header h1 {
+  margin: 0 0 var(--space-1);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.mission-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-lg);
+}
+
+.mission-group + .mission-group {
+  margin-top: var(--space-6);
+}
+.mission-group h2 {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ---- Card -------------------------------------------------------------------- */
+
+.mission-card {
+  --mission-dot: var(--dot-indigo-base);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  transition:
+    transform var(--dur-med) var(--ease-spring),
+    box-shadow var(--dur-med) var(--ease-out);
+}
+.mission-card::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 76px;
+  background: radial-gradient(
+    120% 100% at 50% 0%,
+    color-mix(in srgb, var(--mission-dot) 22%, transparent),
+    transparent 70%
+  );
+  content: '';
+  pointer-events: none;
+}
+.mission-card:hover,
+.mission-card:focus-within {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+.mission-card.is-needs-input {
+  border-color: #eadfc4;
+}
+.mission-card.is-paused {
+  background: var(--surface-raised);
+}
+
+.mission-face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 96px;
+}
+.mission-face .mascot {
+  width: 96px;
+  height: 96px;
+}
+.mission-card.is-paused .mission-face,
+.mission-card.is-idle .mission-face {
+  opacity: 0.9;
+}
+
+.mission-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.mission-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.mission-head h3 {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-xl);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mission-state {
+  flex: 0 0 auto;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.mission-state.is-working {
+  background: color-mix(in srgb, var(--mission-dot) 16%, #fff);
+  color: var(--ink);
+}
+.mission-state.is-needs-input {
+  background: #fdf6e7;
+  color: var(--warning);
+}
+.mission-state.is-paused {
+  background: #efefed;
+  color: var(--muted);
+}
+.mission-source {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.mission-activity {
+  display: -webkit-box;
+  min-height: 2.9em;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-md);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.mission-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.mission-facts > span,
+.mission-waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.mission-waiting {
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--warning);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- Tokens ---------------------------------------------------------------- */
+
+.mission-tokens {
+  display: grid;
+  gap: 6px;
+}
+.mission-tokens-label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.mission-bar {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: #efefed;
+}
+.mission-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mission-dot);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+.mission-bar.is-near > span {
+  background: var(--warning);
+}
+.mission-bar.is-over > span {
+  background: var(--danger);
+}
+
+/* ---- Actions ----------------------------------------------------------------- */
+
+.mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+.mission-action {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.mission-action:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+.mission-action.is-danger:not(:disabled) {
+  color: var(--danger);
+}
+.mission-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* A working card's glow breathes gently; only working cards move. */
+.mission-card.is-working::before {
+  animation: mission-glow 2.4s ease-in-out infinite;
+}
+@keyframes mission-glow {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-card,
+  .mission-bar > span {
+    transition: none;
+  }
+  .mission-card:hover,
+  .mission-card:focus-within {
+    transform: none;
+  }
+  .mission-card.is-working::before {
+    animation: none;
+  }
+}
+
+/* ---- Phones ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  .mission-header h1 {
+    font-size: 26px;
+  }
+  .mission-grid {
+    grid-template-columns: 1fr;
+  }
+  .mission-card {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    align-items: start;
+  }
+  .mission-face,
+  .mission-face .mascot {
+    width: 72px;
+    height: 72px;
+  }
+}

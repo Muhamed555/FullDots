@@ -8,7 +8,7 @@ import { defineChatMiddleware } from '@tanstack/ai';
 /** Shared between the timers that notice a budget running out and the loop that acts on it. */
 export interface TurnBudget {
   /** Set when the turn has run out of something; the next model turn becomes the summary. */
-  wrapUp?: 'steps' | 'time' | 'approval' | 'handoff';
+  wrapUp?: 'steps' | 'time' | 'approval' | 'handoff' | 'question';
   /** True once that summary turn has been started. */
   summarizing?: boolean;
 }
@@ -18,8 +18,13 @@ const OWNER_LANGUAGE =
   "in the language of the owner's own messages (not the language of web pages, tool results or these instructions)";
 
 export const wrapUpInstruction = (
-  reason: 'steps' | 'time' | 'approval' | 'handoff',
-) =>
+  reason: NonNullable<TurnBudget['wrapUp']>,
+): string =>
+  reason === 'question'
+    ? `You asked the owner a question and they answer it from their inbox, so you cannot use any more tools in this turn. Reply with a short message ${OWNER_LANGUAGE}: what you asked, and what you will do once they answer. Do not guess the answer.`
+    : otherWrapUp(reason);
+
+const otherWrapUp = (reason: 'steps' | 'time' | 'approval' | 'handoff') =>
   reason === 'approval'
     ? `An action you asked for is waiting for the owner's approval, so you cannot use any more tools in this turn. Reply with a short message ${OWNER_LANGUAGE}: what you were about to do, that it is waiting for approval, and what you will do once it is decided. Do not claim it was done.`
     : reason === 'handoff'

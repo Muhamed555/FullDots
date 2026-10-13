@@ -15,6 +15,8 @@ import { searchRoutes } from './search-routes.js';
 import { messageActionRoutes } from './message-action-routes.js';
 import { turnRoutes } from './turn-routes.js';
 import { liveRoutes, workspaceChanges } from './live-routes.js';
+import { inboxRoutes } from './inbox-routes.js';
+import { missionRoutes } from './mission.js';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { timingSafeEqual } from 'node:crypto';
@@ -200,6 +202,20 @@ export function createApp({
           platform.pollProblem(dotId, connectorId, tool),
       }),
     );
+  if (platform) {
+    app.route(
+      '/api',
+      inboxRoutes({ workspace: platform.workspace, inbox: platform.inbox }),
+    );
+    app.route(
+      '/api',
+      missionRoutes({
+        store,
+        workspace: platform.workspace,
+        turns: platform.turns,
+      }),
+    );
+  }
   if (platform) app.route('/api', teamRoutes(platform.workspace));
   if (platform) app.route('/api', groupRoutes(platform));
   if (platform) app.route('/api', ruleRoutes(platform.workspace));

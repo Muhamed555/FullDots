@@ -24,6 +24,7 @@ const TABLES: [table: string, column: string][] = [
   ['computer_frames', 'threadId'],
   ['thread_participants', 'threadId'],
   ['pinned_messages', 'threadId'],
+  ['inbox_items', 'threadId'],
 ];
 
 class ReplyAgent extends AbstractAgent {
@@ -110,6 +111,16 @@ it('DELETE /api/conversations/:id leaves no rows of that thread in any per-threa
     true,
   );
   for (const id of ['drop', 'keep']) workspace.participants.add(id, guest.id);
+  for (const id of ['drop', 'keep']) {
+    // The result first: a thread with an open question gets no result.
+    platform.inbox.finished({
+      dotId: dot.id,
+      threadId: id,
+      work: 'task',
+      text: 'Done.',
+    });
+    platform.inbox.ask({ dotId: dot.id, threadId: id, question: 'Which?' });
+  }
   const count = (table: string, column: string, id: string) =>
     Number(
       reader
@@ -118,6 +129,7 @@ it('DELETE /api/conversations/:id leaves no rows of that thread in any per-threa
     );
   for (const [table, column] of TABLES)
     expect(count(table, column, 'drop'), table).toBeGreaterThan(0);
+  expect(count('inbox_items', 'threadId', 'drop')).toBe(2);
 
   const response = await app.request('/api/conversations/drop', {
     method: 'DELETE',

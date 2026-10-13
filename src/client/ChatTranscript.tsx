@@ -95,6 +95,7 @@ const EVENT_LABELS: Record<TurnSource, string> = {
   channel: 'Message from channel',
   delegation: 'Delegated work',
   relay: 'Handed over',
+  question: 'Your answer',
 };
 /**
  * Renders the visible conversation. Consecutive `computer_*` and `mcp__*` tool calls of a
