@@ -166,6 +166,10 @@ docker compose up --build -d
 
 Open <http://localhost:4310>. The port is bound to loopback, and data lives in the `opendots-data` volume.
 
+### On a server with Dokploy
+
+Deploy straight from your GitHub fork with HTTPS, a domain and redeploys on every push: see [Deploy on Dokploy](docs/DEPLOY-DOKPLOY.md). It uses `compose.dokploy.yml`.
+
 ### Optional extras
 
 - **Dot computers** need Docker. See [Computers](docs/COMPUTERS.md).
@@ -268,19 +272,19 @@ docs/        Guides, brand assets and screenshots
 
 ## Documentation
 
-| Guide                              | Covers                                        |
-| ---------------------------------- | --------------------------------------------- |
-| [Setup](docs/SETUP.md)             | Running, Docker, storage, search and backups  |
-| [Dokploy](docs/DOKPLOY.md)         | Deploying on a VPS with Dokploy and HTTPS     |
-| [Models](docs/MODELS.md)           | Providers, keys and per-Dot models            |
-| [Connectors](docs/CONNECTORS.md)   | MCP connectors, browser sign-in and grants    |
-| [Approvals](docs/APPROVALS.md)     | Modes, what pauses, handoffs and resumes      |
-| [Automations](docs/AUTOMATIONS.md) | Goals, triggers, parallel work, token budgets |
-| [Teams](docs/TEAMS.md)             | Hand-offs between Dots                        |
-| [Roadmap](docs/ROADMAP.md)         | What is done and what is next                 |
-| [Computers](docs/COMPUTERS.md)     | A computer for each Dot                       |
-| [Brand](docs/brand/README.md)      | Logo, Dots and colours                        |
-| [Changelog](CHANGELOG.md)          | What changed in each release                  |
+| Guide                                       | Covers                                        |
+| ------------------------------------------- | --------------------------------------------- |
+| [Setup](docs/SETUP.md)                      | Running, Docker, storage, search and backups  |
+| [Deploy on Dokploy](docs/DEPLOY-DOKPLOY.md) | Hosting on your own server from GitHub        |
+| [Models](docs/MODELS.md)                    | Providers, keys and per-Dot models            |
+| [Connectors](docs/CONNECTORS.md)            | MCP connectors, browser sign-in and grants    |
+| [Approvals](docs/APPROVALS.md)              | Modes, what pauses, handoffs and resumes      |
+| [Automations](docs/AUTOMATIONS.md)          | Goals, triggers, parallel work, token budgets |
+| [Teams](docs/TEAMS.md)                      | Hand-offs between Dots                        |
+| [Roadmap](docs/ROADMAP.md)                  | What is done and what is next                 |
+| [Computers](docs/COMPUTERS.md)              | A computer for each Dot                       |
+| [Brand](docs/brand/README.md)               | Logo, Dots and colours                        |
+| [Changelog](CHANGELOG.md)                   | What changed in each release                  |
 
 ## FullDots and OpenDots
 

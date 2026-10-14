@@ -12,7 +12,7 @@ All notable changes to FullDots are listed here. The project follows [Semantic V
 - **Pause a single Dot** from its sidebar menu. Its turns stop and its background work waits until it is resumed.
 - **`npm run backup`** writes a consistent copy of the database (and the connector key) while FullDots runs.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md).
-- **Deploy on Dokploy** with [`compose.dokploy.yml`](compose.dokploy.yml) and [`docs/DOKPLOY.md`](docs/DOKPLOY.md): HTTPS through Dokploy's Traefik, a health check, and `scripts/backup.mjs` in the app image.
+- **Deploy on Dokploy** with [`compose.dokploy.yml`](compose.dokploy.yml) and [`docs/DEPLOY-DOKPLOY.md`](docs/DEPLOY-DOKPLOY.md). The app image includes `scripts/backup.mjs`.
 
 - **Standing goals.** A goal runs on a schedule until the Dot calls `mark_goal_done`, with an optional run limit. Repeats get run limits too ([`docs/AUTOMATIONS.md`](docs/AUTOMATIONS.md)).
 - **Parallel background work.** `BACKGROUND_CONCURRENCY` (default 4) tasks run at once on different Dots.

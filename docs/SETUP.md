@@ -139,7 +139,7 @@ Inside a container, `localhost` is the container itself. To use Ollama or LM Stu
 docker compose down
 ```
 
-For remote hosting, configure an HTTPS reverse proxy and the matching `APP_ORIGIN`. On a VPS with Dokploy, follow [Deploying on Dokploy](DOKPLOY.md). See [Security](../SECURITY.md) for the template's deployment boundary.
+For remote hosting, configure an HTTPS reverse proxy and the matching `APP_ORIGIN`. On a VPS with Dokploy, follow [Deploy on Dokploy](DEPLOY-DOKPLOY.md). See [Security](../SECURITY.md) for the template's deployment boundary.
 
 ## Development checks
 

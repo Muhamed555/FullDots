@@ -1,8 +1,12 @@
-# FullDots on Dokploy. See docs/DOKPLOY.md.
-# Dokploy's Traefik serves HTTPS on your domain and forwards to the app on port
-# 4310 over dokploy-network, so no host port is published. Set the variables in
-# the Environment tab of the Dokploy service; Dokploy writes them to .env.
-# The read-only page reader starts when COMPOSE_PROFILES=browser is set.
+# FullDots on Dokploy: deploy as a "Docker Compose" service from GitHub with this file.
+# Step-by-step guide: docs/DEPLOY-DOKPLOY.md.
+#
+# Dokploy routes your domain to the `app` service on port 4310 (set it in the Domains tab) and
+# terminates HTTPS. Nothing here publishes a host port. Set the variables in Dokploy's
+# Environment tab; the ones marked required stop the deploy with a message when missing.
+#
+# Dot computers are optional: add COMPOSE_PROFILES=computers to the environment (plus the three
+# COMPUTER_* secrets) to build and start the computer supervisor as well.
 services:
   app:
     build:
@@ -11,60 +15,62 @@ services:
     expose:
       - '4310'
     environment:
-      OWNER_TOKEN: ${OWNER_TOKEN:?Set a 24+ character OWNER_TOKEN}
-      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN to https://your-domain}
+      # Required: the password you type to unlock FullDots, 24+ random characters.
+      OWNER_TOKEN: ${OWNER_TOKEN:?Set OWNER_TOKEN (24+ random characters) in the Environment tab}
+      # Required: the exact public address, for example https://dots.example.com
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN to your https:// address in the Environment tab}
       OWNER_ID: ${OWNER_ID:-opendots-owner}
-      # Models. These define the built-in "Default (from .env)" provider;
-      # more providers are added in Settings > Models.
+      # Models: the built-in "Default (from .env)" provider. Leave empty and add providers in
+      # Settings > Models instead if you prefer.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
-      MODEL_PROVIDERS_ALLOW_LAN: ${MODEL_PROVIDERS_ALLOW_LAN:-}
-      # Realtime voice (optional).
+      # Realtime voice (optional; needs HTTPS, which Dokploy provides).
       VOICE_API_KEY: ${VOICE_API_KEY:-}
       VOICE_MODEL: ${VOICE_MODEL:-}
       VOICE_NAME: ${VOICE_NAME:-marin}
-      # Web search: duckduckgo (no key) or disabled.
       WEB_SEARCH_PROVIDER: ${WEB_SEARCH_PROVIDER:-duckduckgo}
-      # Connectors and approvals. The connector key defaults to a file in the
-      # data volume; set CONNECTOR_SECRET_KEY to supply your own.
+      # The connector key defaults to a file in the data volume. Set your own to keep it outside
+      # the volume (then back it up separately).
       CONNECTOR_SECRET_KEY: ${CONNECTOR_SECRET_KEY:-}
       CONNECTORS_ALLOW_STDIO: ${CONNECTORS_ALLOW_STDIO:-}
-      CONNECTOR_RESULT_MAX_CHARS: ${CONNECTOR_RESULT_MAX_CHARS:-}
-      APPROVAL_TTL: ${APPROVAL_TTL:-}
       NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
-      # Always-on work and teams (empty uses the built-in defaults).
-      BACKGROUND_CONCURRENCY: ${BACKGROUND_CONCURRENCY:-}
-      DOT_DAILY_TOKEN_WARN: ${DOT_DAILY_TOKEN_WARN:-}
-      TEAM_MAX_DEPTH: ${TEAM_MAX_DEPTH:-}
-      # Work limits (empty uses the built-in defaults).
+      APPROVAL_TTL: ${APPROVAL_TTL:-}
+      # Work limits and teams (empty uses the built-in defaults).
       AGENT_TURN_TIMEOUT: ${AGENT_TURN_TIMEOUT:-}
-      AGENT_TURN_GRACE: ${AGENT_TURN_GRACE:-}
       AGENT_MAX_STEPS: ${AGENT_MAX_STEPS:-}
       AGENT_MAX_TOKENS: ${AGENT_MAX_TOKENS:-}
       TASK_TIMEOUT: ${TASK_TIMEOUT:-}
-      COMPUTER_EXEC_MAX_TIMEOUT: ${COMPUTER_EXEC_MAX_TIMEOUT:-}
-      COMPUTER_COMMAND_MAX_CHARS: ${COMPUTER_COMMAND_MAX_CHARS:-}
-      COMPUTER_FILE_MAX_CHARS: ${COMPUTER_FILE_MAX_CHARS:-}
-      COMPUTER_TYPE_MAX_CHARS: ${COMPUTER_TYPE_MAX_CHARS:-}
-      COMPUTER_REQUEST_TIMEOUT: ${COMPUTER_REQUEST_TIMEOUT:-}
-      COMPUTER_RESPONSE_MAX_MB: ${COMPUTER_RESPONSE_MAX_MB:-}
-      # Connector secrets are ordinary variables that a connector names in
-      # Settings. Pass each one through here, for example:
-      # GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      BACKGROUND_CONCURRENCY: ${BACKGROUND_CONCURRENCY:-}
+      DELEGATION_TIMEOUT: ${DELEGATION_TIMEOUT:-}
+      TEAM_MAX_DEPTH: ${TEAM_MAX_DEPTH:-}
+      TEAM_RELAY_MAX: ${TEAM_RELAY_MAX:-}
+      DOT_DAILY_TOKEN_WARN: ${DOT_DAILY_TOKEN_WARN:-}
+      COMPUTER_REPLAY_FRAMES: ${COMPUTER_REPLAY_FRAMES:-}
+      # Page reader (the `browser` service below): lets Dots read search results in full.
       BROWSER_URL: http://browser:4311
-      BROWSER_SECRET: ${BROWSER_SECRET:-}
+      BROWSER_SECRET: ${BROWSER_SECRET:?Set BROWSER_SECRET (24+ random characters) in the Environment tab}
+      # Dot computers (optional): set COMPUTER_SUPERVISOR_URL=http://computer-supervisor:4300
+      # together with COMPOSE_PROFILES=computers.
+      COMPUTER_SUPERVISOR_URL: ${COMPUTER_SUPERVISOR_URL:-}
+      COMPUTER_SUPERVISOR_TOKEN: ${COMPUTER_SUPERVISOR_TOKEN:-}
+      COMPUTER_TOKEN: ${COMPUTER_TOKEN:-}
+      COMPUTER_NAMESPACE: ${COMPUTER_NAMESPACE:-fulldots}
     volumes:
-      # SQLite database (DATABASE_PATH=/data/opendots.sqlite) and, unless
-      # CONNECTOR_SECRET_KEY is set, the generated connector.key.
+      # The SQLite database and, unless CONNECTOR_SECRET_KEY is set, connector.key, which
+      # encrypts saved model keys and connector sign-ins. Back them up together.
       - fulldots-data:/data
-    labels:
-      # The app sits on several networks; Traefik must use the shared one.
-      - traefik.docker.network=dokploy-network
     networks:
-      - dokploy-network
       - browser-link
       - app-egress
+      - computer-control
+      - computers
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test:
         [
@@ -75,21 +81,15 @@ services:
         ]
       interval: 30s
       timeout: 5s
-      retries: 3
       start_period: 20s
-    init: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+      retries: 3
+
   browser:
-    profiles: [browser]
     build:
       context: .
       target: browser
     environment:
-      BROWSER_SECRET: ${BROWSER_SECRET:-}
+      BROWSER_SECRET: ${BROWSER_SECRET:?Set BROWSER_SECRET (24+ random characters) in the Environment tab}
     networks:
       - browser-link
       - browser-egress
@@ -103,12 +103,70 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+
+  # --- Dot computers (COMPOSE_PROFILES=computers) -------------------------------------------
+  # The image every Dot computer runs. Built only; its container exits at once.
+  computer-image:
+    profiles: [computers]
+    image: opendots-computer:b6932d3
+    build:
+      context: https://github.com/CopilotKit/OpenBot.git#b6932d31a8d6e7896c15139dfc27a6c6911deb27
+      dockerfile: agent-computer/Dockerfile
+    command: ['true']
+    restart: 'no'
+
+  # Starts one container per Dot on request. It is the only service that mounts the Docker
+  # socket, which gives it control of the server's Docker: see docs/DEPLOY-DOKPLOY.md.
+  computer-supervisor:
+    profiles: [computers]
+    image: opendots-supervisor:b6932d3-dot-auth
+    build:
+      context: .
+      dockerfile: deployment/computers/supervisor.Dockerfile
+      additional_contexts:
+        openbot: https://github.com/CopilotKit/OpenBot.git#b6932d31a8d6e7896c15139dfc27a6c6911deb27
+    environment:
+      PORT: '4300'
+      SUPERVISOR_TOKEN: ${COMPUTER_SUPERVISOR_TOKEN:-}
+      COMPUTER_TOKEN: ${COMPUTER_TOKEN:-}
+      COMPUTER_NAMESPACE: ${COMPUTER_NAMESPACE:-fulldots}
+      COMPUTER_IMAGE: opendots-computer:b6932d3
+      COMPUTER_BROWSER_MODE: headless
+      COMPUTER_NETWORK: ${COMPUTER_NAMESPACE:-fulldots}-computers
+      COMPUTER_MEMORY_BYTES: ${COMPUTER_MEMORY_BYTES:-2147483648}
+      COMPUTER_RUNTIME: ${COMPUTER_RUNTIME:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - computer-control
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "const r = await fetch('http://localhost:4300/health'); const j = await r.json(); process.exit(r.ok && j.docker ? 0 : 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
 networks:
-  dokploy-network:
-    external: true
+  # The app talks to the page reader and the supervisor on internal networks only.
   browser-link:
+    internal: true
+  computer-control:
     internal: true
   app-egress:
   browser-egress:
+  # The network the supervisor attaches Dot computers to; the app reaches them by name.
+  computers:
+    name: ${COMPUTER_NAMESPACE:-fulldots}-computers
+
 volumes:
   fulldots-data:
