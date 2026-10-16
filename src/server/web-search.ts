@@ -1,10 +1,13 @@
-// Basic keyless web search through DuckDuckGo's HTML endpoint, plus page
-// reading through the isolated read-only browser service.
+// Keyless web search through DuckDuckGo's HTML endpoint or a self-hosted
+// SearXNG instance, plus page reading through the isolated read-only browser
+// service.
 import { z } from 'zod';
 
-export type WebSearchProvider = 'duckduckgo' | 'disabled';
+export type WebSearchProvider = 'duckduckgo' | 'searxng' | 'disabled';
 export interface WebConfig {
   webSearchProvider?: WebSearchProvider;
+  /** Base address of a self-hosted SearXNG instance (WEB_SEARCH_PROVIDER=searxng). */
+  searxngUrl?: string;
   browserUrl?: string;
   browserSecret?: string;
 }
@@ -22,8 +25,48 @@ export interface WebSource {
 
 export function webSearchProvider(value?: string): WebSearchProvider {
   if (!value) return 'duckduckgo';
-  if (value === 'duckduckgo' || value === 'disabled') return value;
-  throw new Error('WEB_SEARCH_PROVIDER must be duckduckgo or disabled.');
+  if (value === 'duckduckgo' || value === 'searxng' || value === 'disabled')
+    return value;
+  throw new Error(
+    'WEB_SEARCH_PROVIDER must be duckduckgo, searxng or disabled.',
+  );
+}
+
+const searxngExample = 'for example http://searxng:8080';
+
+/** Validates SEARXNG_URL: an http(s) base address without credentials, query or fragment. */
+export function searxngUrl(value?: string): string | undefined {
+  const text = value?.trim();
+  if (!text) return undefined;
+  let url: URL | undefined;
+  try {
+    url = new URL(text);
+  } catch {
+    url = undefined;
+  }
+  if (!url || !['http:', 'https:'].includes(url.protocol))
+    throw new Error(
+      `SEARXNG_URL must be an http:// or https:// address, ${searxngExample}.`,
+    );
+  if (url.username || url.password || url.search || url.hash)
+    throw new Error(
+      `SEARXNG_URL must be a plain base address without credentials, query or fragment, ${searxngExample}.`,
+    );
+  return url.href.replace(/\/+$/, '');
+}
+
+/** Reads WEB_SEARCH_PROVIDER and, for SearXNG, the required SEARXNG_URL. */
+export function webSearchConfig(
+  env: Record<string, string | undefined>,
+): Pick<WebConfig, 'webSearchProvider' | 'searxngUrl'> {
+  const provider = webSearchProvider(env.WEB_SEARCH_PROVIDER);
+  if (provider !== 'searxng') return { webSearchProvider: provider };
+  const url = searxngUrl(env.SEARXNG_URL);
+  if (!url)
+    throw new Error(
+      `WEB_SEARCH_PROVIDER=searxng needs SEARXNG_URL, the address of your SearXNG instance, ${searxngExample}.`,
+    );
+  return { webSearchProvider: provider, searxngUrl: url };
 }
 
 export const browserResponse = z.object({
@@ -57,6 +100,23 @@ function decodeHtml(value: string) {
     .trim();
 }
 
+// A result link a Dot may open: http(s) without credentials.
+function safeUrl(target: string, blockedHost?: string): string | undefined {
+  try {
+    const url = new URL(target);
+    if (
+      !['http:', 'https:'].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      (blockedHost && url.hostname.endsWith(blockedHost))
+    )
+      return undefined;
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
+
 function resultUrl(href: string): string | undefined {
   try {
     const url = new URL(decodeHtml(href), 'https://duckduckgo.com');
@@ -65,16 +125,7 @@ function resultUrl(href: string): string | undefined {
       url.hostname.endsWith('duckduckgo.com') && url.pathname === '/l/'
         ? url.searchParams.get('uddg')
         : url.href;
-    if (!target) return undefined;
-    const final = new URL(target);
-    if (
-      !['http:', 'https:'].includes(final.protocol) ||
-      final.username ||
-      final.password ||
-      final.hostname.endsWith('duckduckgo.com')
-    )
-      return undefined;
-    return final.href;
+    return target ? safeUrl(target, 'duckduckgo.com') : undefined;
   } catch {
     return undefined;
   }
@@ -113,10 +164,97 @@ export function parseResults(html: string, limit = 8): SearchResult[] {
   return results;
 }
 
-export async function searchWeb(
+const searxngResult = z.object({
+  url: z.string(),
+  title: z.string().optional(),
+  content: z.string().optional(),
+});
+const searxngResponse = z.object({
+  results: z.array(z.unknown()),
+  unresponsive_engines: z.array(z.array(z.unknown())).optional().catch([]),
+});
+
+/** Turns a SearXNG JSON answer into results; throws when nothing came back because engines failed. */
+export function parseSearxngResults(data: unknown, limit = 8): SearchResult[] {
+  const parsed = searxngResponse.safeParse(data);
+  if (!parsed.success)
+    throw new Error(
+      'SearXNG returned JSON without a results list. Check that SEARXNG_URL points at SearXNG itself.',
+    );
+  const results: SearchResult[] = [];
+  const seen = new Set<string>();
+  for (const item of parsed.data.results) {
+    const result = searxngResult.safeParse(item);
+    if (!result.success) continue;
+    const url = safeUrl(result.data.url);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    results.push({
+      title: decodeHtml(result.data.title ?? '').slice(0, 300) || url,
+      url,
+      snippet: decodeHtml(result.data.content ?? '').slice(0, 1000),
+    });
+    if (results.length >= limit) break;
+  }
+  const failed = (parsed.data.unresponsive_engines ?? [])
+    .map(([engine, reason]) =>
+      (typeof reason === 'string' && reason
+        ? `${String(engine)} (${reason})`
+        : String(engine)
+      ).slice(0, 80),
+    )
+    .slice(0, 6);
+  if (!results.length && failed.length)
+    throw new Error(
+      `SearXNG found nothing because its search engines did not answer: ${failed.join(', ')}. Try again later or enable other engines in its settings.yml.`,
+    );
+  return results;
+}
+
+const searchTimeoutMs = 15000;
+/** Search answers larger than this are refused instead of read into memory. */
+export const maxSearchResponseBytes = 2_000_000;
+
+function searchSignal(signal?: AbortSignal) {
+  const timeout = AbortSignal.timeout(searchTimeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
+class ResponseTooLarge extends Error {}
+
+async function readLimited(response: Response, source: string) {
+  const tooLarge = () =>
+    new ResponseTooLarge(
+      `${source} sent more than ${maxSearchResponseBytes / 1_000_000} MB; the search was stopped.`,
+    );
+  if (Number(response.headers.get('content-length')) > maxSearchResponseBytes) {
+    await response.body?.cancel();
+    throw tooLarge();
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxSearchResponseBytes) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+const searxngHint =
+  'Run a private SearXNG and set WEB_SEARCH_PROVIDER=searxng with SEARXNG_URL (see "Web search" in docs/SETUP.md).';
+
+async function searchDuckDuckGo(
   query: string,
-  signal?: AbortSignal,
-  limit = 8,
+  signal: AbortSignal | undefined,
+  limit: number,
 ): Promise<SearchResult[]> {
   const response = await fetch('https://html.duckduckgo.com/html/', {
     method: 'POST',
@@ -127,20 +265,96 @@ export async function searchWeb(
       Accept: 'text/html',
     },
     body: new URLSearchParams({ q: query }).toString(),
-    signal: signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(15000)])
-      : AbortSignal.timeout(15000),
+    signal: searchSignal(signal),
     redirect: 'error',
   });
+  if (response.status === 403 || response.status === 429)
+    throw new Error(
+      `DuckDuckGo refused the search (HTTP ${response.status}): it is limiting this server's IP address. ${searxngHint}`,
+    );
   if (!response.ok)
     throw new Error(`Web search returned HTTP ${response.status}.`);
-  const html = await response.text();
+  const html = await readLimited(response, 'DuckDuckGo');
   const results = parseResults(html, limit);
   if (!results.length && /anomaly|captcha/i.test(html))
     throw new Error(
-      'Web search is temporarily rate limited. Wait a minute and retry.',
+      `DuckDuckGo is blocking searches from this server's IP address: it answered with its bot check instead of results. This is common on VPS and cloud servers, and waiting will not fix it. ${searxngHint}`,
     );
   return results;
+}
+
+async function searchSearxng(
+  query: string,
+  baseUrl: string | undefined,
+  signal: AbortSignal | undefined,
+  limit: number,
+): Promise<SearchResult[]> {
+  if (!baseUrl)
+    throw new Error('Web search is set to SearXNG but SEARXNG_URL is not set.');
+  const url = new URL(`${baseUrl}/search`);
+  url.search = new URLSearchParams({ q: query, format: 'json' }).toString();
+  let response: Response;
+  let body = '';
+  try {
+    response = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: searchSignal(signal),
+      redirect: 'error',
+    });
+    if (response.ok) body = await readLimited(response, 'SearXNG');
+    else await response.body?.cancel();
+  } catch (error) {
+    if (
+      signal?.aborted ||
+      !(error instanceof Error) ||
+      error instanceof ResponseTooLarge
+    )
+      throw error;
+    if (error.name === 'TimeoutError')
+      throw new Error(
+        `SearXNG at ${baseUrl} did not answer within ${searchTimeoutMs / 1000} seconds.`,
+        { cause: error },
+      );
+    const reason =
+      error.cause instanceof Error ? error.cause.message : error.message;
+    throw new Error(
+      `Could not reach SearXNG at ${baseUrl} (${reason}). Check SEARXNG_URL and that the searxng service is running.`,
+      { cause: error },
+    );
+  }
+  if (response.status === 403)
+    throw new Error(
+      'SearXNG refused the JSON API (HTTP 403). Add json to search.formats in its settings.yml.',
+    );
+  if (response.status === 429)
+    throw new Error(
+      'SearXNG rate limited this server (HTTP 429). Set server.limiter: false in its settings.yml for a private instance.',
+    );
+  if (!response.ok)
+    throw new Error(`SearXNG returned HTTP ${response.status}.`);
+  let data: unknown;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    throw new Error(
+      'SearXNG did not answer with JSON. Check that SEARXNG_URL points at SearXNG itself.',
+    );
+  }
+  return parseSearxngResults(data, limit);
+}
+
+export async function searchWeb(
+  query: string,
+  config: WebConfig,
+  signal?: AbortSignal,
+  limit = 8,
+): Promise<SearchResult[]> {
+  const provider = config.webSearchProvider ?? 'duckduckgo';
+  if (provider === 'disabled')
+    throw new Error('Web search is turned off (WEB_SEARCH_PROVIDER=disabled).');
+  return provider === 'searxng'
+    ? searchSearxng(query, config.searxngUrl, signal, limit)
+    : searchDuckDuckGo(query, signal, limit);
 }
 
 export async function readPage(

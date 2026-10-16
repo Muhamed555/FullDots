@@ -202,7 +202,7 @@ All settings live in `.env`. [`.env.example`](.env.example) lists every variable
 | `APP_ORIGIN`                                        | The exact address you open the app at. Browser sign-in for connectors redirects back to it. |
 | `DATABASE_PATH`                                     | The SQLite file. Default `data/opendots.sqlite`.                                            |
 | `CONNECTOR_SECRET_KEY`                              | Key for stored secrets. If unset, `data/connector.key` is created once.                     |
-| `WEB_SEARCH_PROVIDER`                               | `duckduckgo` (default) or `disabled`.                                                       |
+| `WEB_SEARCH_PROVIDER`, `SEARXNG_URL`                | `duckduckgo` (default), `searxng` (your own SearXNG at `SEARXNG_URL`) or `disabled`.        |
 | `CONNECTORS_ALLOW_STDIO`                            | Lets connectors start local programs. Off by default.                                       |
 | `AGENT_TURN_TIMEOUT`, `AGENT_MAX_STEPS`             | How long and how many steps a Dot may take in one turn. Defaults: 90 seconds and 8 steps.   |
 | `NOTIFY_WEBHOOK_URL`                                | Optional. Receives a title, text and link for new approvals, handoffs and usage warnings.   |

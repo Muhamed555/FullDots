@@ -85,6 +85,23 @@ Back up the SQLite database: it contains page content, thread bindings, and conv
 
 Dots search the public web with DuckDuckGo (`WEB_SEARCH_PROVIDER=duckduckgo`, the default). No API key is needed; search queries are sent to DuckDuckGo. Set `WEB_SEARCH_PROVIDER=disabled` to turn off search and research tools. Workspace and Dot research permissions, pause, and cancellation still apply.
 
+### Private search with SearXNG
+
+DuckDuckGo often blocks VPS and cloud servers: it answers with a bot check instead of results, and Dots report that DuckDuckGo is blocking the server's IP address. Waiting does not help. Run your own [SearXNG](https://docs.searxng.org) instead. It asks several search engines on FullDots' behalf, needs no API key, and keeps no account.
+
+With Docker, both compose files include a `searxng` service behind the `search` profile. It has no published port and only the app can reach it. Add to `.env` (or Dokploy's Environment tab, see [Deploy on Dokploy](DEPLOY-DOKPLOY.md)):
+
+```env
+COMPOSE_PROFILES=search
+WEB_SEARCH_PROVIDER=searxng
+```
+
+`SEARXNG_URL` already points at the service (`http://searxng:8080`). Its settings are in [`deployment/searxng/settings.yml`](../deployment/searxng/settings.yml): the JSON format on, the bot limiter off, and everything else at SearXNG's defaults. The secret key is generated at every start. To combine profiles, list them, for example `COMPOSE_PROFILES=browser,search` with `compose.yml` or `COMPOSE_PROFILES=search,computers` on Dokploy.
+
+To use a SearXNG you already run, set `SEARXNG_URL` to its base address, for example `http://127.0.0.1:8080`. It must allow the JSON format (`search.formats` includes `json`) and should have `server.limiter: false` when only FullDots uses it. FullDots only sends the query to `/search?format=json`, ignores redirects, waits at most 15 seconds and reads at most 2 MB. Search queries then go from SearXNG to the engines it has enabled.
+
+If a search fails, the Dot reports why: SearXNG unreachable (check the address and that the service runs), HTTP 403 (JSON is not enabled), HTTP 429 (the limiter is on), or the engines that did not answer.
+
 To let Dots read search results in full, run the read-only page reader. Configure `BROWSER_URL` and `BROWSER_SECRET`, then run:
 
 ```sh

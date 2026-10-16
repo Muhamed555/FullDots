@@ -8,9 +8,10 @@
 | --------------------- | ----------------------------------------------------------------- | -------- |
 | `app`                 | FullDots itself: web app, API and the SQLite database in a volume | Always   |
 | `browser`             | The page reader that lets Dots read web pages in full             | Always   |
+| `searxng`             | Private web search for Dots when DuckDuckGo blocks your server    | Optional |
 | `computer-supervisor` | Starts one isolated computer per Dot (browser, files, terminal)   | Optional |
 
-Only `app` is reachable from the internet, through Dokploy's proxy on your domain with HTTPS. The page reader and the supervisor sit on internal networks.
+Only `app` is reachable from the internet, through Dokploy's proxy on your domain with HTTPS. The page reader, SearXNG and the supervisor sit on internal networks.
 
 ## Before you start
 
@@ -91,13 +92,28 @@ Everything FullDots stores lives in the `fulldots-data` volume: the SQLite datab
 
 Redeploys keep the volume. Do not delete it from Dokploy unless you mean to erase everything.
 
-## 7. Optional: Dot computers
+## 7. Recommended: private web search
+
+Dots search with DuckDuckGo by default, and DuckDuckGo blocks many VPS addresses. A Dot then reports that DuckDuckGo is blocking searches from the server's IP address. The fix is the `searxng` service: your own [SearXNG](https://docs.searxng.org), which asks several search engines for FullDots. No API key and no account are needed.
+
+Add to the **Environment** tab:
+
+```env
+COMPOSE_PROFILES=search
+WEB_SEARCH_PROVIDER=searxng
+```
+
+Redeploy. SearXNG starts next to the app with no public port, and the app reaches it at `http://searxng:8080` (the default `SEARXNG_URL`). Its settings live in [`deployment/searxng/settings.yml`](../deployment/searxng/settings.yml) in the repository: JSON results on, bot limiter off, SearXNG's default engines. Change that file and redeploy to adjust it. With Dot computers too, list both profiles: `COMPOSE_PROFILES=search,computers`.
+
+Some engines may still refuse a server address now and then. SearXNG then uses the others, and a Dot names the engines that did not answer if none did.
+
+## 8. Optional: Dot computers
 
 Each Dot can have its own computer (a browser it can drive, files, a terminal). On a server this needs the computer supervisor.
 
 **Read this first.** The supervisor mounts the server's Docker socket so it can start containers. Anything that controls that socket controls the server's Docker, including Dokploy's own containers. The supervisor is pinned, hardened and reachable only on an internal network with its own token, and FullDots itself never gets the socket. Still, enable computers only on a server you dedicate to FullDots, and keep shell access off for Dots that do not need it.
 
-To enable, add to the **Environment** tab:
+To enable, add to the **Environment** tab (with private search on, use `COMPOSE_PROFILES=search,computers`):
 
 ```env
 COMPOSE_PROFILES=computers
@@ -120,4 +136,6 @@ Push to `main`. With Autodeploy on, Dokploy rebuilds and restarts. Database chan
 - **"Cross-origin requests are not allowed" or "Unrecognized host".** `APP_ORIGIN` does not match the address in your browser exactly.
 - **No HTTPS certificate.** The DNS record does not point to the server yet, or ports 80 and 443 are closed in the server's firewall.
 - **"The AI provider is overloaded right now".** The model provider is busy. FullDots already retried. Try again shortly or choose another model.
+- **"DuckDuckGo is blocking searches from this server's IP address".** Turn on private search (section 7). Waiting does not help.
+- **"Could not reach SearXNG at http://searxng:8080".** `COMPOSE_PROFILES` does not include `search`, or the `searxng` container is not running. Check its logs in Dokploy.
 - **A Dot's computer shows as unavailable.** Check that `COMPOSE_PROFILES=computers` is set, that both computer tokens are set, and that `computer-supervisor` is healthy in Dokploy.

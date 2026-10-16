@@ -1,5 +1,5 @@
 import './privacy.js';
-import { webSearchProvider } from './web-search.js';
+import { webSearchConfig } from './web-search.js';
 import { readIntegrationSettings, readLimits } from './limits.js';
 import { createShutdown } from './shutdown.js';
 import { serve } from '@hono/node-server';
@@ -45,7 +45,7 @@ const config: PlatformConfig = {
   apiKey: process.env.OPENAI_API_KEY,
   model: process.env.OPENAI_MODEL,
   baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
-  webSearchProvider: webSearchProvider(process.env.WEB_SEARCH_PROVIDER),
+  ...webSearchConfig(process.env),
   browserUrl: process.env.BROWSER_URL,
   browserSecret: process.env.BROWSER_SECRET,
   computerSupervisorUrl: process.env.COMPUTER_SUPERVISOR_URL,
@@ -70,6 +70,7 @@ const researchConfig = {
   baseUrl: config.baseUrl,
   models: platform.models,
   webSearchProvider: config.webSearchProvider,
+  searxngUrl: config.searxngUrl,
   browserUrl: config.browserUrl,
   browserSecret: config.browserSecret,
 };

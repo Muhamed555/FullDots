@@ -19,8 +19,10 @@ services:
       VOICE_API_KEY: ${VOICE_API_KEY:-}
       VOICE_MODEL: ${VOICE_MODEL:-}
       VOICE_NAME: ${VOICE_NAME:-marin}
-      # Web search: duckduckgo (no key) or disabled.
+      # Web search: duckduckgo (no key), searxng or disabled. For searxng, start the
+      # `searxng` service below with COMPOSE_PROFILES=search (or --profile search).
       WEB_SEARCH_PROVIDER: ${WEB_SEARCH_PROVIDER:-duckduckgo}
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
       # Connectors and approvals. The connector key defaults to a file in the
       # data volume; set CONNECTOR_SECRET_KEY to supply your own.
       CONNECTOR_SECRET_KEY: ${CONNECTOR_SECRET_KEY:-}
@@ -58,8 +60,30 @@ services:
       - 'host.docker.internal:host-gateway'
     networks:
       - browser-link
+      - search-link
       - app-egress
     init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+  # Private web search, reachable only from the app. See "Web search" in docs/SETUP.md.
+  searxng:
+    profiles: [search]
+    image: docker.io/searxng/searxng:2026.10.4-d48c4b555
+    # A fresh secret key at every start: nothing outside this container signs with it.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - export SEARXNG_SECRET="$$(head -c 32 /dev/urandom | base64 | tr -dc a-zA-Z0-9)"; exec /usr/local/searxng/entrypoint.sh
+    environment:
+      FORCE_OWNERSHIP: 'false'
+    volumes:
+      - ./deployment/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    networks:
+      - search-link
+      - search-egress
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -88,7 +112,10 @@ services:
 networks:
   browser-link:
     internal: true
+  search-link:
+    internal: true
   app-egress:
   browser-egress:
+  search-egress:
 volumes:
   opendots-data:

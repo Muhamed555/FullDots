@@ -94,7 +94,7 @@ export async function research(
   let targets = requestedUrls(prompt);
   if (!targets.length) {
     progress('Searching the public web.');
-    const results = await searchWeb(prompt.slice(0, 300), signal);
+    const results = await searchWeb(prompt.slice(0, 300), config, signal);
     if (!results.length)
       throw new Error('Web search returned no results for this request.');
     targets = results.slice(0, 3).map((result) => result.url);

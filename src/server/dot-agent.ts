@@ -283,7 +283,7 @@ export class DotAgent extends AbstractAgent {
             defineTool({
               name: 'search_web',
               description:
-                'Search the public web (DuckDuckGo) and return result titles, URLs, and snippets. Use read_public_page or computer tools to read a result in full, and cite the URLs you use.',
+                'Search the public web and return result titles, URLs, and snippets. Use read_public_page or computer tools to read a result in full, and cite the URLs you use.',
               parameters: z.object({
                 query: z
                   .string()
@@ -293,7 +293,11 @@ export class DotAgent extends AbstractAgent {
               }),
               execute: async ({ query }) => {
                 researchCheck();
-                const results = await searchWeb(query, controller.signal);
+                const results = await searchWeb(
+                  query,
+                  this.config,
+                  controller.signal,
+                );
                 check();
                 return { query, results };
               },

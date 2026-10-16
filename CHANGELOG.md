@@ -13,6 +13,7 @@ All notable changes to FullDots are listed here. The project follows [Semantic V
 - **`npm run backup`** writes a consistent copy of the database (and the connector key) while FullDots runs.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md).
 - **Deploy on Dokploy** with [`compose.dokploy.yml`](compose.dokploy.yml) and [`docs/DEPLOY-DOKPLOY.md`](docs/DEPLOY-DOKPLOY.md). The app image includes `scripts/backup.mjs`.
+- **Private web search with SearXNG.** `WEB_SEARCH_PROVIDER=searxng` searches through your own SearXNG at `SEARXNG_URL`, keyless, so Dots can search from a VPS that DuckDuckGo blocks. Both compose files run it with `COMPOSE_PROFILES=search`, on an internal network without a public port. When DuckDuckGo answers with its bot check, Dots now say the server's address is blocked and point to SearXNG instead of asking you to wait.
 
 - **Standing goals.** A goal runs on a schedule until the Dot calls `mark_goal_done`, with an optional run limit. Repeats get run limits too ([`docs/AUTOMATIONS.md`](docs/AUTOMATIONS.md)).
 - **Parallel background work.** `BACKGROUND_CONCURRENCY` (default 4) tasks run at once on different Dots.

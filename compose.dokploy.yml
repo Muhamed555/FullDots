@@ -7,6 +7,9 @@
 #
 # Dot computers are optional: add COMPOSE_PROFILES=computers to the environment (plus the three
 # COMPUTER_* secrets) to build and start the computer supervisor as well.
+#
+# Private search is optional too: COMPOSE_PROFILES=search with WEB_SEARCH_PROVIDER=searxng runs
+# SearXNG next to the app. Use it when DuckDuckGo blocks your server. Both: search,computers.
 services:
   app:
     build:
@@ -29,7 +32,10 @@ services:
       VOICE_API_KEY: ${VOICE_API_KEY:-}
       VOICE_MODEL: ${VOICE_MODEL:-}
       VOICE_NAME: ${VOICE_NAME:-marin}
+      # Web search: duckduckgo (no key), searxng (the `searxng` service below) or disabled.
+      # DuckDuckGo often blocks VPS addresses; then use searxng with COMPOSE_PROFILES=search.
       WEB_SEARCH_PROVIDER: ${WEB_SEARCH_PROVIDER:-duckduckgo}
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
       # The connector key defaults to a file in the data volume. Set your own to keep it outside
       # the volume (then back it up separately).
       CONNECTOR_SECRET_KEY: ${CONNECTOR_SECRET_KEY:-}
@@ -62,6 +68,7 @@ services:
       - fulldots-data:/data
     networks:
       - browser-link
+      - search-link
       - app-egress
       - computer-control
       - computers
@@ -99,6 +106,29 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # --- Private web search (COMPOSE_PROFILES=search) -----------------------------------------
+  # SearXNG asks several search engines for the app. Only the app reaches it; it has no port.
+  searxng:
+    profiles: [search]
+    image: docker.io/searxng/searxng:2026.10.4-d48c4b555
+    # A fresh secret key at every start: nothing outside this container signs with it.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - export SEARXNG_SECRET="$$(head -c 32 /dev/urandom | base64 | tr -dc a-zA-Z0-9)"; exec /usr/local/searxng/entrypoint.sh
+    environment:
+      FORCE_OWNERSHIP: 'false'
+    volumes:
+      - ./deployment/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    networks:
+      - search-link
+      - search-egress
+    restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -157,13 +187,16 @@ services:
       retries: 3
 
 networks:
-  # The app talks to the page reader and the supervisor on internal networks only.
+  # The app talks to the page reader, SearXNG and the supervisor on internal networks only.
   browser-link:
+    internal: true
+  search-link:
     internal: true
   computer-control:
     internal: true
   app-egress:
   browser-egress:
+  search-egress:
   # The network the supervisor attaches Dot computers to; the app reaches them by name.
   computers:
     name: ${COMPUTER_NAMESPACE:-fulldots}-computers
