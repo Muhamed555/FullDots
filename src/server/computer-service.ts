@@ -17,8 +17,10 @@ import type { HandoffStore } from './handoff-store.js';
 import { defaultLimits } from './limits.js';
 import type { PlatformConfig } from './platform-config.js';
 import {
+  ComputerActionError,
   ComputerConflictError,
   classifyConflict,
+  failureReason,
 } from './computer-conflict.js';
 export { ComputerConflictError } from './computer-conflict.js';
 import { liveFrames, type LiveFrames } from './computer-frames.js';
@@ -208,8 +210,13 @@ export class ComputerService {
       });
       if (response.status === 409)
         throw new ComputerConflictError(await classifyConflict(response));
-      if (!response.ok)
-        throw new Error(`Computer service returned HTTP ${response.status}.`);
+      if (!response.ok) {
+        const reason = await failureReason(response);
+        throw new ComputerActionError(
+          response.status,
+          reason && this.redact(reason, token),
+        );
+      }
       if (!response.body)
         throw new Error('Computer service returned an empty response.');
       const reader = response.body.getReader();

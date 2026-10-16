@@ -39,6 +39,8 @@ export class FakeComputer {
   stickyResume = false;
   /** Refs whose click fails with HTTP 502, like an option of a native select. */
   clickFails = new Set<string>();
+  /** The error those clicks answer with. */
+  clickFailure = 'Element is not visible.';
   /** The next N snapshot calls fail with HTTP 502. */
   failSnapshots = 0;
   /** The next N actions fail with HTTP 502. */
@@ -232,10 +234,7 @@ export class FakeComputer {
         const refused = this.stale(typed);
         if (refused) return refused;
         if (this.clickFails.has(ref!))
-          return Response.json(
-            { error: 'Element is not visible.' },
-            { status: 502 },
-          );
+          return Response.json({ error: this.clickFailure }, { status: 502 });
         this.onClick?.(ref!, this);
         return Response.json({
           action: 'click',

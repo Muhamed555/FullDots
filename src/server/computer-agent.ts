@@ -5,7 +5,10 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { ComputerAction } from '../shared/computer-types.js';
-import { ComputerConflictError } from './computer-conflict.js';
+import {
+  ComputerActionError,
+  ComputerConflictError,
+} from './computer-conflict.js';
 import type {
   ComputerService,
   ComputerSessionCall,
@@ -586,6 +589,22 @@ export class AgentComputer implements GateComputer {
           ...(withPage ? await this.pageAfter(call, action) : {}),
         };
       } catch (error) {
+        // The browser could not click or type there: the element is hidden, covered (often by a
+        // cookie banner) or not ready. Repeating the same action will not help, so the agent gets the
+        // reason and the current page to choose another way. Select keeps the error to try its next way.
+        if (
+          error instanceof ComputerActionError &&
+          error.status === 502 &&
+          usesRef &&
+          withPage
+        ) {
+          const fresh = await this.takeSnapshot(call);
+          return {
+            error: `The ${action === 'click' ? 'click' : 'typing'} did not go through: ${error.reason ?? 'the browser could not do it.'} The element may be hidden, covered by something such as a cookie or consent banner, or not ready yet. Look at the page below: close or accept any banner first, choose another element, or open a link's address with computer_navigate. Do not repeat the same action unchanged.`,
+            retry: true,
+            page: toPage(fresh),
+          };
+        }
         if (
           !(error instanceof ComputerConflictError) ||
           (error.kind !== 'snapshot_required' && error.kind !== 'stale_ref') ||

@@ -233,21 +233,19 @@ describe('recording browser steps', () => {
       text: 'x',
     });
     expect(refused.error).toBeTruthy();
+    // A key press the computer fails throws: the step is failed and has no picture.
     f.fake.failActions = 1;
-    await expect(
-      f.run('type', {
-        ref: 'e1',
-        snapshotId: nav.page.snapshotId + 2,
-        text: 'Ada',
-      }),
-    ).rejects.toThrow();
+    await expect(f.run('key', { key: 'Tab' })).rejects.toThrow(
+      'The action failed.',
+    );
     await f.service.framesSettled();
     const steps = f.workspace.frames.steps(f.id, 'thread');
     expect(steps.map((step) => [step.action, step.outcome])).toEqual([
       ['navigate', 'succeeded'],
       ['type', 'failed'],
-      ['type', 'failed'],
+      ['key', 'failed'],
     ]);
+    expect(nav.page.snapshotId).toBeGreaterThan(0);
     expect(steps[2].hasFrame).toBe(false);
   });
 

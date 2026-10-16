@@ -28,6 +28,57 @@ export class ComputerConflictError extends Error {
   }
 }
 
+/**
+ * A call the computer answered with an error status other than 409, with the computer's own reason
+ * when it gave one. For a browser action that is a 502 whose reason comes from Playwright, for example
+ * "Element is not visible" or that another element intercepts the click.
+ */
+export class ComputerActionError extends Error {
+  constructor(
+    readonly status: number,
+    readonly reason?: string,
+  ) {
+    super(
+      `Computer service returned HTTP ${status}.${reason ? ` ${reason}` : ''}`,
+    );
+    this.name = 'ComputerActionError';
+  }
+}
+
+const REASON_LIMIT = 300;
+
+/**
+ * The computer's reason for a failed call as one short line, or undefined. Playwright appends a long
+ * call log; its first line says what failed, and a line about an element that intercepts pointer
+ * events says what is in the way (often a cookie banner), so only those are kept.
+ */
+export async function failureReason(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const body: unknown = JSON.parse(await readSome(response, 16_384));
+    const error =
+      body && typeof body === 'object'
+        ? (body as Record<string, unknown>).error
+        : undefined;
+    if (typeof error !== 'string') return undefined;
+    const lines = error
+      .split('\n')
+      .map((line) => line.replace(/^\s*-\s*/, '').trim())
+      .filter(Boolean);
+    const first = lines[0]?.replace(/\s*Call log:\s*$/, '');
+    const blocker = lines.find((line) =>
+      /intercepts pointer events/i.test(line),
+    );
+    const reason = [first, blocker && blocker !== first ? blocker : undefined]
+      .filter(Boolean)
+      .join(' ');
+    return reason ? reason.slice(0, REASON_LIMIT) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Reads at most `limit` bytes of a body, so an odd error response cannot be large. */
 async function readSome(response: Response, limit: number): Promise<string> {
   if (!response.body) return '';

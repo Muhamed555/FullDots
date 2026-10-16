@@ -313,6 +313,61 @@ it('does not guess when the element changed under an old ref', async () => {
   );
 });
 
+it('gives the reason and the current page when the browser cannot click an element', async () => {
+  const f = setup();
+  f.fake.pages['https://uni.test/'] = page('Uni', [
+    { ref: 'e1', role: 'button', name: 'Accept cookies' },
+    { ref: 'e2', role: 'link', name: 'Study programmes' },
+  ]);
+  const nav = await f.run('navigate', { url: 'https://uni.test/' });
+  f.fake.clickFails = new Set(['e2']);
+  f.fake.clickFailure = [
+    'locator.click: Timeout 10000ms exceeded.',
+    'Call log:',
+    '  - waiting for locator(\'[ref="e2"]\')',
+    '  - <div id="cookie-banner">…</div> intercepts pointer events',
+    '  - retrying click action',
+  ].join('\n');
+  const clicks = f.fake.count_of('click');
+  const failed = await f.run('click', {
+    ref: 'e2',
+    snapshotId: nav.page.snapshotId,
+  });
+  expect(failed).toMatchObject({ retry: true });
+  expect(failed.error).toContain('locator.click: Timeout 10000ms exceeded.');
+  expect(failed.error).toContain('cookie-banner');
+  expect(failed.error).toContain('intercepts pointer events');
+  expect(failed.error).not.toContain('retrying click action');
+  expect(failed.error).toMatch(/banner/);
+  expect(failed.page.elements).toEqual([
+    { ref: 'e1', role: 'button', name: 'Accept cookies' },
+    { ref: 'e2', role: 'link', name: 'Study programmes' },
+  ]);
+  // Tried once, not repeated.
+  expect(f.fake.count_of('click')).toBe(clicks + 1);
+  // The agent can go on from the page it was given.
+  const accepted = await f.run('click', {
+    ref: 'e1',
+    snapshotId: failed.page.snapshotId,
+  });
+  expect(accepted.error).toBeUndefined();
+});
+
+it('keeps secrets out of the reason a computer gives for a failure', async () => {
+  const f = setup();
+  f.fake.pages['https://form.test/'] = page('Form', form);
+  const nav = await f.run('navigate', { url: 'https://form.test/' });
+  f.fake.clickFails = new Set(['e2']);
+  f.fake.clickFailure = 'Failed with token master-secret and supervisor-secret';
+  const failed = await f.run('click', {
+    ref: 'e2',
+    snapshotId: nav.page.snapshotId,
+  });
+  expect(failed.error).toContain('Failed with token');
+  expect(JSON.stringify(failed)).not.toContain('master-secret');
+  expect(JSON.stringify(failed)).not.toContain('supervisor-secret');
+});
+
 it('never returns a screenshot image to the model', async () => {
   const f = setup();
   f.fake.pages['https://form.test/'] = page('Form', form);
