@@ -269,6 +269,7 @@ docs/        Guides, brand assets and screenshots
 | Guide                              | Covers                                        |
 | ---------------------------------- | --------------------------------------------- |
 | [Setup](docs/SETUP.md)             | Running, Docker, storage, search and backups  |
+| [Dokploy](docs/DOKPLOY.md)         | Deploying on a VPS with Dokploy and HTTPS     |
 | [Models](docs/MODELS.md)           | Providers, keys and per-Dot models            |
 | [Connectors](docs/CONNECTORS.md)   | MCP connectors, browser sign-in and grants    |
 | [Approvals](docs/APPROVALS.md)     | Modes, what pauses, handoffs and resumes      |

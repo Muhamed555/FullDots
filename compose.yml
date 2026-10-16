@@ -28,6 +28,10 @@ services:
       CONNECTOR_RESULT_MAX_CHARS: ${CONNECTOR_RESULT_MAX_CHARS:-}
       APPROVAL_TTL: ${APPROVAL_TTL:-}
       NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
+      # Always-on work and teams (empty uses the built-in defaults).
+      BACKGROUND_CONCURRENCY: ${BACKGROUND_CONCURRENCY:-}
+      DOT_DAILY_TOKEN_WARN: ${DOT_DAILY_TOKEN_WARN:-}
+      TEAM_MAX_DEPTH: ${TEAM_MAX_DEPTH:-}
       # Work limits (empty uses the built-in defaults).
       AGENT_TURN_TIMEOUT: ${AGENT_TURN_TIMEOUT:-}
       AGENT_TURN_GRACE: ${AGENT_TURN_GRACE:-}
