@@ -1,4 +1,6 @@
 import { computerRoutes } from './computer-routes.js';
+import { dockerSetupRoutes } from './docker-setup-routes.js';
+import type { DockerSetup } from './docker-setup.js';
 import { computerReplayRoutes } from './computer-replay-routes.js';
 import { connectorRoutes } from './connector-routes.js';
 import { connectorAuthRoutes } from './connector-auth-routes.js';
@@ -42,6 +44,8 @@ export interface AppOptions {
   ownerToken?: string;
   origin?: string;
   platform?: Platform;
+  /** Guided Docker setup for Dot computers; only offered to a local owner. */
+  dockerSetup?: DockerSetup;
 }
 export function createApp({
   store,
@@ -50,6 +54,7 @@ export function createApp({
   ownerToken,
   origin,
   platform,
+  dockerSetup,
 }: AppOptions) {
   const app = new Hono();
   // Webhooks first: they carry their own secret and limits instead of the owner checks below.
@@ -113,6 +118,7 @@ export function createApp({
       return c.json({ error: 'Use application/json.' }, 415);
     await next();
   });
+  if (dockerSetup) app.route('/api', dockerSetupRoutes(dockerSetup));
   if (platform) {
     app.use('/api/*', workspaceChanges(platform));
     app.route('/api', liveRoutes(platform));

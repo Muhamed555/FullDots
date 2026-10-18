@@ -4,6 +4,16 @@ FullDots connects each specialist to its own container through [OpenBot](https:/
 
 The app exposes selected computer tools to the same Dot agent used by web chat, scheduled work, and voice's compute delegation. Browser, workspace-file, and shell permissions are saved per Dot and checked by the server. They start disabled. No action falls back to your host's shell or files when the computer service is unavailable.
 
+## Set up from the app
+
+When FullDots runs on your own computer (`HOST` is loopback and the app is not in a container), a Dot's Computer panel shows **Set up with Docker** whenever computers are not set up. It replaces the commands below with buttons:
+
+1. **Check Docker** runs `docker --version` and `docker info` and tells you whether Docker is missing, stopped or running.
+2. **Install Docker Desktop** (`winget` on Windows, `brew` on macOS) or **Start Docker** opens Docker Desktop and waits until it answers.
+3. **Create Dot computers** adds the `COMPUTER_*` values and two new random secrets to `.env` (values you already set are kept), builds the images and starts the supervisor. No restart is needed.
+
+Every step first shows the exact commands and runs them only after you choose **Allow and run**. The server runs a fixed list per step, with no shell, and refuses a request whose approved commands differ from that list. On Linux the app only checks Docker and creates the computers; install and start Docker with your system's tools. Set `DOCKER_SETUP=off` to remove the buttons.
+
 ## Start services for local development
 
 Use a working Docker Engine with Compose v2 and BuildKit support for additional build contexts. Keep the application on Node.js 24 as described in [Setup](SETUP.md). Add two different random secrets of at least 24 characters to `.env` and set:

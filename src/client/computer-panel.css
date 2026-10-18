@@ -554,6 +554,54 @@
   margin-top: 10px;
 }
 
+/* Guided Docker setup */
+.cp-docker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cp-line);
+}
+.cp-docker h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cp-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.cp-docker p {
+  max-width: 40ch;
+}
+.cp-docker-ask,
+.cp-docker-job {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+}
+.cp-docker pre {
+  max-height: 180px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--cp-soft);
+  color: var(--cp-ink);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cp-docker-error {
+  color: var(--cp-bad);
+}
+
 /* More tools */
 .cp-more {
   border-top: 1px solid var(--cp-line);
