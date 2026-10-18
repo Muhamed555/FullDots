@@ -11,13 +11,12 @@ connector.key
 
 # Local data
 data/
+backups/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
 *.sqlite3*
 *.db
-.opendots/
-artifacts/
 
 # Test and tooling output
 playwright-report/
@@ -27,17 +26,10 @@ coverage/
 .vite/
 *.tsbuildinfo
 
-# Local hosted-project selection
+# Local tools and private notes
+.claude
 .copilotkit/
-
-# Private working notes: never commit
-PLAN.md
-PLAN-REVIEW-LOG.md
-IMPLEMENTATION-P1-P2.md
-CONNECTOR-AUTH-PLAN.md
-MODEL-PROVIDERS-PLAN.md
-RESEARCH.md
-docs/superpowers/
+docs/plans
 
 # OS and editor junk
 .DS_Store
@@ -46,5 +38,3 @@ desktop.ini
 *.swp
 .idea/
 .vscode/
-IMPLEMENTATION-P3.md
-backups/

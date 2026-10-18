@@ -283,6 +283,7 @@ docs/        Guides, brand assets and screenshots
 | [Teams](docs/TEAMS.md)                      | Hand-offs between Dots                        |
 | [Roadmap](docs/ROADMAP.md)                  | What is done and what is next                 |
 | [Computers](docs/COMPUTERS.md)              | A computer for each Dot                       |
+| [Interface](docs/UI.md)                     | A map of the chat and sidebar                 |
 | [Brand](docs/brand/README.md)               | Logo, Dots and colours                        |
 | [Changelog](CHANGELOG.md)                   | What changed in each release                  |
 
