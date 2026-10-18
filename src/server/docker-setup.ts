@@ -387,7 +387,7 @@ export class DockerSetup {
             'failed',
             'Docker is not running. Check or start it first.',
           );
-        const env = this.writeEnv();
+        const env = this.chooseEnv();
         for (const command of [COMPOSE_BUILD, COMPOSE_UP]) {
           const result = await this.exec(job, command, {
             ...process.env,
@@ -400,6 +400,8 @@ export class DockerSetup {
               'Docker could not finish. Read the output below.',
             );
         }
+        // Last, because `npm run dev` restarts the server when .env changes and would end this job.
+        this.saveEnv(env);
         return this.finish(
           job,
           'done',
@@ -409,8 +411,8 @@ export class DockerSetup {
     }
   }
 
-  /** Fills in missing COMPUTER_* values in .env and in the running server, keeping any the owner set. */
-  private writeEnv(): Record<string, string> {
+  /** Picks the COMPUTER_* values (the owner's, else those already in .env, else new) and gives them to the running server. */
+  private chooseEnv(): Record<string, string> {
     const { config } = this.options;
     const file = join(this.cwd, '.env');
     const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
@@ -441,7 +443,6 @@ export class DockerSetup {
         'opendots',
       ),
     };
-    writeFileSync(file, upsertEnv(current, values));
     Object.assign(config, {
       computerSupervisorUrl: values.COMPUTER_SUPERVISOR_URL,
       computerSupervisorToken: values.COMPUTER_SUPERVISOR_TOKEN,
@@ -449,5 +450,12 @@ export class DockerSetup {
       computerNamespace: values.COMPUTER_NAMESPACE,
     });
     return values;
+  }
+
+  /** Adds the chosen values to .env, keeping every line the owner wrote. */
+  private saveEnv(values: Record<string, string>) {
+    const file = join(this.cwd, '.env');
+    const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
+    writeFileSync(file, upsertEnv(current, values));
   }
 }

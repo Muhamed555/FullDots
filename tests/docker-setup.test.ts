@@ -148,6 +148,16 @@ describe('Docker setup', () => {
     expect(setup.status().job!.output).not.toContain(token);
   });
 
+  it('writes .env only after the build and start succeed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'fulldots-docker-'));
+    const { setup } = setupWith({ build: 1 }, 'win32', { cwd: dir });
+    setup.start('check', approve('check'));
+    await finished(setup);
+    setup.start('create-computers', approve('create-computers'));
+    expect((await finished(setup)).state).toBe('failed');
+    expect(() => readFileSync(join(dir, '.env'), 'utf8')).toThrow();
+  });
+
   it('refuses to create computers while Docker is not known to be running', async () => {
     const { setup, ran } = setupWith({});
     setup.start('create-computers', approve('create-computers'));
