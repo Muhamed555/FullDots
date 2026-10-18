@@ -289,7 +289,7 @@ export class DockerSetup {
           COMPUTER_BROWSER_MODE: 'headed',
         },
       );
-      return 'The desktop is on. Stop and start a Dot’s computer to switch it to the desktop.';
+      return 'The desktop is on. Computers that are running keep their old image: stop and start each one in its Computer panel to switch it.';
     },
   };
 

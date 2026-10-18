@@ -159,14 +159,45 @@ describe('desktop service', () => {
     expect(state.windows).toHaveLength(2);
   });
 
-  it('says so when the computer has no desktop', async () => {
-    const service = new DesktopService(
-      fakeComputers({ exitCode: 127, stderr: 'sh: 1: wmctrl: not found' })
-        .computers,
-    );
-    await expect(service.act('dot', 'windows', {}, 'agent')).rejects.toThrow(
-      /no desktop/,
-    );
+  it('says what to do when the computer has no desktop', async () => {
+    const { computers } = fakeComputers({
+      exitCode: 127,
+      stderr: 'sh: 1: wmctrl: not found',
+    });
+    await expect(
+      new DesktopService(computers).act('dot', 'windows', {}, 'agent'),
+    ).rejects.toThrow(/turned off/);
+    await expect(
+      new DesktopService(computers, () => true).act(
+        'dot',
+        'windows',
+        {},
+        'agent',
+      ),
+    ).rejects.toThrow(/stop and start the computer/);
+  });
+
+  it('runs one action at a time per Dot, in the order they were sent', async () => {
+    const order: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const computers = {
+      action: async (_id: string, _a: string, input: { command: string }) => {
+        const name = input.command.startsWith('setsid') ? 'open' : 'key';
+        order.push(`start ${name}`);
+        if (name === 'open') await gate;
+        order.push(`end ${name}`);
+        return { exitCode: 0, stdout: WMCTRL, stderr: '' };
+      },
+    } as unknown as ComputerService;
+    const service = new DesktopService(computers);
+    const open = service.act('dot', 'open', { app: 'editor' }, 'agent');
+    const key = service.act('dot', 'key', { keys: ['ctrl+s'] }, 'agent');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(order).toEqual(['start open']);
+    release();
+    await Promise.all([open, key]);
+    expect(order).toEqual(['start open', 'end open', 'start key', 'end key']);
   });
 
   it('takes frames quietly and falls back to a smaller picture', async () => {
@@ -236,7 +267,7 @@ describe('desktop routes and tools', () => {
     const result = (await (
       type.execute as unknown as (input: unknown) => Promise<unknown>
     )({ text: 'hi' })) as { error?: string };
-    expect(result.error).toMatch(/no desktop/);
+    expect(result.error).toMatch(/turned off/);
   });
 
   it('are approved like shell commands', () => {

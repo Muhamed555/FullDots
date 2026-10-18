@@ -348,6 +348,10 @@ export function ComputerPanel({
         refresh: () => void refresh(),
         start: () => void doing('start', () => run('/start')),
         stop: () => void doing('stop', () => run('/stop')),
+        restart: () =>
+          void doing('start', async () => {
+            if ((await run('/stop')).ok) await run('/start');
+          }),
         enable: () => {
           const turnOn = async () => {
             const enabled = await run(

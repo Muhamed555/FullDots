@@ -76,6 +76,7 @@ const actions = (): PanelActions => ({
   refresh: vi.fn(),
   start: vi.fn(),
   stop: vi.fn(),
+  restart: vi.fn(),
   enable: vi.fn(),
   take: vi.fn(),
   release: vi.fn(),

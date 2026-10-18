@@ -41,6 +41,8 @@ export interface PanelActions {
   refresh: () => void;
   start: () => void;
   stop: () => void;
+  /** Stops and starts the computer, which brings it up on the current image. */
+  restart: () => void;
   /** Turns computer access on, then starts the computer unless it is already running. */
   enable: () => void;
   take: () => void;
@@ -272,6 +274,8 @@ export function PanelView({
                 dotId={dot.id}
                 dotName={dot.name}
                 shellAllowed={!!permissions?.shell}
+                restarting={working === 'start' || working === 'stop'}
+                onRestart={actions.restart}
                 onOpenSettings={openSettings}
               />
             ) : (

@@ -53,12 +53,17 @@ export function DesktopStage({
   dotId,
   dotName,
   shellAllowed,
+  restarting,
+  onRestart,
   onOpenSettings,
 }: {
   dotId: string;
   dotName: string;
   /** Desktop control runs through the computer's shell, so it needs Terminal access. */
   shellAllowed: boolean;
+  restarting: boolean;
+  /** Brings the computer up on the desktop image when it still runs the one from before. */
+  onRestart: () => void;
   onOpenSettings: () => void;
 }) {
   const [available, setAvailable] = useState<Availability>('checking');
@@ -68,8 +73,9 @@ export function DesktopStage({
   const [sending, setSending] = useState(false);
   const image = useRef<HTMLImageElement>(null);
 
+  // Checked again after a restart, which is what switches a computer to the desktop image.
   useEffect(() => {
-    if (!shellAllowed) return;
+    if (!shellAllowed || restarting) return;
     const controller = new AbortController();
     setAvailable('checking');
     api<{ available: boolean }>(
@@ -87,7 +93,7 @@ export function DesktopStage({
         );
       });
     return () => controller.abort();
-  }, [dotId, shellAllowed]);
+  }, [dotId, shellAllowed, restarting]);
 
   // One picture at a time: the next is asked for only after the last one arrived.
   useEffect(() => {
@@ -185,9 +191,19 @@ export function DesktopStage({
         <MonitorOff size={22} aria-hidden="true" />
         <p>
           {available === 'no'
-            ? `${dotName}’s computer has no desktop. Enable it from the Docker setup, then restart the computer.`
+            ? `The desktop is on, but ${dotName}’s computer still runs the image from before. Restart it to switch; its files are kept.`
             : error}
         </p>
+        {available === 'no' && (
+          <button
+            type="button"
+            className="cp-btn cp-btn-primary"
+            onClick={onRestart}
+            disabled={restarting}
+          >
+            {restarting ? 'Restarting…' : 'Restart computer'}
+          </button>
+        )}
       </div>
     );
 

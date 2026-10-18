@@ -53,7 +53,7 @@ COMPUTER_IMAGE=opendots-computer-desktop:b6932d3
 COMPUTER_BROWSER_MODE=headed
 ```
 
-Each computer switches to the desktop the next time it starts, so stop and start it once. Files and browser profiles are kept. To set it up by hand, add those lines, then build and restart:
+A computer that is already running keeps its old image until it starts again: the **Desktop** tab then offers **Restart computer**, and a Dot that tries a desktop tool is told to ask you for that restart. Files and browser profiles are kept. To set it up by hand, add those lines, then build and restart:
 
 ```sh
 docker compose -f compose.computers.yml build computer-image computer-supervisor computer-desktop-image

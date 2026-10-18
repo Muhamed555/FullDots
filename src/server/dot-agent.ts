@@ -374,7 +374,7 @@ export class DotAgent extends AbstractAgent {
         // The desktop image gives the same computer windows and apps besides the browser.
         const desktop =
           agentComputer && this.config.computerDesktop
-            ? new DesktopService(computer)
+            ? new DesktopService(computer, () => !!this.config.computerDesktop)
             : undefined;
         const mcpTools = connectors
           ? mcpToolsForDot(connectors, this.workspace.connectors, {

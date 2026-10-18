@@ -140,7 +140,15 @@ export function createApp({
       }),
     );
     app.route('/api', computerReplayRoutes(platform.workspace));
-    app.route('/api', desktopRoutes(new DesktopService(platform.computers)));
+    app.route(
+      '/api',
+      desktopRoutes(
+        new DesktopService(
+          platform.computers,
+          () => !!platform.config.computerDesktop,
+        ),
+      ),
+    );
     app.route(
       '/api',
       turnRoutes(platform.turns, platform.workspace, (dotId) => {

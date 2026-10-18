@@ -36,13 +36,38 @@ const asShellResult = (value: unknown): ShellResult => {
 };
 
 const NO_DESKTOP =
-  'This computer has no desktop. Rebuild it with the desktop image (COMPUTER_DESKTOP); see docs/COMPUTERS.md.';
+  'This computer has no desktop, because the desktop is turned off. The owner can turn it on in the Desktop tab of the Computer panel.';
+/** The desktop is on, but the running computer was started from the image before it. */
+const OLD_IMAGE =
+  'The desktop is turned on, but this computer still runs the image from before. Ask the owner to stop and start the computer in its Computer panel (files are kept), then try again.';
 
 export class DesktopService {
-  constructor(private readonly computers: ComputerService) {}
+  /** One desktop action at a time per Dot: keys and typing must land in the order they were sent. */
+  private readonly queues = new Map<string, Promise<unknown>>();
+
+  constructor(
+    private readonly computers: ComputerService,
+    /** Whether the desktop is turned on (COMPUTER_DESKTOP), to explain a computer that lacks it. */
+    private readonly desktopOn: () => boolean = () => false,
+  ) {}
+
+  private missing() {
+    return new Error(this.desktopOn() ? OLD_IMAGE : NO_DESKTOP);
+  }
+
+  private inOrder<T>(dotId: string, work: () => Promise<T>): Promise<T> {
+    const previous = this.queues.get(dotId) ?? Promise.resolve();
+    const next = previous.catch(() => {}).then(work);
+    const settled = next.catch(() => {});
+    this.queues.set(dotId, settled);
+    void settled.then(() => {
+      if (this.queues.get(dotId) === settled) this.queues.delete(dotId);
+    });
+    return next;
+  }
 
   /** Runs one desktop action and returns the windows afterwards. Input is validated here. */
-  async act(
+  act(
     dotId: string,
     action: DesktopAction,
     input: unknown,
@@ -50,6 +75,18 @@ export class DesktopService {
     signal?: AbortSignal,
   ): Promise<DesktopState> {
     const parsed = desktopInputs[action].parse(input ?? {});
+    return this.inOrder(dotId, () =>
+      this.run(dotId, action, parsed, actor, signal),
+    );
+  }
+
+  private async run(
+    dotId: string,
+    action: DesktopAction,
+    parsed: unknown,
+    actor: 'owner' | 'agent',
+    signal?: AbortSignal,
+  ): Promise<DesktopState> {
     const result = asShellResult(
       await this.computers.action(
         dotId,
@@ -64,7 +101,7 @@ export class DesktopService {
         result.stderr,
       )
     )
-      throw new Error(NO_DESKTOP);
+      throw this.missing();
     const windows = parseWindows(result.stdout);
     if (result.exitCode === 0) return { windows };
     const detail = result.timedOut
@@ -116,11 +153,9 @@ export class DesktopService {
         await this.computers.quietExec(dotId, frameCommand(small), signal),
       );
       if (result.exitCode !== 0)
-        throw new Error(
-          /not found/.test(result.stderr)
-            ? NO_DESKTOP
-            : 'The desktop picture could not be taken.',
-        );
+        throw /not found/.test(result.stderr)
+          ? this.missing()
+          : new Error('The desktop picture could not be taken.');
       if (!result.truncated) return Buffer.from(result.stdout.trim(), 'base64');
     }
     throw new Error('The desktop picture is too large to send.');
