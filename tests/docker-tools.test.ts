@@ -44,6 +44,28 @@ describe('Docker tools for Dots', () => {
     });
   });
 
+  it('never reports an unchecked Docker as missing and says when computers already run', async () => {
+    const running = new DockerSetup({
+      config: {
+        baseUrl: 'http://x',
+        voiceName: 'm',
+        computerSupervisorUrl: 'http://127.0.0.1:4312/',
+        computerSupervisorToken: 'a'.repeat(24),
+        computerToken: 'b'.repeat(24),
+      },
+      enabled: true,
+      platform: 'win32',
+      run,
+      fetch: (async () => new Response('{}')) as typeof fetch,
+    });
+    const status = await tools(running).docker_status!({});
+    expect(status.computerService).toBe('reachable');
+    expect(String(status.docker)).toMatch(/not checked yet/);
+    expect(String(status.hint)).toMatch(/Do not set anything up/);
+    const bare = await tools(setup()).docker_status!({});
+    expect(bare.computerService).toBe('not_set_up');
+  });
+
   it('reports a refused step instead of throwing', async () => {
     const docker = setup();
     const { docker_setup } = tools(docker);

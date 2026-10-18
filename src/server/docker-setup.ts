@@ -225,6 +225,8 @@ export interface DockerSetupOptions {
   platform?: NodeJS.Platform;
   run?: Runner;
   sleep?: (ms: number) => Promise<void>;
+  /** For tests: how the computer service is asked whether it answers. */
+  fetch?: typeof fetch;
 }
 
 /**
@@ -261,6 +263,30 @@ export class DockerSetup {
       ).map((step) => planFor(step, this.platform)),
       ...(this.job ? { job: this.job } : {}),
     };
+  }
+
+  /** Whether the computer service is configured and answering, whatever Docker's own state is known to be. */
+  async supervisor(): Promise<'not_set_up' | 'reachable' | 'unreachable'> {
+    const {
+      computerSupervisorUrl: url,
+      computerSupervisorToken,
+      computerToken,
+    } = this.options.config;
+    if (
+      !url?.trim() ||
+      !computerSupervisorToken?.trim() ||
+      !computerToken?.trim()
+    )
+      return 'not_set_up';
+    try {
+      const response = await (this.options.fetch ?? fetch)(
+        `${url.trim().replace(/\/$/, '')}/health`,
+        { signal: AbortSignal.timeout(2000) },
+      );
+      return response.ok ? 'reachable' : 'unreachable';
+    } catch {
+      return 'unreachable';
+    }
   }
 
   /** The commands a step runs here: what the owner approves, in the app or through the approval gate. */

@@ -11,7 +11,16 @@ import type { DockerSetup } from './docker-setup.js';
 const WAIT_MS = 45_000;
 
 export const dockerPrompt =
-  'If a computer tool fails because the computer service is unavailable or not set up, offer to set it up yourself: call docker_status, then docker_setup one step at a time (check, then start-docker or install-docker, then create-computers). The owner approves each step with a button, so just call the tool; do not ask for permission in text first and do not show commands. Tell the owner in plain words what each step does. If a step is still running, say so and call docker_status later instead of repeating it.';
+  'Try the computer tools first. Only when one fails because the computer service is unavailable or not set up, call docker_status and follow its hint; if it says the computers are already running, do not set anything up. Never tell the owner that Docker is missing or not running unless a docker_setup check reported it. To set up, call docker_setup one step at a time (check, then start-docker or install-docker, then create-computers): the owner approves each step with a button, so just call the tool; do not ask permission in text first and do not show commands. Say in plain words what each step does. If a step is still running, say so and call docker_status later instead of repeating it.';
+
+const HINTS = {
+  reachable:
+    'The computer service is running. Use the computer tools. If one says the computer is stopped, ask the owner to press Start in the Computer panel. Do not set anything up.',
+  not_set_up:
+    'Dot computers are not set up. Offer to set them up with docker_setup, starting with the check step.',
+  unreachable:
+    'Computers are set up but the service does not answer. Offer docker_setup with the check step, then start-docker or create-computers as it finds.',
+};
 
 export function dockerTools(setup: DockerSetup, check: () => void) {
   return [
@@ -23,8 +32,14 @@ export function dockerTools(setup: DockerSetup, check: () => void) {
       execute: async () => {
         check();
         const { docker, job } = setup.status();
+        const supervisor = await setup.supervisor();
         return {
-          docker,
+          computerService: supervisor,
+          hint: HINTS[supervisor],
+          docker:
+            docker === 'unknown'
+              ? 'not checked yet (this does not mean it is missing)'
+              : docker,
           ...(job
             ? { lastStep: job.step, state: job.state, message: job.message }
             : {}),
