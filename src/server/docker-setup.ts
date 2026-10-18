@@ -392,6 +392,8 @@ export class DockerSetup {
           const result = await this.exec(job, command, {
             ...process.env,
             ...env,
+            // Compose's bake builder reads the OpenBot git URL as a local path on Windows.
+            COMPOSE_BAKE: 'false',
           });
           if (result.code !== 0)
             return this.finish(
