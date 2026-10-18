@@ -366,6 +366,17 @@ function baseLevel(
         : { level: 'write', reason: 'shell command' };
     case 'computer_files_write':
       return { level: 'write', reason: 'writes a file' };
+    // Desktop input can reach a terminal window, so it is treated like a shell command.
+    case 'desktop_type':
+      return isDestructiveCommand(String(args.text ?? ''))
+        ? { level: 'sensitive', reason: 'types a destructive command' }
+        : { level: 'write', reason: 'types into a desktop app' };
+    case 'desktop_key':
+      return { level: 'write', reason: 'presses keys in a desktop app' };
+    case 'desktop_click':
+      return { level: 'write', reason: 'clicks on the desktop' };
+    case 'desktop_open':
+      return { level: 'write', reason: 'opens a desktop app' };
     case 'create_space_page':
       return { level: 'write', reason: 'creates a page' };
     case 'edit_space_page':
@@ -501,6 +512,19 @@ export function categoriesOf(input: ClassifyInput): RuleCategory[] {
     }
     case 'computer_files_write':
       found.add('write_files');
+      break;
+    case 'desktop_type': {
+      const text = String(args.text ?? '');
+      found.add('run_shell');
+      if (inFamily(text, DELETE_COMMANDS)) found.add('delete_things');
+      if (inFamily(text, PUBLISH_COMMANDS)) found.add('publish');
+      if (inFamily(text, SEND_COMMANDS)) found.add('send_messages');
+      break;
+    }
+    case 'desktop_key':
+    case 'desktop_click':
+    case 'desktop_open':
+      found.add('run_shell');
       break;
     case 'create_space_page':
       found.add('create_pages');

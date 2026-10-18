@@ -6,6 +6,7 @@ export const DOCKER_STEPS = [
   'start-docker',
   'install-docker',
   'create-computers',
+  'enable-desktop',
 ] as const;
 export type DockerStep = (typeof DOCKER_STEPS)[number];
 

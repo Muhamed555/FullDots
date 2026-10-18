@@ -554,6 +554,67 @@
   margin-top: 10px;
 }
 
+/* Desktop view */
+.cp-desktop {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 16px 0;
+}
+.cp-desktop-screen {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid var(--cp-line);
+  border-radius: 10px;
+  background: var(--cp-soft);
+}
+.cp-desktop-screen img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: crosshair;
+}
+.cp-desktop-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 11px;
+  border: 1px solid var(--cp-line);
+  border-radius: 10px;
+  background: var(--cp-soft);
+}
+.cp-desktop-keys:focus-within {
+  border-color: var(--cp-edge);
+  background: var(--cp-surface);
+}
+.cp-panel .cp-desktop-keys input {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--cp-ink);
+  font: inherit;
+  outline: none;
+}
+.cp-panel .cp-btn.cp-btn-small {
+  min-height: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.cp-desktop-hint {
+  color: var(--cp-muted);
+  font-size: 12px;
+}
+.cp-panel .cp-desktop-empty {
+  padding: 32px 24px;
+  text-align: center;
+}
+
 /* Guided Docker setup */
 .cp-docker {
   display: flex;

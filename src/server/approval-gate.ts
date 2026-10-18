@@ -153,6 +153,8 @@ const DOCKER_ACTIONS: Record<string, string> = {
   'install-docker': 'install Docker Desktop on this machine',
   'create-computers':
     'build and start the Dot computers with Docker (adds computer settings to .env)',
+  'enable-desktop':
+    'give the Dot computers a desktop with windows and apps (rebuilds the computer image)',
 };
 function describeAction(
   tool: string,
@@ -166,6 +168,14 @@ function describeAction(
       return 'run a shell command';
     case 'computer_files_write':
       return 'write a file';
+    case 'desktop_type':
+      return 'type into a desktop app';
+    case 'desktop_key':
+      return `press ${clip(((args.keys as string[] | undefined) ?? []).join(', ') || 'keys', 40)} on the desktop`;
+    case 'desktop_click':
+      return 'click on the desktop';
+    case 'desktop_open':
+      return `open the ${clip(String(args.app ?? 'desktop'), 20)} app`;
     case 'create_space_page':
       return 'create a page';
     case 'edit_space_page':

@@ -156,6 +156,25 @@ describe('Docker setup steps', () => {
     expect(job.output).not.toContain(token);
   });
 
+  it('enables the desktop: builds both images, restarts the supervisor, then saves the switch', async () => {
+    const { setup, config, cwd, ran } = makeSetup();
+    const job = await runStep(setup, 'enable-desktop');
+    expect(job.state).toBe('done');
+    expect(ran).toEqual([
+      'docker info --format {{.ServerVersion}}',
+      'docker compose -f compose.computers.yml build computer-image computer-supervisor',
+      'docker compose -f compose.computers.yml build computer-desktop-image',
+      'docker compose -f compose.computers.yml up -d computer-supervisor',
+    ]);
+    const env = readFileSync(join(cwd, '.env'), 'utf8');
+    expect(envValue(env, 'COMPUTER_DESKTOP')).toBe('true');
+    expect(envValue(env, 'COMPUTER_IMAGE')).toBe(
+      'opendots-computer-desktop:b6932d3',
+    );
+    expect(envValue(env, 'COMPUTER_BROWSER_MODE')).toBe('headed');
+    expect(config.computerDesktop).toBe(true);
+  });
+
   it('changes nothing when Docker is not running or the build fails', async () => {
     for (const failing of ['info', 'build']) {
       const { setup, config, cwd, ran } = makeSetup({ [failing]: 1 });
@@ -240,6 +259,7 @@ describe('Docker setup routes', () => {
       'start-docker',
       'install-docker',
       'create-computers',
+      'enable-desktop',
     ]);
     expect((await post(app, 'check', { approve: ['nope'] })).status).toBe(409);
     expect((await post(app, 'rm', { approve: [] })).status).toBe(400);

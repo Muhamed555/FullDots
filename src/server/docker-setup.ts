@@ -9,7 +9,9 @@ import { join } from 'node:path';
 import type { PlatformConfig } from './platform-config.js';
 import {
   COMPOSE_BUILD,
+  COMPOSE_BUILD_DESKTOP,
   COMPOSE_FILE,
+  DESKTOP_IMAGE,
   COMPOSE_UP,
   DOCKER_INFO,
   DOCKER_VERSION,
@@ -274,23 +276,47 @@ export class DockerSetup {
       return 'Docker Desktop is installed. Restart your computer if it asks you to, then start Docker.';
     },
     'create-computers': async (job) => {
-      if ((await this.exec(job, DOCKER_INFO)).code !== 0) {
-        this.docker = 'stopped';
-        throw new StepFailed('Docker is not running. Start it first.');
-      }
-      this.docker = 'ready';
-      const values = this.computerSettings();
-      // Given to Compose through the environment, so the secrets never appear in a command or its
-      // output. Compose's bake builder reads the pinned OpenBot git URL as a local path on Windows.
-      const env = { ...process.env, ...values, COMPOSE_BAKE: 'false' };
-      for (const command of [COMPOSE_BUILD, COMPOSE_UP])
-        if ((await this.exec(job, command, env)).code !== 0)
-          throw new StepFailed(`Docker could not finish. ${DETAILS}`);
-      // Last: `npm run dev` restarts the server when .env changes, which would end a running step.
-      this.adopt(values);
+      await this.buildAndStart(job, [COMPOSE_BUILD, COMPOSE_UP], {});
       return 'Dot computers are ready. Turn one on from its Computer panel.';
     },
+    'enable-desktop': async (job) => {
+      await this.buildAndStart(
+        job,
+        [COMPOSE_BUILD, COMPOSE_BUILD_DESKTOP, COMPOSE_UP],
+        {
+          COMPUTER_DESKTOP: 'true',
+          COMPUTER_IMAGE: DESKTOP_IMAGE,
+          COMPUTER_BROWSER_MODE: 'headed',
+        },
+      );
+      return 'The desktop is on. Stop and start a Dot’s computer to switch it to the desktop.';
+    },
   };
+
+  /**
+   * Checks that Docker runs, then builds and starts with the computer settings, and saves them (with
+   * `extra`) only once every command worked. Shared by creating computers and enabling the desktop.
+   */
+  private async buildAndStart(
+    job: DockerJob,
+    commands: readonly Command[],
+    extra: Record<string, string>,
+  ) {
+    if ((await this.exec(job, DOCKER_INFO)).code !== 0) {
+      this.docker = 'stopped';
+      throw new StepFailed('Docker is not running. Start it first.');
+    }
+    this.docker = 'ready';
+    const values = { ...this.computerSettings(), ...extra };
+    // Given to Compose through the environment, so the secrets never appear in a command or its
+    // output. Compose's bake builder reads the pinned OpenBot git URL as a local path on Windows.
+    const env = { ...process.env, ...values, COMPOSE_BAKE: 'false' };
+    for (const command of commands)
+      if ((await this.exec(job, command, env)).code !== 0)
+        throw new StepFailed(`Docker could not finish. ${DETAILS}`);
+    // Last: `npm run dev` restarts the server when .env changes, which would end a running step.
+    this.adopt(values);
+  }
 
   private async probe(job: DockerJob): Promise<DockerState> {
     if ((await this.exec(job, DOCKER_VERSION)).code !== 0)
@@ -364,6 +390,7 @@ export class DockerSetup {
       computerSupervisorToken: values.COMPUTER_SUPERVISOR_TOKEN,
       computerToken: values.COMPUTER_TOKEN,
       computerNamespace: values.COMPUTER_NAMESPACE,
+      ...(values.COMPUTER_DESKTOP === 'true' ? { computerDesktop: true } : {}),
     });
   }
 }

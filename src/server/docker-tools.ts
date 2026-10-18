@@ -63,7 +63,7 @@ export function dockerTools(setup: DockerSetup, check: () => void) {
     defineTool({
       name: 'docker_setup',
       description:
-        'Run one step of setting up Dot computers with Docker on the owner’s machine; the owner approves it first. Steps: check (is Docker installed and running), start-docker (open Docker Desktop and wait for it), install-docker (install Docker Desktop), create-computers (build and start the computers; Docker must be running). A long step can still be running when this returns: tell the owner and use docker_status later.',
+        'Run one step of setting up Dot computers with Docker on the owner’s machine; the owner approves it first. Steps: check (is Docker installed and running), start-docker (open Docker Desktop and wait for it), install-docker (install Docker Desktop), create-computers (build and start the computers; Docker must be running), enable-desktop (give the computers a desktop with windows and apps; only when the owner asks for it). A long step can still be running when this returns: tell the owner and use docker_status later.',
       parameters: dockerSetupInput,
       execute: async ({ step }) => {
         check();

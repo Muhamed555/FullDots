@@ -9,6 +9,15 @@ services:
       context: https://github.com/CopilotKit/OpenBot.git#b6932d31a8d6e7896c15139dfc27a6c6911deb27
       dockerfile: agent-computer/Dockerfile
     command: ['true']
+  computer-desktop-image:
+    # The same computer with a desktop (Openbox and desktop tools). Built on computer-image, so
+    # build that first. Used when COMPUTER_IMAGE names it; see docs/COMPUTERS.md.
+    profiles: [build-computers]
+    image: opendots-computer-desktop:b6932d3
+    build:
+      context: .
+      dockerfile: deployment/computers/desktop.Dockerfile
+    command: ['true']
   computer-supervisor:
     image: opendots-supervisor:b6932d3-dot-auth
     build:
@@ -23,8 +32,8 @@ services:
       SUPERVISOR_TOKEN: ${COMPUTER_SUPERVISOR_TOKEN:?Set COMPUTER_SUPERVISOR_TOKEN in .env}
       COMPUTER_TOKEN: ${COMPUTER_TOKEN:?Set COMPUTER_TOKEN in .env}
       COMPUTER_NAMESPACE: ${COMPUTER_NAMESPACE:-opendots}
-      COMPUTER_IMAGE: opendots-computer:b6932d3
-      COMPUTER_BROWSER_MODE: headless
+      COMPUTER_IMAGE: ${COMPUTER_IMAGE:-opendots-computer:b6932d3}
+      COMPUTER_BROWSER_MODE: ${COMPUTER_BROWSER_MODE:-headless}
       COMPUTER_NETWORK: ''
       COMPUTER_MEMORY_BYTES: ${COMPUTER_MEMORY_BYTES:-2147483648}
       COMPUTER_RUNTIME: ${COMPUTER_RUNTIME:-}

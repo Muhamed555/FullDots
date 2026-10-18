@@ -14,6 +14,8 @@ import { EmptyState } from './EmptyState';
 import { MoreTools } from './MoreTools';
 import { PanelHeader, type Working } from './PanelHeader';
 import { ReplayPanel } from './ReplayView';
+import { DesktopStage } from './DesktopStage';
+import { DockerSetupCard } from './DockerSetupCard';
 import { ScreenStage, type PagePosition, type Snapshot } from './ScreenStage';
 import { SettingsSheet, type SaveNote } from './SettingsSheet';
 import { TakeoverBanner } from './TakeoverBanner';
@@ -54,7 +56,12 @@ export interface PanelActions {
   onFrameSize: (size: Frame | undefined) => void;
 }
 
-export type PanelTab = 'live' | 'replay';
+export type PanelTab = 'live' | 'desktop' | 'replay';
+const TAB_LABELS: Record<PanelTab, string> = {
+  live: 'Live',
+  desktop: 'Desktop',
+  replay: 'Replay',
+};
 
 export interface PanelViewProps {
   dot: Dot;
@@ -144,6 +151,7 @@ export function PanelView({
   const handoff = status?.handoff;
   const needsYou = !!handoff && control?.holder !== 'human';
   const openSettings = () => setSettingsOpen(true);
+  const tabs: readonly PanelTab[] = ['live', 'desktop', 'replay'];
   const blockedFor = (
     permission: 'files' | 'shell',
     thing: string,
@@ -209,19 +217,23 @@ export function PanelView({
               )
                 return;
               event.preventDefault();
-              const next: PanelTab =
+              const at = tabs.indexOf(tab);
+              const next =
                 event.key === 'Home'
-                  ? 'live'
+                  ? tabs[0]!
                   : event.key === 'End'
-                    ? 'replay'
-                    : tab === 'live'
-                      ? 'replay'
-                      : 'live';
+                    ? tabs[tabs.length - 1]!
+                    : tabs[
+                        (at +
+                          (event.key === 'ArrowRight' ? 1 : -1) +
+                          tabs.length) %
+                          tabs.length
+                      ]!;
               setTab(next);
               document.getElementById(`${tabsId}-${next}`)?.focus();
             }}
           >
-            {(['live', 'replay'] as const).map((name) => (
+            {tabs.map((name) => (
               <button
                 key={name}
                 id={`${tabsId}-${name}`}
@@ -232,9 +244,41 @@ export function PanelView({
                 tabIndex={tab === name ? 0 : -1}
                 onClick={() => setTab(name)}
               >
-                {name === 'live' ? 'Live' : 'Replay'}
+                {TAB_LABELS[name]}
               </button>
             ))}
+          </div>
+        )}
+        {status?.configured && tab === 'desktop' && (
+          <div
+            id={`${tabsId}-desktop-panel`}
+            role="tabpanel"
+            aria-labelledby={`${tabsId}-desktop`}
+          >
+            {!status.desktop ? (
+              <div className="cp-desktop-empty">
+                <p className="cp-desktop-hint">
+                  The desktop is off. With it, {dot.name}’s computer also runs
+                  windows and apps: a text editor and a terminal.
+                </p>
+                <DockerSetupCard
+                  title="Desktop"
+                  offer={['enable-desktop']}
+                  onDone={actions.refresh}
+                />
+              </div>
+            ) : phase === 'running' ? (
+              <DesktopStage
+                dotId={dot.id}
+                dotName={dot.name}
+                shellAllowed={!!permissions?.shell}
+                onOpenSettings={openSettings}
+              />
+            ) : (
+              <p className="cp-desktop-hint cp-desktop-empty">
+                Start {dot.name}’s computer to see its desktop.
+              </p>
+            )}
           </div>
         )}
         {status?.configured && tab === 'replay' && (

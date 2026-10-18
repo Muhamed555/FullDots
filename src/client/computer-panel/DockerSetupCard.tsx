@@ -14,6 +14,7 @@ const POLL_MS = 1500;
 const SLOW_STEPS: readonly DockerStep[] = [
   'install-docker',
   'create-computers',
+  'enable-desktop',
 ];
 
 const DOCKER_TEXT: Record<DockerState, string> = {
@@ -51,7 +52,16 @@ export function stepLabel(
  * this machine and runs them only once the owner allows it; the server refuses commands that differ.
  * Command output stays hidden unless a step fails. Renders nothing where the setup is unavailable.
  */
-export function DockerSetupCard({ onDone }: { onDone: () => void }) {
+export function DockerSetupCard({
+  onDone,
+  offer,
+  title = 'Set up with Docker',
+}: {
+  onDone: () => void;
+  /** The steps to offer instead of the ones that follow from Docker's state. */
+  offer?: readonly DockerStep[];
+  title?: string;
+}) {
   const [status, setStatus] = useState<DockerSetupStatus>();
   const [asking, setAsking] = useState<DockerStep>();
   const [sending, setSending] = useState(false);
@@ -81,7 +91,7 @@ export function DockerSetupCard({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     if (
       job?.state === 'done' &&
-      job.step === 'create-computers' &&
+      (job.step === 'create-computers' || job.step === 'enable-desktop') &&
       reported.current !== job.id
     ) {
       reported.current = job.id;
@@ -112,7 +122,7 @@ export function DockerSetupCard({ onDone }: { onDone: () => void }) {
   return (
     <section className="cp-docker" aria-labelledby="cp-docker-title">
       <h4 id="cp-docker-title">
-        <Container size={14} aria-hidden="true" /> Set up with Docker
+        <Container size={14} aria-hidden="true" /> {title}
       </h4>
       <p>{DOCKER_TEXT[status.docker]}</p>
       {asked ? (
@@ -124,7 +134,7 @@ export function DockerSetupCard({ onDone }: { onDone: () => void }) {
         />
       ) : (
         <div className="cp-empty-actions">
-          {nextSteps(status.docker).map((step, index) => {
+          {(offer ?? nextSteps(status.docker)).map((step, index) => {
             const plan = plans.get(step);
             if (!plan) return null;
             return (

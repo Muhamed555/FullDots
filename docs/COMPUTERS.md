@@ -41,6 +41,33 @@ The computer-image service is a build target, not a shared computer to run. The 
 
 Open a Dot's **Computer** panel, enable computer access and the capabilities you want, then choose **Start**. Check its status, navigate to a page, and refresh its screen. Only grant shell access when that Dot needs to run commands.
 
+## A desktop on the computer
+
+By default a computer runs only a headless browser. Turn on the desktop to give each computer windows and apps besides the browser: the Openbox window manager, the Mousepad text editor and an xterm terminal, on OpenBot's own virtual display (1280x800).
+
+**Turn it on** from a Dot's Computer panel: open the **Desktop** tab and choose **Enable the desktop**. Like the other setup steps, it shows its commands and runs them only after you allow them. It builds `opendots-computer-desktop:b6932d3` from [`deployment/computers/desktop.Dockerfile`](../deployment/computers/desktop.Dockerfile) on top of the computer image, restarts the supervisor with it, and saves these lines to `.env`:
+
+```dotenv
+COMPUTER_DESKTOP=true
+COMPUTER_IMAGE=opendots-computer-desktop:b6932d3
+COMPUTER_BROWSER_MODE=headed
+```
+
+Each computer switches to the desktop the next time it starts, so stop and start it once. Files and browser profiles are kept. To set it up by hand, add those lines, then build and restart:
+
+```sh
+docker compose -f compose.computers.yml build computer-image computer-supervisor computer-desktop-image
+docker compose -f compose.computers.yml up -d computer-supervisor
+```
+
+To turn it off, remove the three lines, run the `up` command again, and restart the computers.
+
+**How Dots use it.** A Dot gets `desktop_windows`, `desktop_open`, `desktop_focus`, `desktop_type`, `desktop_key` and `desktop_click`. Each returns the windows afterwards (ids, titles, positions and the active one), because screenshots are never sent to the model. Dots therefore work with the keyboard and window titles; Mousepad shows the file name and an asterisk while there are unsaved changes. The actions run through the computer's shell call with fixed, quoted commands (`xdotool`, `wmctrl`), so they need the Dot's **Terminal** permission, stop while you hold the computer, and appear in Activity. For approvals they count as shell commands: in the "writes" mode they ask first, typing a destructive command asks in every mode, and the "Run shell commands" rule applies to them.
+
+**How you see it.** The **Desktop** tab shows a picture of the whole screen about once a second and forwards your clicks and typing. It is slower than the live browser screen, which stays the place for taking over a web page. Opening the tab is recorded once in Activity; the pictures are not recorded one by one.
+
+**Cost.** The desktop adds about 150 MB to the image and little memory at run time (Openbox itself uses around 15 MB). Pictures are taken only while the Desktop tab is open and the page is visible.
+
 ## Run the application in containers
 
 Configure the existing `OWNER_TOKEN` and `BROWSER_SECRET` as well as the computer secrets. Use the overlay that connects the app to the supervisor and computer network:

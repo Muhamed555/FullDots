@@ -3,6 +3,7 @@ import {
   nextSteps,
   stepLabel,
 } from '../src/client/computer-panel/DockerSetupCard';
+import { toScreenPoint } from '../src/client/computer-panel/DesktopStage';
 import type { DockerPlan } from '../src/shared/docker-setup-types';
 
 // The API module reads the session token the moment it loads, and there is no browser here.
@@ -30,5 +31,13 @@ describe('Docker setup card', () => {
   it('calls a repeated check "Check again"', () => {
     expect(stepLabel('check', check, 'unknown')).toBe('Check Docker');
     expect(stepLabel('check', check, 'ready')).toBe('Check again');
+  });
+});
+
+describe('Desktop view', () => {
+  it('maps a click on the shown picture to the real screen', () => {
+    expect(toScreenPoint(320, 200, 640, 400)).toEqual({ x: 640, y: 400 });
+    expect(toScreenPoint(0, 0, 640, 400)).toEqual({ x: 0, y: 0 });
+    expect(toScreenPoint(640, 400, 640, 400)).toEqual({ x: 1279, y: 799 });
   });
 });

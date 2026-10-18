@@ -254,6 +254,22 @@ export class ComputerService {
       clearTimeout(timeout);
     }
   }
+  /**
+   * An owner's shell call that is not recorded on its own: the desktop view's frames, a picture every
+   * second or so, which would otherwise bury every real action in the activity list. Opening the view
+   * is recorded once instead, like opening the live screen. Checked against the same permissions.
+   */
+  async quietExec(
+    id: string,
+    input: { command: string; timeoutMs?: number },
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    this.allowed(id, 'shell', 'owner');
+    const parsed = this.inputs.exec.parse(input);
+    const url = await this.running(id, signal);
+    this.allowed(id, 'shell', 'owner');
+    return this.json(`${url}/exec`, this.token(id), parsed, signal, id);
+  }
   /** Infrastructure secrets must never leave the gateway even if an upstream response reflects one. */
   private redact(text: string, token: string) {
     for (const secret of [
@@ -321,6 +337,7 @@ export class ComputerService {
     this.requireDot(id);
     const base: Omit<ComputerStatus, 'state'> = {
       configured: this.configured,
+      ...(this.config.computerDesktop ? { desktop: true } : {}),
       permissions: this.workspace.computers.permissions(id),
       audit: this.workspace.computers.audit(id),
       limits: this.inputLimits,

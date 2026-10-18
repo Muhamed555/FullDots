@@ -9,6 +9,8 @@ export interface PlatformConfig extends WebConfig {
   computerSupervisorToken?: string;
   computerToken?: string;
   computerNamespace?: string;
+  /** COMPUTER_DESKTOP=true: the computers run the desktop image, so Dots get desktop tools. */
+  computerDesktop?: boolean;
   voiceKey?: string;
   voiceModel?: string;
   voiceName: string;

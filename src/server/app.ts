@@ -1,5 +1,7 @@
 import { computerRoutes } from './computer-routes.js';
 import { dockerSetupRoutes } from './docker-setup-routes.js';
+import { desktopRoutes } from './desktop-routes.js';
+import { DesktopService } from './desktop-service.js';
 import type { DockerSetup } from './docker-setup.js';
 import { computerReplayRoutes } from './computer-replay-routes.js';
 import { connectorRoutes } from './connector-routes.js';
@@ -138,6 +140,7 @@ export function createApp({
       }),
     );
     app.route('/api', computerReplayRoutes(platform.workspace));
+    app.route('/api', desktopRoutes(new DesktopService(platform.computers)));
     app.route(
       '/api',
       turnRoutes(platform.turns, platform.workspace, (dotId) => {

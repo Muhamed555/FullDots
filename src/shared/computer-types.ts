@@ -48,6 +48,8 @@ export interface ComputerControl {
 }
 export interface ComputerStatus {
   configured: boolean;
+  /** The computers run a desktop (COMPUTER_DESKTOP): windows and apps besides the browser. */
+  desktop?: boolean;
   state: 'not_configured' | 'stopped' | 'running' | 'unavailable';
   permissions: ComputerPermissions;
   audit: ComputerAudit[];

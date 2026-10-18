@@ -29,6 +29,12 @@ export const COMPOSE_BUILD: Command = {
     'computer-supervisor',
   ],
 };
+export const COMPOSE_BUILD_DESKTOP: Command = {
+  file: 'docker',
+  args: ['compose', '-f', COMPOSE_FILE, 'build', 'computer-desktop-image'],
+};
+/** The image and browser mode the supervisor gives new computers when the desktop is on. */
+export const DESKTOP_IMAGE = 'opendots-computer-desktop:b6932d3';
 export const COMPOSE_UP: Command = {
   file: 'docker',
   args: ['compose', '-f', COMPOSE_FILE, 'up', '-d', 'computer-supervisor'],
@@ -127,6 +133,17 @@ export function stepSpec(
         title: 'Create Dot computers',
         note: 'Makes sure Docker is running, builds the computer images from the pinned OpenBot source and starts the supervisor. Then it adds the computer settings and two new random secrets to .env, keeping values you already set. The first build downloads a few hundred megabytes and takes several minutes.',
         commands: [DOCKER_INFO, COMPOSE_BUILD, COMPOSE_UP],
+      };
+    case 'enable-desktop':
+      return {
+        title: 'Enable the desktop',
+        note: 'Builds the computer image with a desktop (the Openbox window manager, a text editor and a terminal) and restarts the supervisor with it. Then it saves COMPUTER_DESKTOP, COMPUTER_IMAGE and COMPUTER_BROWSER_MODE in .env. Each Dot computer switches to the desktop the next time it starts; its files are kept.',
+        commands: [
+          DOCKER_INFO,
+          COMPOSE_BUILD,
+          COMPOSE_BUILD_DESKTOP,
+          COMPOSE_UP,
+        ],
       };
   }
 }
