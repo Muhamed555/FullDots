@@ -76,6 +76,8 @@ export interface GateDeps {
   rules?: () => Partial<DotRules>;
   /** Zod parse for computer tools (defaults applied), the raw object for the others. See {@link gateParse}. */
   parse: (toolName: string, args: unknown) => Record<string, unknown>;
+  /** The commands a Docker setup step runs, shown to the owner as the exact action to approve. */
+  dockerCommands?: (step: string) => string[];
   /** Stores `ask_owner` questions; given only on turns that offer the tool. */
   questions?: Pick<InboxService, 'ask'>;
 }
@@ -140,6 +142,13 @@ const label = (element: ElementIdentity) =>
   `${element.role} "${clip(element.name, 80)}"`;
 
 /** A short description of the action for the owner: what comes after "<Dot> wants to". */
+const DOCKER_ACTIONS: Record<string, string> = {
+  check: 'check whether Docker is installed and running',
+  'start-docker': 'open Docker Desktop and wait for it to start',
+  'install-docker': 'install Docker Desktop on this machine',
+  'create-computers':
+    'build and start the Dot computers with Docker (adds computer settings to .env)',
+};
 function describeAction(
   tool: string,
   args: Record<string, unknown>,
@@ -166,6 +175,10 @@ function describeAction(
         ? `start a team run with ${clip(names.join(', '), 60)}`
         : 'start a team run with every member';
     }
+    case 'docker_setup':
+      return (
+        DOCKER_ACTIONS[String(args.step)] ?? 'change Docker on this machine'
+      );
     case 'computer_click':
       return `click the ${target}`;
     case 'computer_select':
@@ -229,7 +242,10 @@ export function approvalGate(deps: GateDeps): {
         element,
         args: pickIntentArgs(tool, parsed),
       }),
-      redacted: redactArgs(tool, parsed, element, focus),
+      redacted:
+        tool === 'docker_setup' && deps.dockerCommands
+          ? deps.dockerCommands(String(parsed.step)).join('\n')
+          : redactArgs(tool, parsed, element, focus),
     };
   }
 

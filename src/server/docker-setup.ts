@@ -263,6 +263,18 @@ export class DockerSetup {
     };
   }
 
+  /** The commands a step runs here: what the owner approves, in the app or through the approval gate. */
+  commandsFor(step: DockerStep): string[] {
+    return planFor(step, this.platform).commands;
+  }
+
+  /** Waits for a job to end, for at most `ms`; returns whether it ended. */
+  async settled(job: DockerJob, ms: number): Promise<boolean> {
+    for (let waited = 0; job.state === 'running' && waited < ms; waited += 500)
+      await this.sleep(500);
+    return job.state !== 'running';
+  }
+
   /** Starts a step once `approved` matches the commands that step will run. Returns at once; poll `status()`. */
   start(step: DockerStep, approved: readonly string[]): DockerJob {
     if (!this.options.enabled)

@@ -574,6 +574,13 @@ export function classify(
   mode: ApprovalMode,
   rules: Partial<DotRules> = {},
 ): Classification {
+  // Installing or starting Docker is always the owner's call, whatever the Dot's approval mode.
+  if (input.tool === 'docker_setup')
+    return {
+      level: 'sensitive',
+      gated: true,
+      reason: 'changes Docker on this machine',
+    };
   const override = input.mcp?.override;
   if (override === 'deny')
     return { level: 'sensitive', gated: true, reason: 'denied' };

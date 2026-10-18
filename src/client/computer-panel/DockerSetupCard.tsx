@@ -158,10 +158,13 @@ export function DockerSetupCard({ onDone }: { onDone: () => void }) {
             )}{' '}
             {job.message}
           </p>
-          {job.output && (
-            <pre>
-              <code>{job.output}</code>
-            </pre>
+          {job.state === 'failed' && job.output && (
+            <details>
+              <summary>Technical details</summary>
+              <pre>
+                <code>{job.output}</code>
+              </pre>
+            </details>
           )}
         </div>
       )}
