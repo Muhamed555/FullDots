@@ -1,3 +1,4 @@
+import type { DockerSetup } from './docker-setup.js';
 import { ComputerService } from './computer-service.js';
 import { PageService } from './page-service.js';
 import { randomUUID } from 'node:crypto';
@@ -301,6 +302,8 @@ export class Platform {
     if (missing.length)
       throw new Error(`Setup required: ${missing.join(', ')}.`);
   }
+  /** Set by the server entry on a local install: the guided Docker setup the owner and Dots can use. */
+  dockerSetup?: DockerSetup;
   /** What every Dot turn shares: the turn lock, connectors, approvals and handoffs. */
   services(): DotAgentServices {
     return {
@@ -315,6 +318,7 @@ export class Platform {
       group: this.group,
       questions: this.inbox,
       notes: this.dotNotes,
+      ...(this.dockerSetup ? { dockerSetup: this.dockerSetup } : {}),
       goals: {
         isOpenGoal: (taskId) => {
           const task = this.store.task(taskId);

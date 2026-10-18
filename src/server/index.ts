@@ -10,6 +10,7 @@ import { attachComputerStream, type UpgradeServer } from './computer-stream.js';
 import { WorkspaceStore } from './workspace.js';
 import { loadConnectorKey } from './connector-crypto.js';
 import { Platform } from './platform.js';
+import { DockerSetup, dockerSetupEnabled } from './docker-setup.js';
 import type { PlatformConfig } from './platform-config.js';
 import { TurnRegistry } from './turn-registry.js';
 import { createBackgroundRunner } from './task-executor.js';
@@ -76,6 +77,11 @@ const researchConfig = {
 };
 const runner = createBackgroundRunner(platform, researchConfig);
 wakeOnWork(platform.events, turns, runner);
+const dockerSetup = new DockerSetup({
+  config,
+  enabled: dockerSetupEnabled({ host }),
+});
+platform.dockerSetup = dockerSetup;
 const app = createApp({
   store,
   runner,
@@ -83,6 +89,7 @@ const app = createApp({
   ownerToken,
   origin: appOrigin,
   platform,
+  dockerSetup,
 });
 app.use('*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff');

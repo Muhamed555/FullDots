@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { ComputerStatus } from '../../shared/computer-types';
 import type { Working } from './PanelHeader';
+import { DockerSetupCard } from './DockerSetupCard';
 import { COMPUTER_DOCS_URL, type PanelPhase } from './model';
 
 /** One short message and, where there is something to do about it, one button. */
@@ -132,6 +133,9 @@ export function EmptyState({
       <h3>{title}</h3>
       <p>{text}</p>
       {action && <div className="cp-empty-actions">{action}</div>}
+      {(phase === 'not_configured' || phase === 'unavailable') && (
+        <DockerSetupCard onDone={onRetry} />
+      )}
     </div>
   );
 }
