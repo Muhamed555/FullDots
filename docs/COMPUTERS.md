@@ -66,7 +66,7 @@ To turn it off, remove the three lines, run the `up` command again, and restart 
 
 **How you see it.** The **Desktop** tab shows a picture of the whole screen about once a second and forwards your clicks and typing. It is slower than the live browser screen, which stays the place for taking over a web page. Opening the tab is recorded once in Activity; the pictures are not recorded one by one.
 
-**Cost.** The desktop adds about 150 MB to the image and little memory at run time (Openbox itself uses around 15 MB). Pictures are taken only while the Desktop tab is open and the page is visible.
+**Cost.** The desktop adds about 300 MB to the image and little memory at run time (Openbox itself uses around 15 MB). Pictures are taken only while the Desktop tab is open and the page is visible.
 
 ## Run the application in containers
 

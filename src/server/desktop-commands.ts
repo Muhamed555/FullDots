@@ -104,10 +104,14 @@ export function desktopCommand<A extends DesktopAction>(
       return { command: WINDOWS, timeoutMs: 10_000 };
     case 'open': {
       const { app, file } = input as Input<'open'>;
+      // The editor cannot save into a folder that does not exist, so make it first.
+      const folder = file?.includes('/')
+        ? `mkdir -p -- ${shellQuote(file.slice(0, file.lastIndexOf('/')))} && `
+        : '';
       const args = file ? ` -- ${shellQuote(file)}` : '';
       // Detached from the exec call, so the command returns while the app keeps running.
       return then(
-        `setsid -f ${DESKTOP_APPS[app]}${args} >/dev/null 2>&1 </dev/null; sleep 1.5; true`,
+        `${folder}setsid -f ${DESKTOP_APPS[app]}${args} >/dev/null 2>&1 </dev/null && sleep 1.5`,
       );
     }
     case 'focus':
@@ -116,10 +120,18 @@ export function desktopCommand<A extends DesktopAction>(
       );
     case 'type': {
       const { text } = input as Input<'type'>;
-      return then(
-        `xdotool type --clearmodifiers --delay ${TYPE_DELAY_MS} -- ${shellQuote(text)}`,
-        10_000 + text.length * TYPE_DELAY_MS * 2,
-      );
+      // xdotool drops newlines inside typed text, so each line break is a real Return key.
+      const steps = text
+        .split('\n')
+        .flatMap((line, index) => [
+          ...(index > 0 ? ['xdotool key --clearmodifiers Return'] : []),
+          ...(line
+            ? [
+                `xdotool type --clearmodifiers --delay ${TYPE_DELAY_MS} -- ${shellQuote(line)}`,
+              ]
+            : []),
+        ]);
+      return then(steps.join(' && '), 10_000 + text.length * TYPE_DELAY_MS * 2);
     }
     case 'key':
       return then(

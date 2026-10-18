@@ -80,14 +80,24 @@ describe('desktop commands', () => {
     expect(() => desktopInputs.click.parse({ x: 1280, y: 10 })).toThrow();
   });
 
+  it('type each line break as a Return key', () => {
+    const { command } = desktopCommand('type', { text: 'one\n\ntwo' });
+    expect(command).toMatch(
+      /^xdotool type [^;]*-- 'one' && xdotool key --clearmodifiers Return && xdotool key --clearmodifiers Return && xdotool type [^;]*-- 'two';/,
+    );
+  });
+
   it('open apps detached, and list the windows after every action', () => {
     const { command } = desktopCommand('open', {
       app: 'editor',
       file: 'notes/today.txt',
     });
     expect(command).toMatch(
-      /^setsid -f mousepad -- 'notes\/today\.txt' >\/dev\/null 2>&1/,
+      /^mkdir -p -- 'notes' && setsid -f mousepad -- 'notes\/today\.txt' >\/dev\/null 2>&1/,
     );
+    expect(
+      desktopCommand('open', { app: 'editor', file: 'top.txt' }).command,
+    ).toMatch(/^setsid -f mousepad -- 'top\.txt'/);
     expect(command).toContain('wmctrl -lG');
     expect(command).toMatch(/exit \$status$/);
     expect(
