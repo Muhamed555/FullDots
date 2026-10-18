@@ -28,6 +28,10 @@ import { RULE_LABELS, type DotRules } from '../shared/rules.js';
 import type { ApprovalService } from './approval-service.js';
 import { requestApprovalInput, requestHandoffInput } from './approval-tools.js';
 import {
+  dockerSetupInput,
+  type DockerStep,
+} from '../shared/docker-setup-types.js';
+import {
   classify,
   intentHash,
   pickIntentArgs,
@@ -77,7 +81,7 @@ export interface GateDeps {
   /** Zod parse for computer tools (defaults applied), the raw object for the others. See {@link gateParse}. */
   parse: (toolName: string, args: unknown) => Record<string, unknown>;
   /** The commands a Docker setup step runs, shown to the owner as the exact action to approve. */
-  dockerCommands?: (step: string) => string[];
+  dockerCommands?: (step: DockerStep) => string[];
   /** Stores `ask_owner` questions; given only on turns that offer the tool. */
   questions?: Pick<InboxService, 'ask'>;
 }
@@ -102,6 +106,7 @@ export function gateParse(
   inputs: ComputerInputs = computerInputs,
 ): Record<string, unknown> {
   const object = isRecord(args) ? args : {};
+  if (toolName === 'docker_setup') return dockerSetupInput.parse(object);
   if (toolName.startsWith('computer_')) {
     const action = toolName.slice('computer_'.length);
     if (action === 'select')
@@ -244,7 +249,7 @@ export function approvalGate(deps: GateDeps): {
       }),
       redacted:
         tool === 'docker_setup' && deps.dockerCommands
-          ? deps.dockerCommands(String(parsed.step)).join('\n')
+          ? deps.dockerCommands(parsed.step as DockerStep).join('\n')
           : redactArgs(tool, parsed, element, focus),
     };
   }

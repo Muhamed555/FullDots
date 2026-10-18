@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /** The steps of the guided Docker setup. Each runs a fixed list of commands, never anything typed by a client. */
 export const DOCKER_STEPS = [
   'check',
@@ -6,6 +8,11 @@ export const DOCKER_STEPS = [
   'create-computers',
 ] as const;
 export type DockerStep = (typeof DOCKER_STEPS)[number];
+
+/** The arguments of the `docker_setup` tool, also used by the approval gate before it asks the owner. */
+export const dockerSetupInput = z
+  .object({ step: z.enum(DOCKER_STEPS) })
+  .strict();
 
 export type DockerState = 'unknown' | 'not_installed' | 'stopped' | 'ready';
 

@@ -10,11 +10,11 @@ When FullDots runs on your own computer (`HOST` is loopback and the app is not i
 
 1. **Check Docker** runs `docker --version` and `docker info` and tells you whether Docker is missing, stopped or running.
 2. **Install Docker Desktop** (`winget` on Windows, `brew` on macOS) or **Start Docker** opens Docker Desktop and waits until it answers.
-3. **Create Dot computers** adds the `COMPUTER_*` values and two new random secrets to `.env` (values you already set are kept), builds the images and starts the supervisor. No restart is needed.
+3. **Create Dot computers** confirms Docker is running, builds the images and starts the supervisor. Only once that works does it add the `COMPUTER_*` values and two new random secrets to `.env`, keeping values you already set, and hand them to the running server, so no restart is needed. The secrets reach Docker Compose through the environment, never in a command line. With `npm run dev`, the server restarts when `.env` changes, which is why it is written last.
 
 **Let a Dot do it.** On the same local install, a Dot whose computer is unavailable can offer to set it up itself with the `docker_setup` tool. Each step appears in the chat as an approval card that lists the exact commands, and nothing runs until you approve it, whatever the Dot's approval mode. The Dot reports each result in a sentence and never shows terminal output; a long build keeps running, and the Dot checks back with `docker_status`.
 
-Every step in the Computer panel first shows the exact commands and runs them only after you choose **Allow and run**. The server runs a fixed list per step, with no shell, and refuses a request whose approved commands differ from that list. On Linux the app only checks Docker and creates the computers; install and start Docker with your system's tools. Set `DOCKER_SETUP=off` to remove the buttons.
+Every step in the Computer panel first shows the exact commands and runs them only after you choose **Allow and run**. Command output stays hidden; if a step fails, **Technical details** shows what Docker reported. The server runs a fixed list per step, with no shell, and refuses a request whose approved commands differ from that list. On Linux the app only checks Docker and creates the computers; install and start Docker with your system's tools. Set `DOCKER_SETUP=off` to remove the buttons.
 
 ## Start services for local development
 

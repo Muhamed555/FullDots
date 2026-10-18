@@ -1,91 +1,104 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   DockerSetup,
   dockerSetupEnabled,
-  planFor,
-  upsertEnv,
   type Runner,
 } from '../src/server/docker-setup';
+import { planFor } from '../src/server/docker-commands';
+import { envValue, upsertEnv } from '../src/server/env-file';
 import { dockerSetupRoutes } from '../src/server/docker-setup-routes';
 import type { PlatformConfig } from '../src/server/platform-config';
 import type { DockerStep } from '../src/shared/docker-setup-types';
 
-const config = (): PlatformConfig => ({ baseUrl: 'http://x', voiceName: 'm' });
-/** Answers each command from a table keyed by a piece of its text, and records what ran. */
-function fake(answers: Record<string, number> = {}) {
+const tempDir = () => mkdtempSync(join(tmpdir(), 'fulldots-docker-'));
+const baseConfig = (): PlatformConfig => ({
+  baseUrl: 'http://x',
+  voiceName: 'm',
+});
+
+/** Exit codes keyed by a piece of the command text (0 otherwise); records every command that ran. */
+function fakeRunner(answers: Record<string, number> = {}) {
   const ran: string[] = [];
   const run: Runner = async (command) => {
     const text = [command.file, ...command.args].join(' ');
     ran.push(text);
     const hit = Object.keys(answers).find((key) => text.includes(key));
-    return { code: hit ? answers[hit]! : 0, output: '' };
+    return { code: hit === undefined ? 0 : answers[hit]!, output: 'log\n' };
   };
   return { ran, run };
 }
-const setupWith = (
-  answers: Record<string, number>,
-  platform: NodeJS.Platform = 'win32',
-  extra: { cwd?: string; config?: PlatformConfig; enabled?: boolean } = {},
-) => {
-  const runner = fake(answers);
+
+function makeSetup(
+  answers: Record<string, number> = {},
+  options: {
+    platform?: NodeJS.Platform;
+    cwd?: string;
+    config?: PlatformConfig;
+    enabled?: boolean;
+  } = {},
+) {
+  const runner = fakeRunner(answers);
+  const config = options.config ?? baseConfig();
+  const cwd = options.cwd ?? tempDir();
   const setup = new DockerSetup({
-    config: extra.config ?? config(),
-    enabled: extra.enabled ?? true,
-    platform,
+    config,
+    enabled: options.enabled ?? true,
+    platform: options.platform ?? 'win32',
+    cwd,
     run: runner.run,
     sleep: async () => {},
-    ...(extra.cwd ? { cwd: extra.cwd } : {}),
   });
-  return { setup, ...runner };
-};
-const finished = async (setup: DockerSetup) => {
-  for (let i = 0; i < 50 && setup.status().job?.state === 'running'; i++)
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  return setup.status().job!;
-};
-const approve = (step: DockerStep, platform: NodeJS.Platform = 'win32') =>
+  return { setup, config, cwd, ...runner };
+}
+
+const approved = (step: DockerStep, platform: NodeJS.Platform = 'win32') =>
   planFor(step, platform).commands;
 
-describe('Docker setup', () => {
-  it('runs nothing until the exact commands are approved', () => {
-    const { setup, ran } = setupWith({});
+async function runStep(setup: DockerSetup, step: DockerStep) {
+  const job = setup.start(step, setup.commandsFor(step));
+  return (await setup.settled(job.id, 5000))!;
+}
+
+describe('Docker setup steps', () => {
+  it('runs nothing unless the exact commands are approved', () => {
+    const { setup, ran } = makeSetup();
     expect(() => setup.start('check', [])).toThrow(/do not match/);
     expect(() => setup.start('check', ['docker --version'])).toThrow(
       /do not match/,
     );
-    expect(() => setup.start('check', ['rm -rf /', 'x'])).toThrow(
+    expect(() => setup.start('check', ['rm -rf /', 'whoami'])).toThrow(
       /do not match/,
     );
     expect(ran).toEqual([]);
   });
 
-  it('reports Docker as missing, stopped or ready', async () => {
-    const missing = setupWith({ '--version': 1 });
-    missing.setup.start('check', approve('check'));
-    expect((await finished(missing.setup)).message).toMatch(/not installed/);
+  it('reports Docker as not installed, stopped or running', async () => {
+    const missing = makeSetup({ '--version': 1 });
+    expect((await runStep(missing.setup, 'check')).message).toMatch(
+      /not installed/,
+    );
     expect(missing.setup.status().docker).toBe('not_installed');
 
-    const stopped = setupWith({ info: 1 });
-    stopped.setup.start('check', approve('check'));
-    await finished(stopped.setup);
+    const stopped = makeSetup({ info: 1 });
+    await runStep(stopped.setup, 'check');
     expect(stopped.setup.status().docker).toBe('stopped');
 
-    const ready = setupWith({});
-    ready.setup.start('check', approve('check'));
-    await finished(ready.setup);
+    const ready = makeSetup();
+    await runStep(ready.setup, 'check');
     expect(ready.setup.status().docker).toBe('ready');
   });
 
-  it('starts Docker Desktop and waits for it to answer', async () => {
+  it('opens Docker Desktop and waits until Docker answers', async () => {
     let infoCalls = 0;
     const ran: string[] = [];
     const setup = new DockerSetup({
-      config: config(),
+      config: baseConfig(),
       enabled: true,
       platform: 'darwin',
+      cwd: tempDir(),
       sleep: async () => {},
       run: async (command) => {
         ran.push([command.file, ...command.args].join(' '));
@@ -94,102 +107,109 @@ describe('Docker setup', () => {
         return { code: info && infoCalls < 3 ? 1 : 0, output: '' };
       },
     });
-    setup.start('start-docker', approve('start-docker', 'darwin'));
-    const job = await finished(setup);
+    const job = await runStep(setup, 'start-docker');
     expect(job.state).toBe('done');
     expect(ran[0]).toBe('open -a Docker');
     expect(infoCalls).toBe(3);
     expect(setup.status().docker).toBe('ready');
+    // The repeated checks stay out of the output.
+    expect(job.output).toBe('> open -a Docker\n');
   });
 
-  it('installs with winget on Windows and not at all on Linux', async () => {
-    const { setup, ran } = setupWith({});
-    setup.start('install-docker', approve('install-docker'));
-    expect((await finished(setup)).state).toBe('done');
+  it('installs with winget on Windows and leaves Linux to the owner', async () => {
+    const { setup, ran } = makeSetup();
+    expect((await runStep(setup, 'install-docker')).state).toBe('done');
     expect(ran).toEqual([
       'winget install -e --id Docker.DockerDesktop --accept-source-agreements --accept-package-agreements',
     ]);
-    const linux = setupWith({}, 'linux');
     expect(planFor('install-docker', 'linux').supported).toBe(false);
+    const linux = makeSetup({}, { platform: 'linux' });
     expect(() => linux.setup.start('install-docker', [])).toThrow(
       /cannot be done automatically/,
     );
   });
 
-  it('creates the computers: writes .env, keeps owner values, builds and starts', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fulldots-docker-'));
-    writeFileSync(join(dir, '.env'), 'PORT=4310\nCOMPUTER_NAMESPACE=mine\n');
-    const platformConfig = config();
-    const { setup, ran } = setupWith({}, 'win32', {
-      cwd: dir,
-      config: platformConfig,
-    });
-    setup.start('check', approve('check'));
-    await finished(setup);
-    ran.length = 0;
-    setup.start('create-computers', approve('create-computers'));
-    expect((await finished(setup)).state).toBe('done');
+  it('creates computers: checks Docker, builds, starts, then saves .env and the running config', async () => {
+    const cwd = tempDir();
+    writeFileSync(join(cwd, '.env'), 'PORT=4310\nCOMPUTER_NAMESPACE="mine"\n');
+    const { setup, config, ran } = makeSetup({}, { cwd });
+    const job = await runStep(setup, 'create-computers');
+    expect(job.state).toBe('done');
     expect(ran).toEqual([
+      'docker info --format {{.ServerVersion}}',
       'docker compose -f compose.computers.yml build computer-image computer-supervisor',
       'docker compose -f compose.computers.yml up -d computer-supervisor',
     ]);
-    const env = readFileSync(join(dir, '.env'), 'utf8');
+    const env = readFileSync(join(cwd, '.env'), 'utf8');
     expect(env).toContain('PORT=4310');
-    expect(env).toContain('COMPUTER_NAMESPACE=mine');
-    expect(env).toContain('COMPUTER_SUPERVISOR_URL=http://127.0.0.1:4312');
-    const token = /^COMPUTER_TOKEN=(\w+)$/m.exec(env)![1]!;
-    const supervisor = /^COMPUTER_SUPERVISOR_TOKEN=(\w+)$/m.exec(env)![1]!;
-    expect(token).toHaveLength(64);
-    expect(supervisor).toHaveLength(64);
+    expect(envValue(env, 'COMPUTER_NAMESPACE')).toBe('mine');
+    expect(envValue(env, 'COMPUTER_SUPERVISOR_URL')).toBe(
+      'http://127.0.0.1:4312',
+    );
+    const token = envValue(env, 'COMPUTER_TOKEN')!;
+    const supervisor = envValue(env, 'COMPUTER_SUPERVISOR_TOKEN')!;
+    expect(token).toMatch(/^[0-9a-f]{64}$/);
+    expect(supervisor).toMatch(/^[0-9a-f]{64}$/);
     expect(token).not.toBe(supervisor);
-    // The running server picks the values up without a restart, and secrets never reach the output.
-    expect(platformConfig.computerToken).toBe(token);
-    expect(platformConfig.computerNamespace).toBe('mine');
-    expect(setup.status().job!.output).not.toContain(token);
+    expect(config.computerToken).toBe(token);
+    expect(config.computerNamespace).toBe('mine');
+    expect(job.output).not.toContain(token);
   });
 
-  it('writes .env only after the build and start succeed', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fulldots-docker-'));
-    const { setup } = setupWith({ build: 1 }, 'win32', { cwd: dir });
-    setup.start('check', approve('check'));
-    await finished(setup);
-    setup.start('create-computers', approve('create-computers'));
-    expect((await finished(setup)).state).toBe('failed');
-    expect(() => readFileSync(join(dir, '.env'), 'utf8')).toThrow();
+  it('changes nothing when Docker is not running or the build fails', async () => {
+    for (const failing of ['info', 'build']) {
+      const { setup, config, cwd, ran } = makeSetup({ [failing]: 1 });
+      const job = await runStep(setup, 'create-computers');
+      expect(job.state).toBe('failed');
+      expect(existsSync(join(cwd, '.env'))).toBe(false);
+      expect(config.computerToken).toBeUndefined();
+      expect(ran.some((command) => command.includes(' up '))).toBe(false);
+    }
   });
 
-  it('refuses to create computers while Docker is not known to be running', async () => {
-    const { setup, ran } = setupWith({});
-    setup.start('create-computers', approve('create-computers'));
-    const job = await finished(setup);
-    expect(job.state).toBe('failed');
-    expect(ran).toEqual([]);
-  });
-
-  it('runs one step at a time and does nothing when disabled', () => {
-    const { setup } = setupWith({});
-    setup.start('check', approve('check'));
-    expect(() => setup.start('check', approve('check'))).toThrow(
+  it('runs one step at a time and nothing when disabled', async () => {
+    const { setup } = makeSetup();
+    const job = setup.start('check', approved('check'));
+    expect(() => setup.start('check', approved('check'))).toThrow(
       /still running/,
     );
-    const off = setupWith({}, 'win32', { enabled: false });
-    expect(() => off.setup.start('check', approve('check'))).toThrow(
+    await setup.settled(job.id, 5000);
+    const off = makeSetup({}, { enabled: false });
+    expect(() => off.setup.start('check', approved('check'))).toThrow(
       /not available/,
     );
   });
 
-  it('sets .env lines without touching comments', () => {
+  it('hands out copies, so callers cannot change a job', async () => {
+    const { setup } = makeSetup();
+    const job = setup.start('check', approved('check'));
+    job.state = 'done';
+    expect(setup.status().job?.state).toBe('running');
+    await setup.settled(job.id, 5000);
+  });
+});
+
+describe('.env helpers', () => {
+  it('sets active lines and leaves comments alone', () => {
     expect(upsertEnv('A=1\n# B=old\nB=\n', { B: '2', C: '3' })).toBe(
       'A=1\n# B=old\nB=2\nC=3\n',
     );
     expect(upsertEnv('A=1', { B: '2' })).toBe('A=1\nB=2\n');
   });
+  it('reads unquoted values and ignores empty or commented ones', () => {
+    expect(envValue('A="x y"\n', 'A')).toBe('x y');
+    expect(envValue("A='z'\n", 'A')).toBe('z');
+    expect(envValue('A=\n', 'A')).toBeUndefined();
+    expect(envValue('# A=1\n', 'A')).toBeUndefined();
+  });
+});
 
-  it('is only offered to a local owner outside a container', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'fulldots-docker-'));
-    const base = { host: '127.0.0.1', cwd: dir, inContainer: false };
+describe('Where the setup is offered', () => {
+  it('only for a local owner outside a container, from a checkout', () => {
+    const cwd = tempDir();
+    const base = { host: '127.0.0.1', cwd, inContainer: false };
     expect(dockerSetupEnabled(base)).toBe(false);
-    writeFileSync(join(dir, 'compose.computers.yml'), '');
+    writeFileSync(join(cwd, 'compose.computers.yml'), '');
     expect(dockerSetupEnabled(base)).toBe(true);
     expect(dockerSetupEnabled({ ...base, host: '0.0.0.0' })).toBe(false);
     expect(dockerSetupEnabled({ ...base, inContainer: true })).toBe(false);
@@ -211,8 +231,8 @@ describe('Docker setup routes', () => {
       body: JSON.stringify(body),
     });
 
-  it('lists the plans and starts only an approved step', async () => {
-    const { setup, ran } = setupWith({});
+  it('lists the plans and starts only an approved, known step', async () => {
+    const { setup, ran } = makeSetup();
     const app = dockerSetupRoutes(setup);
     const status = await (await app.request('/docker/setup')).json();
     expect(status.plans.map((plan: { step: string }) => plan.step)).toEqual([
@@ -228,7 +248,7 @@ describe('Docker setup routes', () => {
     );
     expect(ran).toEqual([]);
     expect(
-      (await post(app, 'check', { approve: approve('check') })).status,
+      (await post(app, 'check', { approve: approved('check') })).status,
     ).toBe(200);
   });
 });

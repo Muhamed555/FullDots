@@ -1,24 +1,35 @@
+// Guided Docker setup for Dot computers: check, start or install Docker, then build and start the
+// computer supervisor. Used by the Computer panel (docker-setup-routes.ts) and by Dots through the
+// approval gate (docker-tools.ts). Every step runs only the commands listed for it in
+// docker-commands.ts, and only after the caller repeats exactly those commands as approved.
 import { spawn } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PlatformConfig } from './platform-config.js';
-import type {
-  DockerJob,
-  DockerPlan,
-  DockerSetupStatus,
-  DockerState,
-  DockerStep,
+import {
+  COMPOSE_BUILD,
+  COMPOSE_FILE,
+  COMPOSE_UP,
+  DOCKER_INFO,
+  DOCKER_VERSION,
+  installCommand,
+  launchCommand,
+  planFor,
+  show,
+  type Command,
+} from './docker-commands.js';
+import { envValue, upsertEnv } from './env-file.js';
+import {
+  DOCKER_STEPS,
+  type DockerJob,
+  type DockerSetupStatus,
+  type DockerState,
+  type DockerStep,
 } from '../shared/docker-setup-types.js';
 
-/** One program run without a shell, so nothing the owner or a client sends is ever parsed as a command. */
-interface Command {
-  file: string;
-  args: string[];
-  /** Started and left running (Docker Desktop itself) instead of waited for. */
-  detached?: boolean;
-}
 export interface RunResult {
+  /** The exit code; null when the program could not be started. */
   code: number | null;
   output: string;
 }
@@ -31,143 +42,19 @@ export type Runner = (
   },
 ) => Promise<RunResult>;
 
+export type SupervisorState = 'not_set_up' | 'reachable' | 'unreachable';
+
 const OUTPUT_TAIL = 4000;
 const READY_POLLS = 45;
 const READY_POLL_MS = 2000;
-const SUPERVISOR_URL = 'http://127.0.0.1:4312';
-const COMPOSE_FILE = 'compose.computers.yml';
+const HEALTH_TIMEOUT_MS = 2000;
+const DEFAULT_SUPERVISOR_URL = 'http://127.0.0.1:4312';
+const DETAILS = 'See Technical details for what Docker reported.';
 
-const DOCKER_VERSION: Command = { file: 'docker', args: ['--version'] };
-const DOCKER_INFO: Command = {
-  file: 'docker',
-  args: ['info', '--format', '{{.ServerVersion}}'],
-};
-const COMPOSE_BUILD: Command = {
-  file: 'docker',
-  args: [
-    'compose',
-    '-f',
-    COMPOSE_FILE,
-    'build',
-    'computer-image',
-    'computer-supervisor',
-  ],
-};
-const COMPOSE_UP: Command = {
-  file: 'docker',
-  args: ['compose', '-f', COMPOSE_FILE, 'up', '-d', 'computer-supervisor'],
-};
+/** A step that stopped for a reason the owner can act on; its message is shown as is. */
+class StepFailed extends Error {}
 
-/** What the setup is allowed to run on this system. Fixed lists: the route only picks a step. */
-function launchCommand(platform: NodeJS.Platform): Command | undefined {
-  if (platform === 'win32')
-    return {
-      file: join(
-        process.env.ProgramFiles ?? 'C:\\Program Files',
-        'Docker',
-        'Docker',
-        'Docker Desktop.exe',
-      ),
-      args: [],
-      detached: true,
-    };
-  if (platform === 'darwin')
-    return { file: 'open', args: ['-a', 'Docker'], detached: true };
-  return undefined;
-}
-function installCommand(platform: NodeJS.Platform): Command | undefined {
-  if (platform === 'win32')
-    return {
-      file: 'winget',
-      args: [
-        'install',
-        '-e',
-        '--id',
-        'Docker.DockerDesktop',
-        '--accept-source-agreements',
-        '--accept-package-agreements',
-      ],
-    };
-  if (platform === 'darwin')
-    return { file: 'brew', args: ['install', '--cask', 'docker'] };
-  return undefined;
-}
-
-const quote = (part: string) => (/[\s{}]/.test(part) ? `"${part}"` : part);
-export const show = (command: Command) =>
-  [command.file, ...command.args].map(quote).join(' ');
-
-export function planFor(
-  step: DockerStep,
-  platform: NodeJS.Platform,
-): DockerPlan {
-  const plan = (
-    title: string,
-    commands: Command[] | undefined,
-    note: string,
-  ): DockerPlan => ({
-    step,
-    title,
-    commands: (commands ?? []).map(show),
-    note,
-    supported: !!commands?.length,
-  });
-  switch (step) {
-    case 'check':
-      return plan(
-        'Check Docker',
-        [DOCKER_VERSION, DOCKER_INFO],
-        'Looks for Docker and asks it whether it is running. Changes nothing.',
-      );
-    case 'start-docker': {
-      const launch = launchCommand(platform);
-      return plan(
-        'Start Docker',
-        launch && [launch, DOCKER_INFO],
-        launch
-          ? 'Opens Docker Desktop, then asks Docker every couple of seconds until it answers (up to about 90 seconds).'
-          : 'Start the Docker service yourself, for example with your system’s service manager.',
-      );
-    }
-    case 'install-docker': {
-      const install = installCommand(platform);
-      return plan(
-        'Install Docker Desktop',
-        install && [install],
-        install
-          ? 'Downloads and installs Docker Desktop from the official package source. It can take several minutes, may ask Windows or macOS for permission, and may need a restart.'
-          : 'Install Docker Engine from docs.docker.com/engine/install, then check again.',
-      );
-    }
-    case 'create-computers':
-      return plan(
-        'Create Dot computers',
-        [COMPOSE_BUILD, COMPOSE_UP],
-        'Adds the computer settings and two new random secrets to your .env file (existing values are kept), builds the computer images from the pinned OpenBot source, and starts the supervisor. The first build downloads a few hundred megabytes.',
-      );
-  }
-}
-
-/** The value of an active KEY=value line, or nothing when it is missing, empty or commented out. */
-export function envValue(text: string, key: string): string | undefined {
-  const match = new RegExp(`^[ \t]*${key}[ \t]*=(.*)$`, 'm').exec(text);
-  return match?.[1]?.trim() || undefined;
-}
-
-/** Sets or appends KEY=value lines. A line that is commented out is left alone and the key is appended. */
-export function upsertEnv(
-  text: string,
-  values: Record<string, string>,
-): string {
-  let next = text;
-  for (const [key, value] of Object.entries(values)) {
-    const line = new RegExp(`^[ \\t]*${key}[ \\t]*=.*$`, 'm');
-    if (line.test(next)) next = next.replace(line, () => `${key}=${value}`);
-    else next += `${next && !next.endsWith('\n') ? '\n' : ''}${key}=${value}\n`;
-  }
-  return next;
-}
-
+/** Offered only where FullDots runs on the owner's own machine, from a checkout that has the compose file. */
 export function dockerSetupEnabled(options: {
   host: string;
   env?: NodeJS.ProcessEnv;
@@ -184,10 +71,11 @@ export function dockerSetupEnabled(options: {
   );
 }
 
-const defaultRunner: Runner = (command, { cwd, env, onData }) =>
+export const spawnRunner: Runner = (command, { cwd, env, onData }) =>
   new Promise((resolve) => {
+    let output = '';
     try {
-      const child = spawn(command.file, command.args, {
+      const child = spawn(command.file, [...command.args], {
         cwd,
         env,
         shell: false,
@@ -195,7 +83,6 @@ const defaultRunner: Runner = (command, { cwd, env, onData }) =>
         detached: !!command.detached,
         stdio: command.detached ? 'ignore' : ['ignore', 'pipe', 'pipe'],
       });
-      let output = '';
       const collect = (chunk: Buffer) => {
         const text = chunk.toString('utf8');
         output += text;
@@ -207,8 +94,10 @@ const defaultRunner: Runner = (command, { cwd, env, onData }) =>
         resolve({ code: null, output: error.message }),
       );
       if (command.detached) {
-        child.unref();
-        child.once('spawn', () => resolve({ code: 0, output: '' }));
+        child.once('spawn', () => {
+          child.unref();
+          resolve({ code: 0, output: '' });
+        });
       } else child.once('close', (code) => resolve({ code, output }));
     } catch (error) {
       resolve({
@@ -219,69 +108,69 @@ const defaultRunner: Runner = (command, { cwd, env, onData }) =>
   });
 
 export interface DockerSetupOptions {
+  /** The running server's config: updated in place once computers are created, so no restart is needed. */
   config: PlatformConfig;
   enabled: boolean;
   cwd?: string;
   platform?: NodeJS.Platform;
   run?: Runner;
+  /** The pause between "is Docker up yet" checks while starting it. */
   sleep?: (ms: number) => Promise<void>;
-  /** For tests: how the computer service is asked whether it answers. */
   fetch?: typeof fetch;
 }
 
-/**
- * Guided Docker setup for Dot computers. It runs only the fixed command lists above, one job at a
- * time, and only after the caller repeats the exact commands the owner was shown.
- */
+const delay = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export class DockerSetup {
   private docker: DockerState = 'unknown';
   private job?: DockerJob;
+  private current?: Promise<void>;
   private readonly cwd: string;
   private readonly platform: NodeJS.Platform;
   private readonly run: Runner;
   private readonly sleep: (ms: number) => Promise<void>;
 
-  constructor(private options: DockerSetupOptions) {
+  constructor(private readonly options: DockerSetupOptions) {
     this.cwd = options.cwd ?? process.cwd();
     this.platform = options.platform ?? process.platform;
-    this.run = options.run ?? defaultRunner;
-    this.sleep =
-      options.sleep ??
-      ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.run = options.run ?? spawnRunner;
+    this.sleep = options.sleep ?? delay;
+  }
+
+  get enabled(): boolean {
+    return this.options.enabled;
   }
 
   status(): DockerSetupStatus {
-    const platform = ['win32', 'darwin', 'linux'].includes(this.platform)
-      ? (this.platform as 'win32' | 'darwin' | 'linux')
-      : 'other';
     return {
-      enabled: this.options.enabled,
-      platform,
+      enabled: this.enabled,
+      platform:
+        (['win32', 'darwin', 'linux'] as const).find(
+          (name) => name === this.platform,
+        ) ?? 'other',
       docker: this.docker,
-      plans: (
-        ['check', 'start-docker', 'install-docker', 'create-computers'] as const
-      ).map((step) => planFor(step, this.platform)),
-      ...(this.job ? { job: this.job } : {}),
+      plans: DOCKER_STEPS.map((step) => planFor(step, this.platform)),
+      ...(this.job ? { job: { ...this.job } } : {}),
     };
   }
 
-  /** Whether the computer service is configured and answering, whatever Docker's own state is known to be. */
-  async supervisor(): Promise<'not_set_up' | 'reachable' | 'unreachable'> {
-    const {
-      computerSupervisorUrl: url,
-      computerSupervisorToken,
-      computerToken,
-    } = this.options.config;
-    if (
-      !url?.trim() ||
-      !computerSupervisorToken?.trim() ||
-      !computerToken?.trim()
-    )
+  /** The commands a step runs here: what the owner approves, in the panel or on an approval card. */
+  commandsFor(step: DockerStep): string[] {
+    return planFor(step, this.platform).commands;
+  }
+
+  /** Whether the computer service is configured and answering. Runs no command. */
+  async supervisor(): Promise<SupervisorState> {
+    const { computerSupervisorUrl, computerSupervisorToken, computerToken } =
+      this.options.config;
+    const url = computerSupervisorUrl?.trim();
+    if (!url || !computerSupervisorToken?.trim() || !computerToken?.trim())
       return 'not_set_up';
     try {
       const response = await (this.options.fetch ?? fetch)(
-        `${url.trim().replace(/\/$/, '')}/health`,
-        { signal: AbortSignal.timeout(2000) },
+        `${url.replace(/\/$/, '')}/health`,
+        { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS) },
       );
       return response.ok ? 'reachable' : 'unreachable';
     } catch {
@@ -289,21 +178,9 @@ export class DockerSetup {
     }
   }
 
-  /** The commands a step runs here: what the owner approves, in the app or through the approval gate. */
-  commandsFor(step: DockerStep): string[] {
-    return planFor(step, this.platform).commands;
-  }
-
-  /** Waits for a job to end, for at most `ms`; returns whether it ended. */
-  async settled(job: DockerJob, ms: number): Promise<boolean> {
-    for (let waited = 0; job.state === 'running' && waited < ms; waited += 500)
-      await this.sleep(500);
-    return job.state !== 'running';
-  }
-
-  /** Starts a step once `approved` matches the commands that step will run. Returns at once; poll `status()`. */
+  /** Starts a step once `approved` repeats the commands it runs. Returns at once; follow it with `status()` or `settled()`. */
   start(step: DockerStep, approved: readonly string[]): DockerJob {
-    if (!this.options.enabled)
+    if (!this.enabled)
       throw new Error('Guided Docker setup is not available here.');
     if (this.job?.state === 'running')
       throw new Error('Another setup step is still running.');
@@ -323,20 +200,105 @@ export class DockerSetup {
       message: `${plan.title}…`,
     };
     this.job = job;
-    void this.execute(job).catch((error) =>
-      this.finish(
-        job,
-        'failed',
-        error instanceof Error ? error.message : 'Setup failed.',
-      ),
-    );
-    return job;
+    this.current = this.execute(job);
+    return { ...job };
   }
 
-  private finish(job: DockerJob, state: 'done' | 'failed', message: string) {
-    job.state = state;
-    job.message = message;
+  /** Waits up to `ms` for the job with this id to end; returns the job as it is then. */
+  async settled(id: string, ms: number): Promise<DockerJob | undefined> {
+    if (this.job?.id === id && this.job.state === 'running' && this.current) {
+      let timer: NodeJS.Timeout | undefined;
+      await Promise.race([
+        this.current,
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, ms);
+        }),
+      ]);
+      clearTimeout(timer);
+    }
+    return this.job?.id === id ? { ...this.job } : undefined;
   }
+
+  private async execute(job: DockerJob): Promise<void> {
+    try {
+      job.message = await this.steps[job.step](job);
+      job.state = 'done';
+    } catch (error) {
+      job.message =
+        error instanceof StepFailed
+          ? error.message
+          : `The step stopped unexpectedly. ${DETAILS}`;
+      if (!(error instanceof StepFailed))
+        this.append(job, error instanceof Error ? error.message : '');
+      job.state = 'failed';
+    }
+  }
+
+  private readonly steps: Record<
+    DockerStep,
+    (job: DockerJob) => Promise<string>
+  > = {
+    check: async (job) => {
+      const state = await this.probe(job);
+      if (state === 'ready') return 'Docker is installed and running.';
+      if (state === 'stopped') return 'Docker is installed but not running.';
+      return 'Docker is not installed.';
+    },
+    'start-docker': async (job) => {
+      const launch = launchCommand(this.platform)!;
+      const started = await this.exec(job, launch);
+      if (started.code !== 0) {
+        this.docker = 'unknown';
+        throw new StepFailed(
+          'Docker Desktop could not be opened. Is it installed?',
+        );
+      }
+      // Docker Desktop takes a while to come up; these repeats of `docker info` stay out of the output.
+      for (let attempt = 0; attempt < READY_POLLS; attempt++) {
+        await this.sleep(READY_POLL_MS);
+        if ((await this.quiet(DOCKER_INFO)).code === 0) {
+          this.docker = 'ready';
+          return 'Docker is running.';
+        }
+      }
+      this.docker = 'stopped';
+      throw new StepFailed(
+        'Docker did not answer in time. Finish Docker Desktop’s start-up window, then check again.',
+      );
+    },
+    'install-docker': async (job) => {
+      const result = await this.exec(job, installCommand(this.platform)!);
+      this.docker = 'unknown';
+      if (result.code !== 0)
+        throw new StepFailed(`The installer did not finish. ${DETAILS}`);
+      return 'Docker Desktop is installed. Restart your computer if it asks you to, then start Docker.';
+    },
+    'create-computers': async (job) => {
+      if ((await this.exec(job, DOCKER_INFO)).code !== 0) {
+        this.docker = 'stopped';
+        throw new StepFailed('Docker is not running. Start it first.');
+      }
+      this.docker = 'ready';
+      const values = this.computerSettings();
+      // Given to Compose through the environment, so the secrets never appear in a command or its
+      // output. Compose's bake builder reads the pinned OpenBot git URL as a local path on Windows.
+      const env = { ...process.env, ...values, COMPOSE_BAKE: 'false' };
+      for (const command of [COMPOSE_BUILD, COMPOSE_UP])
+        if ((await this.exec(job, command, env)).code !== 0)
+          throw new StepFailed(`Docker could not finish. ${DETAILS}`);
+      // Last: `npm run dev` restarts the server when .env changes, which would end a running step.
+      this.adopt(values);
+      return 'Dot computers are ready. Turn one on from its Computer panel.';
+    },
+  };
+
+  private async probe(job: DockerJob): Promise<DockerState> {
+    if ((await this.exec(job, DOCKER_VERSION)).code !== 0)
+      return (this.docker = 'not_installed');
+    const running = (await this.exec(job, DOCKER_INFO)).code === 0;
+    return (this.docker = running ? 'ready' : 'stopped');
+  }
+
   private append(job: DockerJob, text: string) {
     job.output = (job.output + text).slice(-OUTPUT_TAIL);
   }
@@ -348,154 +310,60 @@ export class DockerSetup {
       onData: (text) => this.append(job, text),
     });
   }
-
-  private async probe(job: DockerJob): Promise<DockerState> {
-    const version = await this.exec(job, DOCKER_VERSION);
-    if (version.code !== 0) return (this.docker = 'not_installed');
-    const info = await this.exec(job, DOCKER_INFO);
-    return (this.docker = info.code === 0 ? 'ready' : 'stopped');
+  private quiet(command: Command) {
+    return this.run(command, {
+      cwd: this.cwd,
+      env: process.env,
+      onData: () => {},
+    });
   }
 
-  private async execute(job: DockerJob) {
-    switch (job.step) {
-      case 'check': {
-        const state = await this.probe(job);
-        return this.finish(
-          job,
-          'done',
-          state === 'ready'
-            ? 'Docker is installed and running.'
-            : state === 'stopped'
-              ? 'Docker is installed but not running.'
-              : 'Docker is not installed.',
-        );
-      }
-      case 'start-docker': {
-        if (this.docker === 'not_installed')
-          return this.finish(
-            job,
-            'failed',
-            'Docker is not installed. Install it first.',
-          );
-        const launch = launchCommand(this.platform)!;
-        const started = await this.exec(job, launch);
-        if (started.code !== 0)
-          return this.finish(
-            job,
-            'failed',
-            'Docker Desktop could not be opened.',
-          );
-        for (let attempt = 0; attempt < READY_POLLS; attempt++) {
-          await this.sleep(READY_POLL_MS);
-          const info = await this.run(DOCKER_INFO, {
-            cwd: this.cwd,
-            env: process.env,
-            onData: () => {},
-          });
-          if (info.code === 0) {
-            this.docker = 'ready';
-            return this.finish(job, 'done', 'Docker is running.');
-          }
-        }
-        return this.finish(
-          job,
-          'failed',
-          'Docker did not answer in time. Finish its start-up window, then check again.',
-        );
-      }
-      case 'install-docker': {
-        const result = await this.exec(job, installCommand(this.platform)!);
-        this.docker = 'unknown';
-        return result.code === 0
-          ? this.finish(
-              job,
-              'done',
-              'Docker Desktop is installed. Restart if it asks you to, then use Start Docker.',
-            )
-          : this.finish(
-              job,
-              'failed',
-              'The installer did not finish. Read the output below.',
-            );
-      }
-      case 'create-computers': {
-        if (this.docker !== 'ready')
-          return this.finish(
-            job,
-            'failed',
-            'Docker is not running. Check or start it first.',
-          );
-        const env = this.chooseEnv();
-        for (const command of [COMPOSE_BUILD, COMPOSE_UP]) {
-          const result = await this.exec(job, command, {
-            ...process.env,
-            ...env,
-            // Compose's bake builder reads the OpenBot git URL as a local path on Windows.
-            COMPOSE_BAKE: 'false',
-          });
-          if (result.code !== 0)
-            return this.finish(
-              job,
-              'failed',
-              'Docker could not finish. Read the output below.',
-            );
-        }
-        // Last, because `npm run dev` restarts the server when .env changes and would end this job.
-        this.saveEnv(env);
-        return this.finish(
-          job,
-          'done',
-          'Dot computers are ready. Turn one on from its Computer panel.',
-        );
-      }
-    }
+  private envPath() {
+    return join(this.cwd, '.env');
+  }
+  private readEnv() {
+    const file = this.envPath();
+    return existsSync(file) ? readFileSync(file, 'utf8') : '';
   }
 
-  /** Picks the COMPUTER_* values (the owner's, else those already in .env, else new) and gives them to the running server. */
-  private chooseEnv(): Record<string, string> {
+  /** The COMPUTER_* values to use: the running server's, else those already in .env, else new ones. */
+  private computerSettings(): Record<string, string> {
     const { config } = this.options;
-    const file = join(this.cwd, '.env');
-    const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
+    const file = this.readEnv();
     const pick = (
       key: string,
-      fromConfig: string | undefined,
-      fallback: string,
-    ) => fromConfig?.trim() || envValue(current, key) || fallback;
-    const values: Record<string, string> = {
+      current: string | undefined,
+      make: () => string,
+    ) => current?.trim() || envValue(file, key) || make();
+    const secret = () => randomBytes(32).toString('hex');
+    return {
       COMPUTER_SUPERVISOR_URL: pick(
         'COMPUTER_SUPERVISOR_URL',
         config.computerSupervisorUrl,
-        SUPERVISOR_URL,
+        () => DEFAULT_SUPERVISOR_URL,
       ),
       COMPUTER_SUPERVISOR_TOKEN: pick(
         'COMPUTER_SUPERVISOR_TOKEN',
         config.computerSupervisorToken,
-        randomBytes(32).toString('hex'),
+        secret,
       ),
-      COMPUTER_TOKEN: pick(
-        'COMPUTER_TOKEN',
-        config.computerToken,
-        randomBytes(32).toString('hex'),
-      ),
+      COMPUTER_TOKEN: pick('COMPUTER_TOKEN', config.computerToken, secret),
       COMPUTER_NAMESPACE: pick(
         'COMPUTER_NAMESPACE',
         config.computerNamespace,
-        'opendots',
+        () => 'opendots',
       ),
     };
-    Object.assign(config, {
+  }
+
+  /** Saves the values to .env, keeping every other line, and gives them to the running server. */
+  private adopt(values: Record<string, string>) {
+    writeFileSync(this.envPath(), upsertEnv(this.readEnv(), values));
+    Object.assign(this.options.config, {
       computerSupervisorUrl: values.COMPUTER_SUPERVISOR_URL,
       computerSupervisorToken: values.COMPUTER_SUPERVISOR_TOKEN,
       computerToken: values.COMPUTER_TOKEN,
       computerNamespace: values.COMPUTER_NAMESPACE,
     });
-    return values;
-  }
-
-  /** Adds the chosen values to .env, keeping every line the owner wrote. */
-  private saveEnv(values: Record<string, string>) {
-    const file = join(this.cwd, '.env');
-    const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
-    writeFileSync(file, upsertEnv(current, values));
   }
 }

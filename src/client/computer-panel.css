@@ -581,10 +581,31 @@
 .cp-docker-job {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   text-align: left;
+}
+.cp-docker-ask p,
+.cp-docker-job p {
+  max-width: none;
+}
+.cp-docker-job p:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cp-ink);
+}
+.cp-docker-job.is-failed p:first-child {
+  color: var(--cp-bad);
+}
+.cp-docker-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.cp-docker-hint {
+  font-size: 12px;
 }
 .cp-docker pre {
   max-height: 180px;
@@ -597,6 +618,13 @@
   font-size: 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.cp-docker details summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.cp-docker details pre {
+  margin-top: 6px;
 }
 .cp-docker-error {
   color: var(--cp-bad);
