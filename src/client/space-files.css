@@ -23,7 +23,7 @@
   background: var(--paper-50);
 }
 .space-library.is-dragging {
-  outline: 2px dashed var(--teal-ink);
+  outline: 2px dashed var(--accent);
   outline-offset: -8px;
   border-radius: 14px;
 }

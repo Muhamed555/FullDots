@@ -99,14 +99,14 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--teal-400);
+  background: var(--blue-400);
 }
 .chat-activity-pulse::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--teal-400);
+  background: var(--blue-400);
   animation: chat-activity-ping 1.4s ease-out infinite;
 }
 .chat-activity .chat-activity-live {
@@ -163,7 +163,7 @@
 .chat-activity-step-state {
   display: grid;
   place-items: center;
-  color: var(--teal-ink);
+  color: var(--accent);
 }
 .chat-activity-step-message {
   grid-column: 2 / -1;
@@ -187,7 +187,7 @@
   width: 10px;
   height: 10px;
   border: 1.5px solid var(--line-2);
-  border-top-color: var(--teal-400);
+  border-top-color: var(--blue-400);
   border-radius: 50%;
   animation: chat-activity-spin 0.8s linear infinite;
 }

@@ -392,7 +392,7 @@
   padding-top: 10px;
 }
 .mp-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 .mp-chip {
   flex: none;
@@ -566,7 +566,7 @@
 }
 .cx-root .mp-secret-input {
   padding-right: 48px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 .cx-root .mp-eye {
@@ -596,7 +596,7 @@
   margin-top: 4px;
 }
 .cx-root .mp-mono-input {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 .cx-root .mp-mono-input[readonly] {

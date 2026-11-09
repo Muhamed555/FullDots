@@ -12,9 +12,9 @@
   --sb-muted: var(--text-muted);
   --sb-line: var(--line, var(--surface-6));
   --sb-hover: var(--hover-veil);
-  --sb-active: var(--teal-50);
-  --sb-accent: var(--teal-500);
-  --sb-accent-soft: var(--teal-300);
+  --sb-active: var(--surface-4);
+  --sb-accent: var(--text);
+  --sb-accent-soft: var(--faint-3);
   --sb-danger: var(--red-300);
   --sb-radius: 8px;
 }
@@ -341,7 +341,7 @@
   font-weight: 400;
 }
 .sb-dot-status.busy {
-  color: var(--teal-ink);
+  color: var(--accent);
 }
 .sb-dot-status.needs {
   color: var(--amber-ink);
@@ -400,7 +400,7 @@
 /* The open chat: the one accent in the list, without the bar other active rows have. */
 .sb .sb-history .sb-chat.active,
 .sb .sb-history .sb-chat.active:hover {
-  background: var(--teal-50);
+  background: var(--sb-active);
   font-weight: 600;
 }
 .sb .sb-history .sb-chat.active::before {

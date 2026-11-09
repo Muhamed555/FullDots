@@ -43,7 +43,7 @@
   height: 7px;
   margin-left: auto;
   border-radius: 50%;
-  background: var(--accent-soft, var(--teal-300));
+  background: var(--accent-soft, var(--faint-3));
   box-shadow: 0 0 0 0 #438c8166;
   animation: sb-chat-pulse 1.6s ease-out infinite;
 }

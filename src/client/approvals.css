@@ -218,7 +218,7 @@
   overflow: auto;
   border-radius: 10px;
   background: var(--ap-soft);
-  box-shadow: inset 0 0 0 1px #eeeeec;
+  box-shadow: inset 0 0 0 1px var(--line);
   color: var(--ap-ink);
   font:
     12.5px/1.55 ui-monospace,
@@ -528,7 +528,7 @@ main.approvals-view {
   margin-bottom: 22px;
   border-radius: 50%;
   background: var(--ap-green-bg);
-  box-shadow: 0 0 0 12px #f4faf6;
+  box-shadow: 0 0 0 12px var(--green-50);
   color: var(--ap-green);
 }
 .approvals-empty h2 {
