@@ -101,11 +101,25 @@ A walk through what 2.0 is for, using nothing but the features in this repositor
 
 **Any model.** Fourteen provider presets, from OpenAI, Anthropic and Gemini to Ollama and LM Studio, plus any OpenAI-compatible server. Each Dot can use its own model.
 
+## Design
+
+FullDots has one look, shared by the app and its website, and it opens in the dark theme.
+
+- **Quiet chrome.** Flat neutral greys, thin rims and no drop shadows. Colour is kept for two things: the Dots, who each have their own, and status, which is always written in words too (amber always means "waiting for you").
+- **One typeface.** Geist for text and Geist Mono for code. Both are bundled and served by FullDots itself, so the interface makes no outside requests.
+- **A calm chat.** Your messages sit in a solid bubble and answers read as plain text. The message box is a rounded pill whose rim brightens while you type.
+- **Mission control at a glance.** Each Dot sits in its own band at the top of its card, with a coloured status pill, its queue and today's tokens.
+- **Your choice of theme.** Dark by default; **Settings → General → Appearance** switches to Light or to System. Both themes meet WCAG AA contrast for text, and a test keeps them in step.
+
+![The same Scout chat in the Light theme: a black bubble for your message, the answer as plain text and the saved table beside it](docs/screenshots/chat-light.png)
+
+<sub>The chat at the top of this page, in the Light theme. Everything else on this page is shown in Dark, the default.</sub>
+
 ## Screenshots
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/spaces.png" alt="A Space with pages and a CSV file" /></td>
+<td width="50%"><img src="docs/screenshots/spaces.png" alt="hosting-options.csv open in the Launch week Space as a sortable table" /></td>
 <td width="50%"><img src="docs/screenshots/connectors.png" alt="The connector gallery with Notion, Linear, Atlassian and Asana" /></td>
 </tr>
 <tr>
@@ -118,6 +132,7 @@ A walk through what 2.0 is for, using nothing but the features in this repositor
 
 | Area              | What you get                                                                                                               |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Interface**     | Dark by default, with Light and System themes; Geist typeface; installs as an app on phones and desktops                   |
 | **Chat**          | Pin, retry, branch, edit and resend; export a conversation as Markdown; `Ctrl+K` search across chats, pages, Dots, prompts |
 | **Computers**     | One container per Dot with a browser, files and a shell; live screen, replay, take-over and an audit trail                 |
 | **Notes**         | Visible notes of what each Dot remembers about you, which you can read, edit and roll back                                 |
@@ -125,7 +140,7 @@ A walk through what 2.0 is for, using nothing but the features in this repositor
 | **Budgets**       | Tokens per Dot per day from the provider's own counts, a daily warning and an optional hard budget                         |
 | **Limits**        | Steps, time, shell command time and file size, all set in `.env`                                                           |
 | **Notifications** | Optional webhook for new approvals, hand-offs and usage warnings (title, text and link only)                               |
-| **Tests**         | 2,079 tests, including a planted-secret leak test that fails if a key reaches a response, log or webhook                   |
+| **Tests**         | 2,720 tests, including a planted-secret leak test that fails if a key reaches a response, log or webhook                   |
 
 ## Quick start
 
@@ -268,7 +283,7 @@ docs/        Guides, brand assets and screenshots
 | [Teams](docs/TEAMS.md)                      | Hand-offs between Dots                        |
 | [Spaces](docs/SPACES.md)                    | Pages, files and what Dots can save           |
 | [Computers](docs/COMPUTERS.md)              | A computer for each Dot                       |
-| [Interface](docs/UI.md)                     | A map of the chat and sidebar                 |
+| [Interface](docs/UI.md)                     | The chat, sidebar, themes and accessibility   |
 | [Brand](docs/brand/README.md)               | Logo, penguin Dots, their states and colours  |
 | [Roadmap](docs/ROADMAP.md)                  | What is done and what is next                 |
 | [Changelog](CHANGELOG.md)                   | What changed in each release                  |
@@ -288,7 +303,7 @@ FullDots was forked from [CopilotKit OpenDots](https://github.com/CopilotKit/Ope
 | Teams, Spaces with files  | None                            | Hand-offs, files and result cards             |
 | Slack, Automatic Learning | Included                        | Removed (both depend on Intelligence)         |
 
-OpenDots has kept moving since the fork. FullDots does not merge upstream wholesale; useful changes are ported one at a time, adapted and tested, and listed in the [changelog](CHANGELOG.md). Not ported: dark mode ([#81](https://github.com/CopilotKit/OpenDots/pull/81), FullDots will need its own), OpenDots's per-Dot MCP connections ([#52](https://github.com/CopilotKit/OpenDots/pull/52), FullDots has its own connectors), and anything tied to telemetry or the hosted Intelligence service.
+OpenDots has kept moving since the fork. FullDots does not merge upstream wholesale; useful changes are ported one at a time, adapted and tested, and listed in the [changelog](CHANGELOG.md). Not ported: dark mode ([#81](https://github.com/CopilotKit/OpenDots/pull/81); FullDots has its own dark and light themes), OpenDots's per-Dot MCP connections ([#52](https://github.com/CopilotKit/OpenDots/pull/52), FullDots has its own connectors), and anything tied to telemetry or the hosted Intelligence service.
 
 FullDots is an independent project, not affiliated with or endorsed by CopilotKit. Thanks to Atai Barkai and the CopilotKit team for OpenDots, and for [CopilotKit](https://github.com/CopilotKit/CopilotKit), [AG-UI](https://docs.ag-ui.com) and [OpenBot](https://github.com/CopilotKit/OpenBot), which FullDots builds on. See [`NOTICE.md`](NOTICE.md).
 
