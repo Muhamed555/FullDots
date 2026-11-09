@@ -12,34 +12,34 @@
 
   /* ---- Neutral surfaces, lightest first ---------------------------------- */
   --surface-0: #ffffff;
-  --surface-1: #fbfbfa;
-  --surface-2: #f8f7f4;
-  --surface-3: #f4f4f3;
-  --surface-4: #f0f0ef;
-  --surface-5: #ecebe8;
-  --surface-6: #e9e8e6;
+  --surface-1: #fafafa;
+  --surface-2: #f7f7f7;
+  --surface-3: #f2f2f2;
+  --surface-4: #eeeeee;
+  --surface-5: #e9e9e9;
+  --surface-6: #e5e5e5;
 
   /* Lines: hairline, default, strong, hard */
-  --line-1: #dedede;
+  --line-1: #e0e0e0;
   --line-2: #d6d6d6;
-  --line-3: #cfcfcf;
-  --line-4: #c4c4c6;
+  --line-3: #cccccc;
+  --line-4: #c2c2c2;
 
   /* Quiet fills and disabled marks */
-  --faint-1: #b4b4ba;
-  --faint-2: #a3a3ab;
-  --faint-3: #8c8d97;
+  --faint-1: #b3b3b3;
+  --faint-2: #a3a3a3;
+  --faint-3: #8a8a8a;
 
   /* A solid that carries its own text: black buttons in light, pale ones in dark */
-  --solid-1: #242424;
-  --solid-2: #111214;
+  --solid-1: #171717;
+  --solid-2: #0a0a0a;
 
   /* ---- Text ------------------------------------------------------------- */
   /* Every text token clears WCAG AA (4.5:1) on the surfaces above in both themes. */
-  --text: #242424;
-  --text-soft: #3d3f46;
-  --text-muted: #5c5e66;
-  --text-faint: #63656f;
+  --text: #171717;
+  --text-soft: #3a3a3a;
+  --text-muted: #5c5c5c;
+  --text-faint: #636363;
   /* Text and icons drawn on --solid-1 / an inverted solid. */
   --on-solid: #ffffff;
   /* Text on a brand accent that keeps its colour in both themes (buttons, badges). */
@@ -47,7 +47,7 @@
 
   /* ---- Semantic aliases used across the app ----------------------------- */
   --ink: var(--text);
-  --ink-strong: #141519;
+  --ink-strong: #0a0a0a;
   --muted: var(--text-muted);
   --muted-soft: var(--text-faint);
   --line: var(--surface-6);
@@ -56,11 +56,11 @@
   --surface-raised: var(--surface-3);
   --surface-sunken: var(--surface-2);
   --surface-hover: var(--surface-3);
-  --accent: #2f6b5f;
-  --accent-soft: #438c81;
-  --accent-solid: #2f6b5f;
-  --accent-solid-hover: #3d7e75;
-  --accent-soft-bg: #e5f1ef;
+  --accent: #4b58cf;
+  --accent-soft: #5867e0;
+  --accent-solid: #4b58cf;
+  --accent-solid-hover: #3f4bb8;
+  --accent-soft-bg: #eef0fd;
   --success: #276c43;
   --warning: #96620f;
   --danger: #b3382c;
@@ -69,7 +69,7 @@
   /* A blue that carries white text (send buttons). */
   --blue-solid: #5a6cc4;
   --blue-solid-hover: #4c5cb2;
-  --lavender: #eeeffa;
+  --lavender: #f1f2fd;
   --focus-ring: #5867e0;
 
   /* ---- Status and accent families --------------------------------------- */
@@ -139,15 +139,15 @@
   --paper-ink: #30392f;
 
   /* ---- Overlays and shadows --------------------------------------------- */
-  --overlay: rgb(36 36 36 / 0.22);
+  --overlay: rgb(10 10 10 / 0.28);
   --overlay-strong: rgb(24 26 32 / 0.55);
   --shadow-sm: 0 1px 2px #00000033;
-  --shadow-md: 0 4px 14px #0000000f;
-  --shadow-lg: 0 12px 32px #2026341f;
+  --shadow-md: 0 4px 16px #0000000d;
+  --shadow-lg: 0 16px 40px #0000001f;
   /* A translucent wash for hover on any surface. */
-  --hover-veil: rgb(36 36 36 / 0.055);
+  --hover-veil: rgb(10 10 10 / 0.05);
   --shadow-focus: 0 0 0 3px #24242414;
-  --ring-accent: rgb(67 140 129 / 0.16);
+  --ring-accent: rgb(88 103 224 / 0.18);
   --ring-inset: #00000026;
   --shadow-focus-strong: 0 0 0 3px #24242424;
 
@@ -155,8 +155,8 @@
   --radius-xs: 6px;
   --radius-sm: 8px;
   --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 14px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
   --radius-pill: 999px;
 
   /* Spacing */
@@ -168,7 +168,12 @@
   --space-6: 32px;
 
   /* Typography */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans:
+    'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-mono:
+    'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
   --text-xs: 11px;
   --text-sm: 12px;
   --text-md: 13px;
@@ -225,35 +230,35 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --surface-0: #1c2027;
-  --surface-1: #191d23;
-  --surface-2: #14171b;
-  --surface-3: #22262d;
-  --surface-4: #262b33;
-  --surface-5: #2b3038;
-  --surface-6: #323840;
+  --surface-0: #1c1c1c;
+  --surface-1: #121212;
+  --surface-2: #161616;
+  --surface-3: #212121;
+  --surface-4: #262626;
+  --surface-5: #2a2a2a;
+  --surface-6: #303030;
 
-  --line-1: #3b424d;
-  --line-2: #444b58;
-  --line-3: #4c5563;
-  --line-4: #566070;
+  --line-1: #383838;
+  --line-2: #404040;
+  --line-3: #4a4a4a;
+  --line-4: #575757;
 
-  --faint-1: #6b7482;
-  --faint-2: #7e8794;
-  --faint-3: #97a0ad;
+  --faint-1: #5e5e5e;
+  --faint-2: #737373;
+  --faint-3: #8a8a8a;
 
-  --solid-1: #e8ebf1;
-  --solid-2: #f3f5f9;
+  --solid-1: #f2f2f2;
+  --solid-2: #ffffff;
 
-  --text: #eceef2;
-  --text-soft: #d5dae2;
-  --text-muted: #b1b8c3;
-  --text-faint: #99a1ad;
-  --on-solid: #14161a;
+  --text: #f2f2f2;
+  --text-soft: #d4d4d4;
+  --text-muted: #a3a3a3;
+  --text-faint: #999999;
+  --on-solid: #0a0a0a;
   --on-accent: #ffffff;
 
   --ink: var(--text);
-  --ink-strong: #f7f8fa;
+  --ink-strong: #ffffff;
   --muted: var(--text-muted);
   --muted-soft: var(--text-faint);
   --line: var(--surface-6);
@@ -262,11 +267,11 @@
   --surface-raised: var(--surface-3);
   --surface-sunken: var(--surface-2);
   --surface-hover: var(--surface-3);
-  --accent: #8fd5c8;
-  --accent-soft: #9fdcd1;
-  --accent-solid: #2f6b5f;
-  --accent-solid-hover: #3d7e75;
-  --accent-soft-bg: #17302a;
+  --accent: #aab5ff;
+  --accent-soft: #b8c1ff;
+  --accent-solid: #4b58cf;
+  --accent-solid-hover: #5867e0;
+  --accent-soft-bg: #1e2140;
   --success: #7ed4a2;
   --warning: #e7b968;
   --danger: #f09189;
@@ -274,8 +279,8 @@
   --blue-dark: #b0bcff;
   --blue-solid: #4f61b5;
   --blue-solid-hover: #5b6dc6;
-  --lavender: #232741;
-  --focus-ring: #9aa8f5;
+  --lavender: #1e2033;
+  --focus-ring: #b8c1ff;
 
   --red-50: #2f1518;
   --red-100: #4a2224;
@@ -309,16 +314,16 @@
   --teal-500: #83cabe;
   --teal-ink: #96d8cc;
 
-  --blue-50: #181b2a;
-  --blue-100: #202538;
+  --blue-50: #191b26;
+  --blue-100: #1f2233;
   --blue-200: #303a5c;
   --blue-300: #5a6aa8;
   --blue-400: #8395ea;
   --blue-500: #9dabf8;
   --blue-ink: #b0bcff;
 
-  --violet-50: #1c1729;
-  --violet-100: #252033;
+  --violet-50: #1c1926;
+  --violet-100: #242031;
   --violet-200: #3b3358;
   --violet-300: #7a63b8;
   --violet-400: #ac91ec;
@@ -347,7 +352,7 @@
   --shadow-lg: 0 12px 32px #00000073;
   --hover-veil: rgb(255 255 255 / 0.06);
   --shadow-focus: 0 0 0 3px #ffffff1f;
-  --ring-accent: rgb(131 202 190 / 0.3);
+  --ring-accent: rgb(170 181 255 / 0.3);
   --ring-inset: #ffffff2e;
   --shadow-focus-strong: 0 0 0 3px #ffffff2e;
 }

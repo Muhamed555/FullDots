@@ -27,6 +27,8 @@ FullDots depends on open-source packages, including CopilotKit, AG-UI, TanStack 
 
 The Agent Client Protocol TypeScript SDK and the optional `@agentclientprotocol/claude-agent-acp` and `@agentclientprotocol/codex-acp` adapters are licensed under Apache-2.0. Each adapter is installed on demand inside a Dot computer from its lockfile in `deployment/computers/acp-bridge/adapter` or `adapter-codex`. Its dependencies retain their own licenses and terms.
 
+The interface typefaces are Geist and Geist Mono by Vercel, under the SIL Open Font License 1.1. They are bundled from the `@fontsource-variable/geist` and `@fontsource-variable/geist-mono` packages and served by FullDots itself.
+
 Dot computers use container images built from CopilotKit OpenBot (MIT). See [`deployment/computers/`](deployment/computers/README.md), which carries OpenBot's license in [`LICENSE.openbot`](deployment/computers/LICENSE.openbot).
 
 ## Third-party art and trademarks

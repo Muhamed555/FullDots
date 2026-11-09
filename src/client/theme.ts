@@ -2,7 +2,7 @@
  * Theme choice: System, Light or Dark. The resolved theme is a `data-theme` attribute on <html>;
  * every colour in the app comes from tokens.css, so setting that attribute is the whole switch.
  *
- * The choice is per browser (localStorage) and defaults to following the system setting.
+ * The choice is per browser (localStorage) and defaults to dark; System follows the OS setting.
  * public/theme-init.js, loaded from the <head> of index.html, applies the same resolution before
  * the first paint so a dark screen never flashes light. It is a file rather than an inline script
  * because the server's Content-Security-Policy only allows scripts from 'self'.
@@ -21,8 +21,8 @@ export const THEME_PREFERENCES: readonly ThemePreference[] = [
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 /** Kept in step with --surface-2 (light) and --surface-2 (dark) in tokens.css. */
 const THEME_COLORS: Record<ResolvedTheme, string> = {
-  light: '#f8f7f4',
-  dark: '#14171b',
+  light: '#f7f7f7',
+  dark: '#161616',
 };
 
 export function isThemePreference(value: unknown): value is ThemePreference {
@@ -41,13 +41,16 @@ function storage(): Storage | null {
   }
 }
 
-/** The saved choice, or `system` when nothing (valid) is saved. Storage can throw. */
+/** FullDots is dark first: a browser that has never chosen gets the dark theme. */
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'dark';
+
+/** The saved choice, or the default when nothing (valid) is saved. Storage can throw. */
 export function readThemePreference(): ThemePreference {
   try {
     const saved = storage()?.getItem(THEME_STORAGE_KEY);
-    return isThemePreference(saved) ? saved : 'system';
+    return isThemePreference(saved) ? saved : DEFAULT_THEME_PREFERENCE;
   } catch {
-    return 'system';
+    return DEFAULT_THEME_PREFERENCE;
   }
 }
 

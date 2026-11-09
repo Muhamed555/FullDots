@@ -8,11 +8,9 @@
     border-color var(--dur-med) var(--ease-out),
     box-shadow var(--dur-med) var(--ease-out);
 }
+/* Focus shows as a brighter rim (style.css), as on the website: no coloured glow. */
 .template-app .fd-composer:focus-within {
-  border-color: color-mix(in srgb, var(--accent-soft) 55%, var(--line));
-  box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--accent-soft) 14%, transparent),
-    var(--shadow-md);
+  box-shadow: none;
 }
 .fd-composer textarea {
   overflow-y: auto;
@@ -36,7 +34,7 @@
   animation: fd-composer-pop var(--dur-med) var(--ease-spring);
 }
 .fd-composer .send-button:hover:not(:disabled) {
-  transform: scale(1.08);
+  transform: scale(1.05);
 }
 .fd-composer .send-button:active:not(:disabled) {
   transform: scale(0.94);
@@ -103,8 +101,7 @@
 }
 .template-app .fd-composer-chips button:hover:not(:disabled) {
   transform: translateY(-2px);
-  border-color: var(--accent-soft);
-  color: var(--accent);
+  border-color: var(--line-4);
 }
 
 /* Trigger popover (P2 @mentions, P8 /prompts) */

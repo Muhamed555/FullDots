@@ -40,12 +40,12 @@ describe('Appearance setting', () => {
     expect(html).toContain('name="theme"');
     for (const label of ['System', 'Light', 'Dark'])
       expect(html).toContain(label);
-    expect(html).toMatch(/checked="" value="system"/);
-    expect(html).not.toMatch(/checked="" value="(light|dark)"/);
+    expect(html).toMatch(/checked="" value="dark"/);
+    expect(html).not.toMatch(/checked="" value="(system|light)"/);
   });
 
   it('reports the theme that is actually in use', () => {
-    expect(render()).toContain('Using the light theme.');
+    expect(render()).toContain('Using the dark theme.');
   });
 
   it('keeps the existing permission settings on General', () => {

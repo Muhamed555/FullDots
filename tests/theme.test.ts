@@ -116,11 +116,11 @@ describe('theme', () => {
     applyTheme('dark', root, doc);
     expect(root.dataset.theme).toBe('dark');
     expect(root.style.colorScheme).toBe('dark');
-    expect(meta.content).toBe('#14171b');
+    expect(meta.content).toBe('#161616');
     expect(doc.dispatchEvent).toHaveBeenCalledTimes(1);
     applyTheme('light', root, doc);
     expect(root.dataset.theme).toBe('light');
-    expect(meta.content).toBe('#f8f7f4');
+    expect(meta.content).toBe('#f7f7f7');
   });
 });
 
@@ -138,16 +138,16 @@ describe('theme preference storage', () => {
     return store;
   }
 
-  it('defaults to system and reads a stored choice', () => {
+  it('defaults to dark and reads a stored choice', () => {
     stubStorage();
-    expect(readThemePreference()).toBe('system');
+    expect(readThemePreference()).toBe('dark');
     stubStorage({ [THEME_STORAGE_KEY]: 'dark' });
     expect(readThemePreference()).toBe('dark');
   });
 
   it('ignores a value that is not a preference', () => {
     stubStorage({ [THEME_STORAGE_KEY]: 'sepia' });
-    expect(readThemePreference()).toBe('system');
+    expect(readThemePreference()).toBe('dark');
   });
 
   it('survives storage that throws', () => {
@@ -159,7 +159,7 @@ describe('theme preference storage', () => {
         throw new Error('blocked');
       },
     });
-    expect(readThemePreference()).toBe('system');
+    expect(readThemePreference()).toBe('dark');
     expect(() => storeThemePreference('dark')).not.toThrow();
   });
 
@@ -177,7 +177,7 @@ describe('theme before the first paint', () => {
     dark: boolean,
   ) {
     const root = { dataset: {}, style: {} } as unknown as HTMLElement;
-    let color = '#f8f7f4';
+    let color = '#f7f7f7';
     const meta = {
       setAttribute: (name: string, value: string) => {
         if (name === 'content') color = value;
@@ -243,7 +243,7 @@ describe('theme before the first paint', () => {
   it('resolves and paints the theme exactly as theme.ts does', () => {
     for (const saved of [null, 'system', 'light', 'dark', 'sepia'])
       for (const dark of [false, true]) {
-        const preference = isThemePreference(saved) ? saved : 'system';
+        const preference = isThemePreference(saved) ? saved : 'dark';
         expect(
           runThemeInit(
             (key) => (key === THEME_STORAGE_KEY ? saved : null),

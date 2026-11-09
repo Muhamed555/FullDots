@@ -1,7 +1,7 @@
 /*
  * Command palette (Ctrl+K) and the saved prompts settings. Every selector starts with `pal-` or
  * `pr-`. Colours follow the sidebar and dialogs: ink var(--solid-1), muted var(--faint-3), line var(--surface-6), accent
- * green var(--teal-500). Custom properties have fallbacks so the file works before shared tokens exist.
+ * neutral var(--text). Custom properties have fallbacks so the file works before shared tokens exist.
  */
 .pal-backdrop,
 .pr {
@@ -9,9 +9,9 @@
   --pal-muted: var(--text-muted);
   --pal-line: var(--line, var(--surface-6));
   --pal-soft: var(--surface-3);
-  --pal-active: var(--teal-50);
-  --pal-accent: var(--teal-500);
-  --pal-accent-soft: var(--teal-300);
+  --pal-active: var(--surface-4);
+  --pal-accent: var(--text);
+  --pal-accent-soft: var(--faint-3);
   --pal-mark: var(--amber-100);
   --pal-danger: var(--red-300);
 }

@@ -151,8 +151,8 @@ function ThemeField() {
     <fieldset className="theme-field">
       <legend className="theme-field-label">Appearance</legend>
       <p className="theme-field-note">
-        Follows your device setting unless you pick one. Every screen has a
-        light and a dark version.
+        Dark unless you pick another. System follows your device. Every screen
+        has a light and a dark version.
       </p>
       <div className="theme-choice">
         {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (

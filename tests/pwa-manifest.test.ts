@@ -25,8 +25,8 @@ describe('PWA web app manifest and icons', () => {
     expect(manifest.start_url).toBe('/');
     expect(manifest.scope).toBe('/');
     expect(manifest.display).toBe('standalone');
-    expect(manifest.background_color).toBe('#f8f7f4');
-    expect(manifest.theme_color).toBe('#f8f7f4');
+    expect(manifest.background_color).toBe('#161616');
+    expect(manifest.theme_color).toBe('#161616');
 
     expect(manifest.icons).toEqual([
       {
