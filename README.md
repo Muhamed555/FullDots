@@ -111,11 +111,15 @@ FullDots has one look, shared by the app and its website, and it opens in the da
 - **Mission control at a glance.** Each Dot sits in its own band at the top of its card, with a coloured status pill, its queue and today's tokens.
 - **Your choice of theme.** Dark by default; **Settings → General → Appearance** switches to Light or to System. Both themes meet WCAG AA contrast for text, and a test keeps them in step.
 
+![The same Scout chat in the Light theme: a black bubble for your message, the answer as plain text and the saved table beside it](docs/screenshots/chat-light.png)
+
+<sub>The chat at the top of this page, in the Light theme. Everything else on this page is shown in Dark, the default.</sub>
+
 ## Screenshots
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/spaces.png" alt="A Space with pages and a CSV file" /></td>
+<td width="50%"><img src="docs/screenshots/spaces.png" alt="hosting-options.csv open in the Launch week Space as a sortable table" /></td>
 <td width="50%"><img src="docs/screenshots/connectors.png" alt="The connector gallery with Notion, Linear, Atlassian and Asana" /></td>
 </tr>
 <tr>
