@@ -1,7 +1,6 @@
-// The first thing FullDots Desktop shows: one line that invites a message, above the message
-// box. Everything else (the Dot's profile, the computer panel, the suggestions) stays out of the
-// way until the person opens it. The web app keeps its own start screen and never renders this.
-import './desktop.css';
+// The first thing a new chat shows: one line that invites a message, above the message box.
+// Everything else (the Dot's profile, the computer panel) stays out of the way until the person
+// opens it.
 
 const INVITATIONS = [
   'What should we get done today?',
@@ -29,7 +28,7 @@ export function invitation(now: Date): string {
   return INVITATIONS[day % INVITATIONS.length];
 }
 
-export function DesktopWelcome({
+export function ChatWelcome({
   dotName,
   configured,
   onSettings,
@@ -43,10 +42,10 @@ export function DesktopWelcome({
 }) {
   if (!configured)
     return (
-      <div className="desktop-welcome">
-        <p className="desktop-welcome-eyebrow">Welcome to FullDots</p>
+      <div className="start-hero">
+        <p className="start-hero-eyebrow">Welcome to FullDots</p>
         <h1>Connect a model and {dotName} is ready.</h1>
-        <p className="desktop-welcome-note">
+        <p className="start-hero-note">
           Add a provider key, or a local model, and start your first
           conversation.
         </p>
@@ -56,8 +55,8 @@ export function DesktopWelcome({
       </div>
     );
   return (
-    <div className="desktop-welcome">
-      <p className="desktop-welcome-eyebrow">
+    <div className="start-hero">
+      <p className="start-hero-eyebrow">
         {greeting(now)}. {dotName} is here.
       </p>
       <h1>{invitation(now)}</h1>

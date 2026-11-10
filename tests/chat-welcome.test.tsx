@@ -1,15 +1,11 @@
-// FullDots Desktop's start screen: one inviting line above the message box.
+// A new chat's start screen: one inviting line above the message box.
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  DesktopWelcome,
-  greeting,
-  invitation,
-} from '../src/client/desktop/DesktopWelcome';
+import { ChatWelcome, greeting, invitation } from '../src/client/ChatWelcome';
 
 const at = (hour: number, day = 10) => new Date(2026, 10, day, hour, 30);
 
-describe('Desktop start screen', () => {
+describe('Start screen', () => {
   it('greets by the time of day', () => {
     expect(greeting(at(3))).toBe('Still up');
     expect(greeting(at(8))).toBe('Good morning');
@@ -25,7 +21,7 @@ describe('Desktop start screen', () => {
 
   it('shows only a greeting and an invitation once a model is connected', () => {
     const html = renderToStaticMarkup(
-      <DesktopWelcome
+      <ChatWelcome
         dotName="Dot"
         configured
         onSettings={() => {}}
@@ -40,11 +36,7 @@ describe('Desktop start screen', () => {
   it('points to Settings while no model is connected', () => {
     const onSettings = vi.fn();
     const html = renderToStaticMarkup(
-      <DesktopWelcome
-        dotName="Dot"
-        configured={false}
-        onSettings={onSettings}
-      />,
+      <ChatWelcome dotName="Dot" configured={false} onSettings={onSettings} />,
     );
     expect(html).toContain('Connect a model and Dot is ready.');
     expect(html).toContain('Open Settings');

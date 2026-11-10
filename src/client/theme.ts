@@ -19,10 +19,10 @@ export const THEME_PREFERENCES: readonly ThemePreference[] = [
   'dark',
 ];
 const DARK_QUERY = '(prefers-color-scheme: dark)';
-/** Kept in step with --surface-2 (light) and --surface-2 (dark) in tokens.css. */
+/** The frame around the page: --shell-frame in shell.css. */
 const THEME_COLORS: Record<ResolvedTheme, string> = {
-  light: '#f7f7f7',
-  dark: '#161616',
+  light: '#efefef',
+  dark: '#0e0e0e',
 };
 
 export function isThemePreference(value: unknown): value is ThemePreference {

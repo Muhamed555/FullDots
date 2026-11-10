@@ -2724,8 +2724,36 @@ h3 {
   background: var(--solid-2);
 }
 .template-app .live-chat {
-  padding: 14px 32px 18px;
-  max-width: 820px;
+  --chat-gutter: 32px;
+  /* How wide a line of conversation runs. */
+  --chat-measure: 800px;
+  padding: 14px var(--chat-gutter) 18px;
+  max-width: none;
+}
+/*
+ * The chat fills the area it is given and only its contents keep to the measure. The transcript is
+ * the part that scrolls, so it runs the full width: its scrollbar sits at the edge of the chat
+ * area, not down the middle of the page beside the messages.
+ */
+.template-app .live-chat > * {
+  width: 100%;
+  max-width: var(--chat-measure);
+  margin-left: auto;
+  margin-right: auto;
+}
+.template-app .live-chat > .chat-transcript {
+  width: auto;
+  max-width: none;
+  margin-left: calc(-1 * var(--chat-gutter));
+  margin-right: calc(-1 * var(--chat-gutter));
+  padding-left: max(
+    var(--chat-gutter),
+    calc((100% + 2 * var(--chat-gutter) - var(--chat-measure)) / 2)
+  );
+  padding-right: max(
+    var(--chat-gutter),
+    calc((100% + 2 * var(--chat-gutter) - var(--chat-measure)) / 2)
+  );
 }
 .template-app .chat-persona {
   justify-content: center;
@@ -2899,6 +2927,7 @@ h3 {
     padding: 20px 18px;
   }
   .template-app .live-chat {
+    --chat-gutter: 16px;
     padding: 16px;
   }
   .template-app .chat-persona {

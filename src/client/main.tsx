@@ -9,6 +9,8 @@ import { startThemeSync } from './theme';
 import './style.css';
 import './editor.css';
 import './space-files.css';
+// Last: the shell lays out what the files above build.
+import './shell.css';
 
 startThemeSync();
 createRoot(document.getElementById('root')!).render(

@@ -6,7 +6,6 @@ import { SpaceWorkspace } from './SpaceWorkspace';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { CopilotKitProvider } from '@copilotkit/react-core/v2';
 import {
-  ArrowUpRight,
   BookOpen,
   Clock3,
   Menu,
@@ -16,7 +15,6 @@ import {
   Play,
   Plus,
   Search,
-  Settings2,
   Trash2,
   X,
 } from 'lucide-react';
@@ -31,8 +29,8 @@ import type {
   WorkspaceState,
 } from '../shared/types';
 import { api, ApiError, authHeaders, setToken } from './api';
-import { desktopBridge } from '../shared/desktop-bridge';
-import { DesktopWelcome } from './desktop/DesktopWelcome';
+import { ChatWelcome } from './ChatWelcome';
+import { Mascot } from './Mascot';
 import {
   applyCaptureResult,
   applyRefreshResult,
@@ -41,7 +39,6 @@ import {
   type Notices,
 } from './poll-notice';
 import { deriveTitle } from '../shared/conversation-title';
-import { Mascot, dotLook } from './Mascot';
 import { Chat } from './Chat';
 import { InboxPage } from './inbox/InboxView';
 import { useInbox, useNeedsYouTitle } from './inbox/useInbox';
@@ -62,11 +59,6 @@ import { AutomationsPanel } from './AutomationsPanel';
 import { Composer } from './composer/Composer';
 import { useLiveRefresh } from './live-refresh';
 
-const STARTERS = [
-  'Help me think this through',
-  'Research a public page',
-  'Make a plan I can follow',
-];
 const COMPUTER_OPEN_KEY = 'fulldots.computer.open';
 /** Wide enough for the sidebar, the chat and the computer panel side by side. */
 const WIDE_QUERY = '(min-width: 1280px)';
@@ -181,8 +173,8 @@ export function App() {
   const [automations, setAutomations] = useState(0);
   const [mobile, setMobile] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(() =>
-    // FullDots Desktop starts with the slim rail; a browser starts with the full sidebar.
-    readFlag('fulldots.sidebar.collapsed', !!desktopBridge()),
+    // The slim rail of Dots until the owner opens the full sidebar; the choice is remembered.
+    readFlag('fulldots.sidebar.collapsed', true),
   );
   const toggleCollapsed = () => {
     const next = !navCollapsed;
@@ -195,12 +187,11 @@ export function App() {
     setMobile(false);
     menuButton.current?.focus();
   }, []);
-  // The computer panel on the right: open on wide screens until the owner closes it, and
-  // remembered from then on. On narrower screens it would cover the chat, so it starts closed.
-  // FullDots Desktop starts with it closed too: it opens when the owner asks for it.
+  // The computer panel on the right: closed until the owner opens it or a Dot starts using its
+  // computer, and remembered from then on. On narrower screens it would cover the chat.
   const [pane, setPane] = useState(
     () =>
-      readFlag(COMPUTER_OPEN_KEY, !desktopBridge()) &&
+      readFlag(COMPUTER_OPEN_KEY, false) &&
       typeof matchMedia === 'function' &&
       matchMedia(WIDE_QUERY).matches,
   );
@@ -690,56 +681,13 @@ export function App() {
                 />
               ) : (
                 <div className="new-conversation">
-                  {desktopBridge() && (
-                    <DesktopWelcome
-                      dotName={dot.name}
-                      configured={configured}
-                      onSettings={() =>
-                        setDialog({ type: 'settings', tab: 'models' })
-                      }
-                    />
-                  )}
-                  <div className="empty-chat-persona">
-                    <Mascot
-                      hero
-                      identity={dot.id}
-                      {...dotLook(dot)}
-                      name={dot.name}
-                      state={state.settings.paused ? 'paused' : 'idle'}
-                    />
-                    <h2>{dot.name}</h2>
-                    <p>{dot.instructions}</p>
-                    <button
-                      className="text-button"
-                      onClick={() =>
-                        setDialog({ type: 'dot', dot, spaceId: dot.spaceId })
-                      }
-                    >
-                      Edit specialist <MoreHorizontal size={14} />
-                    </button>
-                  </div>
-                  {!configured && (
-                    <div className="setup-card">
-                      <span className="setup-icon">
-                        <Settings2 size={20} />
-                      </span>
-                      <div>
-                        <strong>Connect your Dot</strong>
-                        <p>
-                          Connect your model and conversation service in
-                          Settings to start chatting. Your Spaces and Dot
-                          preferences are ready to use.
-                        </p>
-                        <a
-                          href="https://github.com/asasemahmed/FullDots/blob/main/docs/SETUP.md"
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open the setup guide <ArrowUpRight size={12} />
-                        </a>
-                      </div>
-                    </div>
-                  )}
+                  <ChatWelcome
+                    dotName={dot.name}
+                    configured={configured}
+                    onSettings={() =>
+                      setDialog({ type: 'settings', tab: 'models' })
+                    }
+                  />
                   <Composer
                     mode="new"
                     textareaRef={composer}
@@ -756,20 +704,7 @@ export function App() {
                     disabled={!configured}
                     submitLabel="Start conversation"
                     note="Text and calls, one continuing conversation"
-                    starters={STARTERS}
                   />
-                  <div className="connection-note">
-                    <span
-                      className={`online-dot ${workspace.setup.search ? '' : 'off'}`}
-                    />
-                    Web search · {workspace.setup.search ? 'on' : 'off'}
-                    <button
-                      className="text-button"
-                      onClick={() => setDialog({ type: 'settings' })}
-                    >
-                      Setup details
-                    </button>
-                  </div>
                 </div>
               )}
             </div>

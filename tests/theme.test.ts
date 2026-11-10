@@ -116,11 +116,11 @@ describe('theme', () => {
     applyTheme('dark', root, doc);
     expect(root.dataset.theme).toBe('dark');
     expect(root.style.colorScheme).toBe('dark');
-    expect(meta.content).toBe('#161616');
+    expect(meta.content).toBe('#0e0e0e');
     expect(doc.dispatchEvent).toHaveBeenCalledTimes(1);
     applyTheme('light', root, doc);
     expect(root.dataset.theme).toBe('light');
-    expect(meta.content).toBe('#f7f7f7');
+    expect(meta.content).toBe('#efefef');
   });
 });
 
