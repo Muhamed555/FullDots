@@ -1,0 +1,273 @@
+/*
+ * The boot screen. Colours are the web app's own tokens (src/client/tokens.css), copied by value:
+ * this page is shown before the app, and must look like the same place.
+ */
+:root {
+  color-scheme: dark;
+  --surface: #0e0e0e;
+  --raised: #212121;
+  --line: #303030;
+  --text: #ededed;
+  --muted: #a3a3a3;
+  --button: #1c1c1c;
+  --button-hover: #262626;
+  --accent: #6e7ff3;
+  --accent-hover: #8492f5;
+  --on-accent: #0f1226;
+  --danger: #ff8a66;
+  font-family:
+    'Geist Variable',
+    'Geist',
+    'Segoe UI Variable Text',
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --surface: #efefef;
+  --raised: #ffffff;
+  --line: #e0e0e0;
+  --text: #171717;
+  --muted: #5c5c5c;
+  --button: #ffffff;
+  --button-hover: #f2f2f2;
+  --accent: #4b58cf;
+  --accent-hover: #3f4bb8;
+  --on-accent: #ffffff;
+  --danger: #b3382c;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* The window has no title bar of its own: this strip is where it is dragged from. */
+.titlebar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 48px;
+  -webkit-app-region: drag;
+}
+
+.boot {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 56px 32px 40px;
+  text-align: center;
+}
+
+.mark {
+  width: 88px;
+  height: 88px;
+  animation: bob 2.6s ease-in-out infinite;
+}
+.mark .eyes {
+  transform-origin: 64px 66px;
+  animation: blink 4.2s infinite;
+}
+.boot[data-phase='failed'] .mark {
+  animation: none;
+  width: 64px;
+  height: 64px;
+  filter: saturate(0.5);
+}
+.boot[data-phase='failed'] .mark .eyes {
+  animation: none;
+}
+
+.word {
+  margin: 14px 0 0;
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+}
+.word span {
+  color: var(--muted);
+}
+.boot[data-phase='failed'] .word {
+  display: none;
+}
+
+/* Five dots, in the five Dot colours, filling up one after another. */
+.starting {
+  margin-top: 26px;
+}
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+}
+.dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line);
+  animation: fill 1.9s ease-in-out infinite;
+}
+.dots i:nth-child(1) {
+  --dot: #6e7ff3;
+}
+.dots i:nth-child(2) {
+  --dot: #33c49f;
+  animation-delay: 0.16s;
+}
+.dots i:nth-child(3) {
+  --dot: #f5bc58;
+  animation-delay: 0.32s;
+}
+.dots i:nth-child(4) {
+  --dot: #ff8a66;
+  animation-delay: 0.48s;
+}
+.dots i:nth-child(5) {
+  --dot: #a98bf3;
+  animation-delay: 0.64s;
+}
+#status {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.failed {
+  width: min(560px, 100%);
+  margin-top: 8px;
+  user-select: text;
+}
+.failed h2 {
+  margin: 12px 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+#reason {
+  margin: 0;
+  color: var(--muted);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 22px;
+}
+button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--button);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+button:hover {
+  background: var(--button-hover);
+}
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 550;
+}
+button.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+details {
+  margin-top: 22px;
+  text-align: left;
+}
+summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  width: fit-content;
+  margin: 0 auto;
+  border-radius: 6px;
+}
+pre {
+  margin: 10px 0 0;
+  max-height: 32vh;
+  overflow: auto;
+  padding: 12px 14px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font:
+    12px/1.55 'Geist Mono Variable',
+    'Cascadia Mono',
+    ui-monospace,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@keyframes bob {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes fill {
+  0%,
+  100% {
+    background: var(--line);
+    transform: scale(1);
+  }
+  35%,
+  60% {
+    background: var(--dot);
+    transform: scale(1.25);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mark,
+  .mark .eyes,
+  .dots i {
+    animation: none;
+  }
+  .dots i {
+    background: var(--dot);
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "fulldots-desktop",
+  "productName": "FullDots",
+  "version": "0.0.0",
+  "private": true,
+  "description": "FullDots for the desktop: the same workspace as the web app, in a window of its own.",
+  "license": "MIT",
+  "author": "asemabdallah",
+  "homepage": "https://github.com/asasemahmed/FullDots#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asasemahmed/FullDots.git"
+  },
+  "main": ".vite/build/main.cjs",
+  "scripts": {
+    "start": "node scripts/ensure-app-build.mjs && electron-forge start",
+    "stage": "node scripts/stage-server.mjs",
+    "package": "npm run stage && electron-forge package",
+    "make": "npm run stage && electron-forge make",
+    "icons": "electron scripts/make-icons.cjs",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node scripts/e2e.mjs"
+  },
+  "dependencies": {
+    "electron-squirrel-startup": "^1.0.1",
+    "update-electron-app": "^3.3.0"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^8.0.1",
+    "@electron-forge/maker-deb": "^8.0.1",
+    "@electron-forge/maker-rpm": "^8.0.1",
+    "@electron-forge/maker-squirrel": "^8.0.1",
+    "@electron-forge/maker-zip": "^8.0.1",
+    "@electron-forge/plugin-fuses": "^8.0.1",
+    "@electron-forge/plugin-vite": "^8.0.1",
+    "@electron/fuses": "^2.1.3",
+    "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/node": "^26.6.4",
+    "@vercel/nft": "^1.11.1",
+    "electron": "45.2.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

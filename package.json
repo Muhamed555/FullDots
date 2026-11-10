@@ -18,11 +18,13 @@
     "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "browser": "node --env-file-if-exists=.env --import tsx src/browser/index.ts",
     "browser:start": "node --env-file-if-exists=.env dist/server/browser/index.js",
+    "desktop": "npm run build && npm --prefix desktop start",
+    "desktop:make": "npm --prefix desktop run make",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src tests scripts/team-bench.ts scripts/brand-art.ts vite.config.ts",
-    "format": "prettier --write src tests scripts *.json *.ts *.js index.html public .github Dockerfile \"compose*.yml\" deployment README.md docs .env.example --ignore-unknown",
-    "check-format": "prettier --check src tests scripts *.json *.ts *.js index.html public .github Dockerfile \"compose*.yml\" deployment README.md docs .env.example --ignore-unknown"
+    "lint": "eslint src tests scripts/team-bench.ts scripts/brand-art.ts vite.config.ts desktop/src desktop/forge.config.mts",
+    "format": "prettier --write src tests scripts desktop *.json *.ts *.js index.html public .github Dockerfile \"compose*.yml\" deployment README.md docs .env.example --ignore-unknown",
+    "check-format": "prettier --check src tests scripts desktop *.json *.ts *.js index.html public .github Dockerfile \"compose*.yml\" deployment README.md docs .env.example --ignore-unknown"
   },
   "keywords": [
     "ai-agents",

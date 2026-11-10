@@ -167,6 +167,18 @@ docker compose up --build -d
 
 Open <http://localhost:4310>. The port is bound to loopback, and data lives in the `opendots-data` volume.
 
+### As a desktop app
+
+FullDots Desktop runs FullDots on your own computer in a window of its own, for Windows, macOS and Linux, and updates itself. It is the same app as the web version, from the same code. Download it from the [latest release](https://github.com/asasemahmed/FullDots/releases/latest), or run it from source:
+
+```sh
+npm ci
+npm --prefix desktop ci
+npm run desktop
+```
+
+See [Desktop](docs/DESKTOP.md).
+
 ### On a server
 
 Deploy on your own server with HTTPS, a domain and automated backups: see [Deploy on a VPS](docs/DEPLOY-VPS.md) for a plain Linux VPS with Docker, or [Deploy on Dokploy](docs/DEPLOY-DOKPLOY.md) to manage it from GitHub.
@@ -273,6 +285,7 @@ docs/        Guides, brand assets and screenshots
 | Guide                                       | Covers                                        |
 | ------------------------------------------- | --------------------------------------------- |
 | [Setup](docs/SETUP.md)                      | Running, Docker, storage, search and backups  |
+| [Desktop](docs/DESKTOP.md)                  | The desktop app, its data folder and updates  |
 | [Deploy on a VPS](docs/DEPLOY-VPS.md)       | Hosting on a plain Linux VPS with Docker      |
 | [Deploy on Dokploy](docs/DEPLOY-DOKPLOY.md) | Hosting on your own server from GitHub        |
 | [Models](docs/MODELS.md)                    | Providers, keys and per-Dot models            |

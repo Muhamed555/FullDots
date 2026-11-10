@@ -59,6 +59,31 @@ jobs:
       - name: npm run dev starts the API, the web app and the proxy
         run: npm run smoke -- dev
 
+  desktop:
+    name: Desktop app builds and opens
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: desktop
+      - run: npm run typecheck
+        working-directory: desktop
+      - name: Build the web app, stage the server and package the shell
+        working-directory: desktop
+        run: npm run package
+      - name: Open the window and check it end to end
+        working-directory: desktop
+        run: npm run test:e2e
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

@@ -31,6 +31,8 @@ import type {
   WorkspaceState,
 } from '../shared/types';
 import { api, ApiError, authHeaders, setToken } from './api';
+import { desktopBridge } from '../shared/desktop-bridge';
+import { DesktopWelcome } from './desktop/DesktopWelcome';
 import {
   applyCaptureResult,
   applyRefreshResult,
@@ -179,7 +181,8 @@ export function App() {
   const [automations, setAutomations] = useState(0);
   const [mobile, setMobile] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(() =>
-    readFlag('fulldots.sidebar.collapsed', false),
+    // FullDots Desktop starts with the slim rail; a browser starts with the full sidebar.
+    readFlag('fulldots.sidebar.collapsed', !!desktopBridge()),
   );
   const toggleCollapsed = () => {
     const next = !navCollapsed;
@@ -194,9 +197,10 @@ export function App() {
   }, []);
   // The computer panel on the right: open on wide screens until the owner closes it, and
   // remembered from then on. On narrower screens it would cover the chat, so it starts closed.
+  // FullDots Desktop starts with it closed too: it opens when the owner asks for it.
   const [pane, setPane] = useState(
     () =>
-      readFlag(COMPUTER_OPEN_KEY, true) &&
+      readFlag(COMPUTER_OPEN_KEY, !desktopBridge()) &&
       typeof matchMedia === 'function' &&
       matchMedia(WIDE_QUERY).matches,
   );
@@ -582,6 +586,9 @@ export function App() {
               aria-label={
                 state.settings.paused ? 'Resume all Dots' : 'Pause all Dots'
               }
+              title={
+                state.settings.paused ? 'Resume all Dots' : 'Pause all Dots'
+              }
               onClick={() =>
                 void mutate('/settings', 'PATCH', {
                   paused: !state.settings.paused,
@@ -683,6 +690,15 @@ export function App() {
                 />
               ) : (
                 <div className="new-conversation">
+                  {desktopBridge() && (
+                    <DesktopWelcome
+                      dotName={dot.name}
+                      configured={configured}
+                      onSettings={() =>
+                        setDialog({ type: 'settings', tab: 'models' })
+                      }
+                    />
+                  )}
                   <div className="empty-chat-persona">
                     <Mascot
                       hero

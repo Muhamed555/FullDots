@@ -1,0 +1,434 @@
+/*
+ * FullDots Desktop (the Electron shell in desktop/). Nothing here applies in a browser: every rule
+ * hangs off `data-desktop`, which the shell's preload script puts on <html> with the platform's
+ * name (win32, darwin, linux).
+ *
+ * The desktop window has no title bar of its own. The page runs to the top edge and its top bar is
+ * the title bar: it drags the window, and the system's window buttons are drawn over its corner.
+ *
+ * It is also where the desktop app gets its own look, with the same components as the web app:
+ * no markup differs, so a change to a screen reaches both.
+ */
+
+/*
+ * ---- Three surfaces ---------------------------------------------------------------------------
+ * The window is a frame. The rail of Dots sits directly on it; the page sits in one rounded panel;
+ * cards sit on the panel. Nothing else draws a line to the window's edge.
+ */
+html[data-desktop] {
+  /* The strip along the top: as tall as the system's window buttons (desktop/src/main/window.ts). */
+  --desk-bar: 48px;
+  --desk-gap: 8px;
+  --desk-radius: 14px;
+  --desk-frame: #efefef;
+  --desk-panel: var(--surface-0);
+  --desk-panel-line: #e0e0e0;
+  --desk-pill: #ffffff;
+  --desk-thumb: #c9c9c9;
+}
+html[data-desktop][data-theme='dark'] {
+  --desk-frame: #0e0e0e;
+  --desk-panel-line: #272727;
+  --desk-pill: #1a1a1a;
+  --desk-thumb: #3a3a3a;
+}
+html[data-desktop],
+html[data-desktop] body {
+  background: var(--desk-frame);
+}
+/* The panel scrolls, never the window: a title strip must not scroll away. */
+html[data-desktop] body {
+  overflow: hidden;
+}
+html[data-desktop] .app {
+  min-height: 0;
+  height: 100vh;
+}
+/* Slim scrollbars without arrows, as a desktop app has them. */
+html[data-desktop] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+html[data-desktop] ::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--desk-thumb);
+  background-clip: content-box;
+}
+html[data-desktop] ::-webkit-scrollbar-track,
+html[data-desktop] ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+html[data-desktop] ::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* The app's own full-window background would cover the frame. */
+html[data-desktop] .template-app {
+  background: transparent;
+}
+
+/* ---- The rail --------------------------------------------------------------------------- */
+html[data-desktop] .sb {
+  /* On the frame, not on a surface of its own: hover and selection are veils of the text colour. */
+  --sb-bg: var(--desk-frame);
+  --sb-line: var(--desk-panel-line);
+  --sb-hover: color-mix(in srgb, var(--text) 6%, transparent);
+  --sb-active: color-mix(in srgb, var(--text) 10%, transparent);
+  background: transparent;
+  border-right: 0;
+  padding-top: 7px;
+}
+html[data-desktop] .sb .sb-new {
+  background: var(--desk-pill);
+}
+html[data-desktop] .sb-dot-row.selected {
+  background: var(--sb-active);
+}
+html[data-desktop] .template-app.app.nav-collapsed {
+  --sb-width: 64px;
+}
+html[data-desktop] .sb.collapsed {
+  width: 64px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+html[data-desktop] .sb.collapsed .sb-dots {
+  border-top-color: var(--desk-panel-line);
+}
+
+/* ---- The title strip -------------------------------------------------------------------- */
+/* The top bar is lifted out of the panel and laid along the top of the frame. It drags the window. */
+html[data-desktop] .template-app .topbar {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  right: 0;
+  left: var(--sb-width, 256px);
+  height: var(--desk-bar);
+  padding: 0 12px 0 4px;
+  background: transparent;
+  border-bottom: 0;
+  -webkit-app-region: drag;
+}
+/* Everything in it that can be clicked still can. */
+html[data-desktop]
+  .topbar
+  :is(
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    label,
+    summary,
+    [role='button'],
+    [tabindex]
+  ) {
+  -webkit-app-region: no-drag;
+}
+/*
+ * Windows and Linux draw minimise, maximise and close over the top right corner. The browser
+ * engine reports the strip left of them as the "title bar area"; what is not that area is theirs,
+ * and the strip's own buttons stop short of it.
+ */
+html:is([data-desktop='win32'], [data-desktop='linux']) .template-app .topbar {
+  padding-right: max(
+    12px,
+    calc(
+      100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px
+    )
+  );
+}
+
+/* Where you are, as one quiet pill in the middle of the strip. */
+html[data-desktop] .template-app .breadcrumbs {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(46%, 520px);
+  height: 28px;
+  padding: 0 13px;
+  gap: 8px;
+  border: 1px solid var(--desk-panel-line);
+  border-radius: var(--radius-pill);
+  background: var(--desk-pill);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+html[data-desktop] .template-app .breadcrumbs > span {
+  flex-shrink: 0;
+}
+html[data-desktop] .template-app .breadcrumbs strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+  font-weight: 550;
+}
+
+/* The strip's own buttons are icons; their names are in the tooltips. */
+html[data-desktop] .template-app .top-actions {
+  margin-left: auto;
+  gap: 2px;
+}
+html[data-desktop] .template-app .top-actions .pause-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+html[data-desktop] .template-app .top-actions .pause-button > span {
+  display: none;
+}
+html[data-desktop]
+  .template-app
+  .top-actions
+  .pause-button:hover:not(:disabled) {
+  background: var(--desk-pill);
+  color: var(--text);
+}
+html[data-desktop] .template-app .top-actions .computer-toggle.on {
+  background: var(--desk-pill);
+  box-shadow: inset 0 0 0 1px var(--desk-panel-line);
+  color: var(--text);
+}
+/* On the start screen there is nowhere to be yet: the strip is only the window's handle. */
+html[data-desktop]
+  .template-app
+  .workspace:has(.new-conversation)
+  .breadcrumbs {
+  display: none;
+}
+
+/* ---- The panel -------------------------------------------------------------------------- */
+html[data-desktop] .template-app.app .workspace {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--desk-bar) - var(--desk-gap));
+  margin: var(--desk-bar) var(--desk-gap) var(--desk-gap) var(--sb-width, 256px);
+  overflow: hidden auto;
+  background: var(--desk-panel);
+  border: 1px solid var(--desk-panel-line);
+  border-radius: var(--desk-radius);
+}
+/* Pages are as tall as their content and the panel scrolls; a chat fills the panel exactly. */
+html[data-desktop] .template-app.app .workspace > * {
+  flex-shrink: 0;
+}
+html[data-desktop] .template-app.app .workspace > .chat-workspace {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+}
+html[data-desktop] .template-app.app .workspace .task-layout {
+  min-height: 0;
+}
+/* The side pane is exactly as tall as the panel: its header, then whatever fills the rest. */
+html[data-desktop] .chat-workspace > .result-pane {
+  display: flex;
+  flex-direction: column;
+}
+html[data-desktop] .chat-workspace > .result-pane > * {
+  flex-shrink: 0;
+}
+html[data-desktop] .chat-workspace > .result-pane > :not(.pane-header) {
+  flex: 1 0 auto;
+  height: auto;
+  min-height: 0;
+}
+/* The computer panel over a page lines up with the panel it covers. */
+html[data-desktop] .template-app .computer-overlay {
+  top: calc(var(--desk-bar) + 1px);
+  right: calc(var(--desk-gap) + 1px);
+  bottom: calc(var(--desk-gap) + 1px);
+  border-left: 1px solid var(--desk-panel-line);
+  border-radius: 0 calc(var(--desk-radius) - 1px) calc(var(--desk-radius) - 1px)
+    0;
+}
+
+/* ---- The start screen (DesktopWelcome.tsx) ---------------------------------------------- */
+/*
+ * A new chat is one line of text and the message box, in the middle of the panel. The Dot's
+ * profile, the setup card and the suggestions are the web app's start screen; here they stay out
+ * of the way. The Dot is edited from the rail, and Settings says what is not set up.
+ */
+html[data-desktop] .template-app .new-conversation {
+  justify-content: center;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 32px 12vh;
+}
+html[data-desktop]
+  .new-conversation
+  > :is(.empty-chat-persona, .setup-card, .connection-note),
+html[data-desktop] .new-conversation .starter-suggestions {
+  display: none;
+}
+html[data-desktop] .template-app .new-conversation .composer {
+  margin-top: 0;
+}
+.desktop-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+.desktop-welcome h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(26px, 3.2vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.desktop-welcome-eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.desktop-welcome-note {
+  max-width: 420px;
+  margin: 2px 0 10px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.desktop-welcome .primary {
+  padding: 9px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+}
+
+/*
+ * macOS draws close, minimise and zoom over the top left corner, which is the rail. The rail
+ * starts below them (not in full screen, where they are hidden), and that strip drags the window.
+ */
+html[data-desktop='darwin']:not([data-desktop-fullscreen]) .sb {
+  padding-top: 46px;
+}
+html[data-desktop='darwin']:not([data-desktop-fullscreen]) .sb::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 40px;
+  -webkit-app-region: drag;
+}
+
+/* Screens without a top bar (unlocking, the first load) still need somewhere to drag from. */
+html[data-desktop] main.unlock::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--desk-bar);
+  -webkit-app-region: drag;
+}
+
+/*
+ * Anything that opens over the title strip must take its clicks back: a drag region swallows them
+ * whatever is drawn on top of it. A full-window backdrop does that for everything under it, and
+ * keeps a strip of its own at the top so the window can still be moved while a dialog is open.
+ * A new full-window overlay belongs in both lists.
+ */
+html[data-desktop]
+  :is(
+    dialog,
+    [role='dialog'],
+    [role='menu'],
+    [role='listbox'],
+    .modal-backdrop,
+    .pal-backdrop,
+    .dot-notes-backdrop,
+    .fd-add-dot-backdrop,
+    .call-view,
+    .computer-overlay,
+    .sb-menu,
+    .slash-menu,
+    .nav-scrim,
+    .desktop-update
+  ) {
+  -webkit-app-region: no-drag;
+}
+html[data-desktop]
+  :is(
+    .modal-backdrop,
+    .pal-backdrop,
+    .dot-notes-backdrop,
+    .fd-add-dot-backdrop
+  )::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 32px;
+  -webkit-app-region: drag;
+}
+
+/* ---- The update notice (DesktopUpdateNotice.tsx) --------------------------------------- */
+.desktop-update {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 40px));
+  padding: 12px 12px 12px 14px;
+  background: var(--surface-0);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  animation: desktop-update-in 0.28s ease-out;
+}
+.desktop-update-mark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-soft-bg);
+  color: var(--accent);
+}
+.desktop-update-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.desktop-update-text strong {
+  font-weight: 600;
+}
+.desktop-update-text span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.desktop-update .primary {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+.desktop-update .icon-button {
+  flex-shrink: 0;
+}
+@keyframes desktop-update-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-update {
+    animation: none;
+  }
+}
