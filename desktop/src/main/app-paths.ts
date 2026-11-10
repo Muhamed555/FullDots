@@ -18,6 +18,10 @@ export interface AppPaths {
   serverHost: string;
   serverEntry: string;
   clientDir: string;
+  /** The page reader's build; missing from a build that left it out. */
+  pageReaderEntry: string;
+  /** Where compose.computers.yml and deployment/computers are shipped. */
+  computerKit: string;
 }
 
 /**
@@ -52,5 +56,16 @@ export function resolvePaths(): AppPaths {
       : path.join(app.getAppPath(), 'resources', 'server-host.mjs'),
     serverEntry: path.join(serverRoot, 'dist', 'server', 'server', 'index.js'),
     clientDir: path.join(serverRoot, 'dist', 'client'),
+    pageReaderEntry: path.join(
+      serverRoot,
+      'dist',
+      'server',
+      'browser',
+      'index.js',
+    ),
+    // Packaged, the kit has a folder of its own; in development it is the repository itself.
+    computerKit: app.isPackaged
+      ? path.join(serverRoot, 'computer-kit')
+      : serverRoot,
   };
 }

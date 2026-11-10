@@ -68,6 +68,8 @@ export function createMainWindow(options: {
       sandbox: true,
       nodeIntegration: false,
       spellcheck: true,
+      // Chromium's own PDF viewer, for files a Dot saves or the owner uploads.
+      plugins: true,
       additionalArguments: [`${VERSION_ARGUMENT}${options.version}`],
     },
   });

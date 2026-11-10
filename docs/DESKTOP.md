@@ -25,14 +25,11 @@ info**, then **Run anyway**), and macOS asks you to allow the app in **System Se
 
 ## What is different from the web app
 
-- **A quiet start.** A new chat is one line of text and the message box. The computer panel, the
-  Dot's profile and the other places stay closed until you open them: the computer and pause
-  icons are in the title strip, and everything else is on the rail.
+- **Files open in the app.** PDFs, tables (CSV), images and text files open inside FullDots.
 - **Your model key.** The first screen has an **Open Settings** button that goes straight to
   **Settings → Models**. Pick a provider, paste its key, and choose a default model. The key is
   encrypted in your data folder and is not shown again.
-- **A window of its own.** The top of the app is the title bar: drag it to move the window. Your
-  Dots are a slim rail on the left; click the panel icon at its top to open the full sidebar.
+- **A window of its own.** The strip along the top is the title bar: drag it to move the window.
 - **It keeps running.** On Windows, closing the window leaves FullDots in the tray, so scheduled
   work and connected channels carry on. Open it again, or quit it, from the tray icon. The tray
   menu can turn this off, and can start FullDots when you sign in.
@@ -70,13 +67,23 @@ PORT=4500
 The desktop app always listens on this computer only, so `HOST` and `APP_ORIGIN` are ignored.
 To reach FullDots from other devices, run the [server](SETUP.md) instead.
 
-## Not in the desktop app yet
+## Dot computers, the page reader and connectors
 
-- **The guided Docker setup for Dot computers.** A Dot can still use a computer service you run
-  yourself: start it as described in [Dot computers](COMPUTERS.md) and set
-  `COMPUTER_SUPERVISOR_URL` and its tokens in the data folder's `.env`.
-- **The page reader.** Search and research work; the isolated page reader is a separate service.
-  Run it as described in [Setup](SETUP.md) and set `BROWSER_URL` and `BROWSER_SECRET`.
+These work in the desktop app as they do on a server.
+
+- **Dot computers** need Docker. Open the computer panel (the screen icon in the title strip, or
+  it opens by itself when a Dot first uses its computer) and follow the guided setup: it checks
+  Docker, builds the images and starts the service. The first build downloads a few gigabytes and
+  takes several minutes. The setup files are kept in your data folder, and building never sends
+  your data to Docker, only those files. See [Dot computers](COMPUTERS.md).
+- **The page reader**, which lets Dots open the pages they find, starts with the app. It drives a
+  browser you already have (Edge or Chrome), so nothing extra is downloaded. Without one of those
+  installed, search still works and **Settings → General** shows the page reader as off.
+- **Connectors** are added in **Settings → Connectors**. A connector's sign-in opens in your own
+  browser and returns to the app by itself.
+
+If you also run FullDots from a checkout on the same computer, run only one computer service at a
+time: both use port 4312.
 
 ## If it does not start
 

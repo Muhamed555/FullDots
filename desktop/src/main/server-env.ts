@@ -44,6 +44,8 @@ export interface ServerEnvOptions {
   base: Record<string, string | undefined>;
   /** The data folder's `.env`. */
   userEnv: Record<string, string>;
+  /** What the shell set up for this run (the page reader); `.env` still wins. */
+  provided?: Record<string, string>;
   port: number;
   /** Absolute path of the built client (`dist/client`). */
   clientDir: string;
@@ -57,6 +59,9 @@ export function serverEnv(options: ServerEnvOptions): Record<string, string> {
   for (const [key, value] of Object.entries(options.base))
     if (typeof value === 'string' && !NEVER_INHERITED.includes(key))
       env[key] = value;
+  // Docker names a compose project after its folder; the data folder is just "workspace".
+  env.COMPOSE_PROJECT_NAME ??= 'fulldots-desktop';
+  Object.assign(env, options.provided);
   // The data folder's `.env` wins over the shell's environment, as `--env-file` does not; a file
   // someone edited on purpose is the clearer statement of what they want.
   for (const [key, value] of Object.entries(options.userEnv))

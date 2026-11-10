@@ -20,10 +20,13 @@ import started from 'electron-squirrel-startup';
 import type { DesktopUpdate } from '../../src/shared/desktop-bridge';
 import { IPC, type BootState } from './ipc';
 import { chooseProfile, resolvePaths } from './main/app-paths';
+import { findBrowser } from './main/browser-finder';
+import { syncComputerKit } from './main/computer-kit';
 import { attachContextMenu } from './main/context-menu';
 import { createLog } from './main/log';
 import { HIDDEN_ARGUMENT } from './main/login-item';
 import { installMenu } from './main/menu';
+import { startPageReader, type PageReader } from './main/page-reader';
 import {
   attachNavigation,
   senderPage,
@@ -71,6 +74,7 @@ function main(): void {
   let window: BrowserWindow | undefined;
   let tray: Tray | undefined;
   let server: RunningServer | undefined;
+  let pageReader: PageReader | undefined;
   let appOrigin: string | undefined;
   let boot: BootState = { phase: 'starting' };
   let launching = false;
@@ -149,6 +153,13 @@ function main(): void {
         );
         settings.update({ port });
         const origin = `http://${LOOPBACK_HOST}:${port}`;
+        // The guided Docker setup for Dot computers works from the data folder.
+        try {
+          if (!syncComputerKit(paths.computerKit, paths.home))
+            log.warn('The computer setup files are missing from this build.');
+        } catch (error) {
+          log.error('Could not copy the computer setup files', error);
+        }
         server = await startServer({
           hostScript: paths.serverHost,
           entry: paths.serverEntry,
@@ -156,6 +167,7 @@ function main(): void {
           env: serverEnv({
             base: process.env,
             userEnv,
+            provided: await pageReaderEnv(userEnv, port),
             port,
             clientDir: paths.clientDir,
             databasePath: paths.database,
@@ -178,6 +190,47 @@ function main(): void {
       );
     } finally {
       launching = false;
+    }
+  };
+
+  /**
+   * Starts the page reader once, when a browser is installed and `.env` does not already point at
+   * one, and returns what the server needs to reach it. Without it, search still works; Dots just
+   * cannot open the pages they find.
+   */
+  const pageReaderEnv = async (
+    userEnv: Record<string, string>,
+    serverPort: number,
+  ): Promise<Record<string, string>> => {
+    if (userEnv.BROWSER_URL || process.env.BROWSER_URL) return {};
+    try {
+      if (!pageReader) {
+        const browserPath = findBrowser(
+          process.platform,
+          process.env,
+          existsSync,
+        );
+        if (!browserPath || !existsSync(paths.pageReaderEntry)) {
+          log.info(
+            browserPath
+              ? 'This build has no page reader.'
+              : 'No Chrome or Edge found: the page reader is not started.',
+          );
+          return {};
+        }
+        pageReader = startPageReader({
+          hostScript: paths.serverHost,
+          entry: paths.pageReaderEntry,
+          cwd: paths.home,
+          port: await findPort(serverPort + 1, LOOPBACK_HOST),
+          browserPath,
+          log,
+        });
+      }
+      return { BROWSER_URL: pageReader.url, BROWSER_SECRET: pageReader.secret };
+    } catch (error) {
+      log.error('Could not start the page reader', error);
+      return {};
     }
   };
 
@@ -364,7 +417,10 @@ function main(): void {
   });
 
   // Closing the windows on the way out records their position; write it before the process ends.
-  app.on('will-quit', () => settings.flush());
+  app.on('will-quit', () => {
+    settings.flush();
+    pageReader?.stop();
+  });
 
   void app.whenReady().then(() => {
     restrictPermissions(pages);

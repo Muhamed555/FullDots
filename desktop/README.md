@@ -33,6 +33,8 @@ What lives in `desktop/` is only what a browser tab cannot do:
 | `src/main/server-env.ts`    | The environment the server starts with (this machine only, the data folder) |
 | `src/main/window.ts`        | The frameless window and the system's window buttons over the page.         |
 | `src/main/navigation.ts`    | Keeps the window on FullDots; other sites open in the browser.              |
+| `src/main/page-reader.ts`   | Runs the page reader beside the server, driving an installed browser.       |
+| `src/main/computer-kit.ts`  | Keeps the Docker setup files for Dot computers in the data folder.          |
 | `src/main/updates.ts`       | Updates from GitHub releases.                                               |
 | `src/main/tray.ts`          | The tray icon: keep running when the window is closed.                      |
 | `src/main/menu.ts`          | The application menu and its keyboard shortcuts.                            |
@@ -47,15 +49,16 @@ The web app knows about the desktop in a few small places, all of which do nothi
 
 - [`src/shared/desktop-bridge.ts`](../src/shared/desktop-bridge.ts): the typed contract between
   the page and the shell. Both sides import it, so a change is checked against both.
-- [`src/client/desktop/desktop.css`](../src/client/desktop/desktop.css): the desktop look. Every
-  rule hangs off `html[data-desktop]`. The components and their markup are the web app's own.
-- [`src/client/desktop/DesktopWelcome.tsx`](../src/client/desktop/DesktopWelcome.tsx): the line
-  above the message box on the start screen.
+- [`src/client/desktop/desktop.css`](../src/client/desktop/desktop.css): what a window of its
+  own adds to the page: the strip along the top drags the window, and its buttons keep clear of
+  the system's. The look itself (frame, rail, panel) is `src/client/shell.css` and is the same in
+  a browser.
 - [`src/client/desktop/DesktopUpdateNotice.tsx`](../src/client/desktop/DesktopUpdateNotice.tsx):
   the "update is ready" notice.
 
-The server has one setting for it: `CLIENT_DIR`, the folder of the built web client, because the
-desktop server's working directory is the person's data folder.
+The server has two settings for it: `CLIENT_DIR`, the folder of the built web client, because
+the desktop server's working directory is the person's data folder; and
+`BROWSER_EXECUTABLE_PATH`, so the page reader drives a browser that is already installed.
 
 ## Run it
 

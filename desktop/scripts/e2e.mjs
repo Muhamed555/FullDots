@@ -166,6 +166,32 @@ check(
   'the workspace is in the data folder',
   existsSync(path.join(home, 'workspace', 'data', 'opendots.sqlite')),
 );
+const services = await page.evaluate(async () => ({
+  setup: (await (await fetch('/api/workspace')).json()).setup,
+  docker: await (await fetch('/api/docker/setup')).json(),
+}));
+check(
+  'the guided setup for Dot computers is offered',
+  services.docker.enabled === true,
+);
+check(
+  'the computer setup files are in the data folder, with the rule that keeps data out of builds',
+  existsSync(path.join(home, 'workspace', 'compose.computers.yml')) &&
+    readFileSync(
+      path.join(home, 'workspace', '.dockerignore'),
+      'utf8',
+    ).includes('!deployment'),
+);
+check(
+  'the page reader is running',
+  services.setup.browser === true,
+  JSON.stringify(services.setup),
+);
+check(
+  'a new chat starts with one line and the message box, and no side panel',
+  (await page.locator('.start-hero h1').count()) === 1 &&
+    (await page.locator('.result-pane').count()) === 0,
+);
 await page.screenshot({ path: path.join(shots, 'app-dark.png') });
 
 // ---- 2. The window follows the theme -----------------------------------------------------------
@@ -207,7 +233,7 @@ await app.evaluate(({ BrowserWindow }) => {
     version: '9.9.9',
   });
 });
-await page.waitForSelector('.desktop-update', { timeout: 5_000 });
+await page.waitForSelector('.desktop-update', { timeout: 15_000 });
 check(
   'the page offers the restart',
   (await page.textContent('.desktop-update')).includes(

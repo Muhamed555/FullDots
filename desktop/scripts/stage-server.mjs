@@ -49,8 +49,12 @@ mkdirSync(path.join(stage, 'dist'), { recursive: true });
 // root's node_modules also holds everything the web client is built from (React, the editor, the
 // icon sets), none of which a running server opens: installing all production dependencies here
 // would make the app ten times the size.
-const entry = path.join(root, 'dist', 'server', 'server', 'index.js');
-const { fileList, warnings } = await nodeFileTrace([entry], {
+const entries = [
+  path.join(root, 'dist', 'server', 'server', 'index.js'),
+  // The page reader, which the app starts beside the server when a browser is installed.
+  path.join(root, 'dist', 'server', 'browser', 'index.js'),
+];
+const { fileList, warnings } = await nodeFileTrace(entries, {
   base: root,
   processCwd: root,
 });
@@ -63,6 +67,28 @@ for (const file of fileList) {
   mkdirSync(path.dirname(target), { recursive: true });
   copyFileSync(path.join(root, file), target);
 }
+// Playwright finds its own files at run time in ways a trace cannot follow: take it whole. Its
+// browsers are not part of the package, and the app drives one that is already installed.
+for (const name of ['playwright', 'playwright-core'])
+  cpSync(
+    path.join(root, 'node_modules', name),
+    path.join(stage, 'node_modules', name),
+    { recursive: true },
+  );
+
+// What the guided Docker setup for Dot computers needs (desktop/src/main/computer-kit.ts).
+const kit = path.join(stage, 'computer-kit');
+mkdirSync(kit, { recursive: true });
+copyFileSync(
+  path.join(root, 'compose.computers.yml'),
+  path.join(kit, 'compose.computers.yml'),
+);
+cpSync(
+  path.join(root, 'deployment', 'computers'),
+  path.join(kit, 'deployment', 'computers'),
+  { recursive: true },
+);
+
 // "type": "module" for the server build, and the name and version the server reports.
 copyFileSync(path.join(root, 'package.json'), path.join(stage, 'package.json'));
 
