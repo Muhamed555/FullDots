@@ -167,6 +167,45 @@ describe('Docker setup steps', () => {
     }
   });
 
+  it('tries the build once more before giving up, and finishes when that works', async () => {
+    const ran: string[] = [];
+    let builds = 0;
+    const cwd = tempDir();
+    const config = baseConfig();
+    const setup = new DockerSetup({
+      config,
+      enabled: true,
+      platform: 'win32',
+      cwd,
+      sleep: async () => {},
+      run: async (command) => {
+        const text = [command.file, ...command.args].join(' ');
+        ran.push(text);
+        // The first build fails as it names the image; the second finds everything built.
+        if (text.includes(' build '))
+          return { code: ++builds === 1 ? 1 : 0, output: '' };
+        return { code: 0, output: '' };
+      },
+    });
+    const job = await runStep(setup, 'create-computers');
+    expect(job.state).toBe('done');
+    expect(ran.filter((command) => command.includes(' build '))).toHaveLength(
+      2,
+    );
+    expect(ran.filter((command) => command.includes(' up '))).toHaveLength(1);
+    expect(job.output).toContain('Trying once more');
+    expect(config.computerToken).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('builds at most twice when the build keeps failing', async () => {
+    const { setup, ran } = makeSetup({ build: 1 });
+    const job = await runStep(setup, 'create-computers');
+    expect(job.state).toBe('failed');
+    expect(ran.filter((command) => command.includes(' build '))).toHaveLength(
+      2,
+    );
+  });
+
   it('runs one step at a time and nothing when disabled', async () => {
     const { setup } = makeSetup();
     const job = setup.start('check', approved('check'));

@@ -283,9 +283,16 @@ export class DockerSetup {
       // Given to Compose through the environment, so the secrets never appear in a command or its
       // output. Compose's bake builder reads the pinned OpenBot git URL as a local path on Windows.
       const env = { ...process.env, ...values, COMPOSE_BAKE: 'false' };
-      for (const command of [COMPOSE_BUILD, COMPOSE_UP])
-        if ((await this.exec(job, command, env)).code !== 0)
-          throw new StepFailed(`Docker could not finish. ${DETAILS}`);
+      // A first build can fail in its last second: with Docker's containerd image store, naming
+      // a freshly built image sometimes reports that it "already exists". Everything is built by
+      // then, so the same command again finishes from the cache in seconds.
+      let built = (await this.exec(job, COMPOSE_BUILD, env)).code === 0;
+      if (!built) {
+        this.append(job, 'The build did not finish. Trying once more.\n');
+        built = (await this.exec(job, COMPOSE_BUILD, env)).code === 0;
+      }
+      if (!built || (await this.exec(job, COMPOSE_UP, env)).code !== 0)
+        throw new StepFailed(`Docker could not finish. ${DETAILS}`);
       // Last: `npm run dev` restarts the server when .env changes, which would end a running step.
       this.adopt(values);
       return 'Dot computers are ready. Turn one on from its Computer panel.';
