@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#161616' : '#f7f7f7');
+    if (meta) meta.setAttribute('content', dark ? '#0e0e0e' : '#efefef');
   } catch (error) {
     /* localStorage can be blocked; the page keeps the dark default from index.html. */
   }

@@ -1,0 +1,307 @@
+/*
+ * The Space library's shelf (SpaceLibrary.tsx): the filters above it and the items on it. The
+ * heading, search and view toggle keep their styles in editor.css and space-files.css.
+ *
+ * Each kind of item has one colour, taken from the token families, used for its badge and the
+ * tint behind its icon: a glance down the shelf sorts it before a word is read.
+ */
+.lib-item {
+  --lib-ink: var(--text-muted);
+  --lib-tint: var(--surface-3);
+}
+.lib-item.is-page {
+  --lib-ink: var(--violet-ink);
+  --lib-tint: color-mix(in srgb, var(--violet-300) 14%, transparent);
+}
+.lib-item.is-image {
+  --lib-ink: var(--pink-ink);
+  --lib-tint: color-mix(in srgb, var(--pink-300) 13%, transparent);
+}
+.lib-item.is-document {
+  --lib-ink: var(--blue-ink);
+  --lib-tint: color-mix(in srgb, var(--blue-300) 15%, transparent);
+}
+.lib-item.is-data {
+  --lib-ink: var(--green-ink);
+  --lib-tint: color-mix(in srgb, var(--green-300) 14%, transparent);
+}
+
+/* ---- Filters: what it is, and who made it ------------------------------------------------ */
+.lib-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+  margin: 18px 0 6px;
+}
+.lib-tabs,
+.lib-makers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.lib-tabs button,
+.lib-makers button {
+  height: 30px;
+  padding: 0 11px;
+  gap: 6px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.lib-tabs button:hover:not(:disabled),
+.lib-makers button:hover:not(:disabled) {
+  background: var(--hover-veil);
+  color: var(--text);
+}
+.lib-tabs button[aria-pressed='true'],
+.lib-makers button[aria-pressed='true'] {
+  background: var(--surface-4);
+  color: var(--text);
+  font-weight: 560;
+}
+.lib-tabs button > span,
+.lib-makers button > span:last-child {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.lib-maker-face,
+.lib-maker-face .mascot {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+}
+
+/* ---- The shelf ---------------------------------------------------------------------------- */
+.lib-shelf + .lib-shelf {
+  margin-top: 6px;
+}
+.lib-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lib-items.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+  gap: 14px;
+}
+.lib-items > li {
+  display: flex;
+  min-width: 0;
+}
+.lib-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: var(--text);
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.lib-item:hover:not(:disabled) {
+  border-color: var(--line-3);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.lib-item:active:not(:disabled) {
+  transform: none;
+}
+
+/* What the item is, before its name: a picture, the start of a page, or its kind. */
+.lib-thumb,
+.lib-preview,
+.lib-tile {
+  display: grid;
+  flex-shrink: 0;
+  height: 132px;
+  border-bottom: 1px solid var(--line);
+}
+.lib-thumb,
+.lib-tile {
+  place-items: center;
+  background: var(--lib-tint);
+  color: var(--lib-ink);
+}
+.lib-thumb img {
+  width: 100%;
+  height: 132px;
+  object-fit: cover;
+}
+.lib-preview {
+  align-content: start;
+  padding: 14px 15px 0;
+  overflow: hidden;
+  background: linear-gradient(var(--lib-tint), transparent 70%);
+  color: var(--text-soft);
+  font-size: 12.5px;
+  line-height: 1.6;
+  /* The text runs off the card instead of stopping at a hard edge. */
+  mask-image: linear-gradient(#000 55%, transparent 96%);
+}
+
+.lib-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px 13px 12px;
+}
+.lib-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.lib-title strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-badge {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--lib-tint);
+  color: var(--lib-ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+.lib-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.lib-maker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--text-muted);
+}
+.lib-maker > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-maker .mascot {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+.lib-maker.you {
+  color: var(--text-faint);
+}
+
+/* ---- As a list ---------------------------------------------------------------------------- */
+.lib-items.list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lib-items.list .lib-item {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  border-radius: var(--radius-md);
+}
+.lib-items.list .lib-item:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+.lib-items.list :is(.lib-thumb, .lib-preview, .lib-tile) {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 9px;
+  overflow: hidden;
+}
+.lib-items.list .lib-thumb img {
+  height: 40px;
+}
+.lib-items.list .lib-tile svg,
+.lib-items.list .lib-thumb svg {
+  width: 18px;
+  height: 18px;
+}
+/* A page's opening lines do not fit a 40px square: its tile is the tint alone. */
+.lib-items.list .lib-preview {
+  padding: 0;
+  background: var(--lib-tint);
+  font-size: 0;
+  mask-image: none;
+}
+.lib-items.list .lib-body {
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0;
+}
+.lib-items.list .lib-title {
+  flex: 1;
+}
+.lib-items.list .lib-meta {
+  flex-shrink: 0;
+  gap: 18px;
+}
+
+.lib-drop {
+  margin: 18px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .lib-items.grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .lib-thumb,
+  .lib-preview,
+  .lib-tile {
+    height: 104px;
+  }
+  .lib-thumb img {
+    height: 104px;
+  }
+  .lib-items.list .lib-meta > span:last-child {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lib-item {
+    transition: none;
+  }
+}

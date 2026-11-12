@@ -51,6 +51,13 @@ app.post('/browse', async (c) => {
     browser = await chromium.launch({
       headless: true,
       args: ['--disable-dev-shm-usage'],
+      // A browser already on the machine, instead of the one Playwright downloads. The desktop
+      // app sets these, so it needs no second copy of Chromium.
+      ...(process.env.BROWSER_EXECUTABLE_PATH
+        ? { executablePath: process.env.BROWSER_EXECUTABLE_PATH }
+        : process.env.BROWSER_CHANNEL
+          ? { channel: process.env.BROWSER_CHANNEL }
+          : {}),
     });
     controller.signal.throwIfAborted();
     const context = await browser.newContext({

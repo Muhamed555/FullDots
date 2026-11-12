@@ -1,0 +1,116 @@
+name: Release desktop
+# Builds the desktop app for a release tag and attaches its installers to that GitHub release.
+# Runs when a release is published (the same event that publishes the Docker images), or by hand
+# for an existing v* tag. Installed copies then update themselves from the release: the Windows and
+# macOS apps through update.electronjs.org, which reads these assets. See desktop/README.md.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build, for example v2.1.0
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: release-desktop-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Desktop app (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            arch: x64
+          # One runner makes both Mac builds: Apple silicon and Intel.
+          - name: macOS
+            os: macos-latest
+            arch: arm64,x64
+          - name: Linux
+            os: ubuntu-latest
+            arch: x64
+    env:
+      TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Check the release tag
+        shell: bash
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Only release tags such as v2.1.0 or v2.1.0-rc.1 are built."
+            echo "Got: $TAG"
+            exit 1
+          fi
+      - uses: actions/checkout@v7
+        with:
+          # refs/tags/ makes a branch with the same name fail instead of being built.
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - name: The tag is the version in package.json
+        shell: bash
+        # The installed app compares its own version with the release's to decide whether to
+        # update, so a mismatch would ship an app that never updates, or always does.
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ "v$version" != "$TAG" ]]; then
+            echo "::error::package.json says $version but the tag is $TAG."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm ci
+        working-directory: desktop
+      - name: Packaging tools for .rpm
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - name: Windows signing certificate
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+        # Optional. Without the secret the installer is built unsigned.
+        run: |
+          if [[ -n "$CERTIFICATE" ]]; then
+            echo "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/windows-certificate.pfx"
+            echo "WINDOWS_CERTIFICATE_FILE=$RUNNER_TEMP/windows-certificate.pfx" >> "$GITHUB_ENV"
+          fi
+      - name: Build the web app, stage the server and make the installers
+        working-directory: desktop
+        env:
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          # Optional. With these three the macOS app is signed and notarised, which macOS
+          # requires before an app may update itself.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run make -- --arch=${{ matrix.arch }}
+      - name: Attach the installers to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Windows: Setup.exe for people, RELEASES and .nupkg for the updater. macOS: .dmg for
+        # people, .zip for the updater. Linux: .deb and .rpm. The website's download page and
+        # update.electronjs.org both find them by these names.
+        run: |
+          mapfile -t assets < <(find desktop/out/make -type f \( \
+            -name '*.exe' -o -name '*.nupkg' -o -name 'RELEASES' -o \
+            -name '*.dmg' -o -name '*.zip' -o -name '*.deb' -o -name '*.rpm' \))
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "::error::No installers were made."
+            exit 1
+          fi
+          printf '%s\n' "${assets[@]}"
+          gh release upload "$TAG" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"

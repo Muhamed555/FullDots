@@ -1,3 +1,7 @@
 node_modules
 dist
 package-lock.json
+desktop/.vite
+desktop/out
+desktop/.stage
+desktop/package-lock.json

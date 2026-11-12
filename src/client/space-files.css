@@ -27,61 +27,9 @@
   outline-offset: -8px;
   border-radius: 14px;
 }
-.library-files {
-  display: flex;
-  flex-direction: column;
-  margin: 0 0 32px;
-  padding: 0;
-  list-style: none;
-  border: 1px solid var(--paper-200);
-  border-radius: 12px;
-  background: var(--surface-0);
-  overflow: hidden;
-}
-.library-files li + li {
-  border-top: 1px solid var(--paper-100);
-}
-.library-files button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 11px 16px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text);
-  font-size: 13px;
-  text-align: left;
-}
-.library-files button:hover:not(:disabled) {
-  background: var(--surface-2);
-  transform: none;
-}
-.library-file-icon {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--surface-2);
-  color: var(--text-faint);
-  flex: none;
-}
-.library-file-name {
-  flex: 1;
-  min-width: 0;
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-.library-file-meta,
 .library-files-empty {
   color: var(--text-faint);
   font-size: 12px;
-}
-.library-file-meta {
-  flex: none;
-  white-space: nowrap;
 }
 .library-files-empty {
   margin: 0 0 32px;
