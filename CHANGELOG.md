@@ -2,6 +2,12 @@
 
 All notable changes to FullDots are listed here. The project follows [Semantic Versioning](https://semver.org), and releases before 1.0 may have changed without notice.
 
+## Unreleased
+
+### Changed
+
+- **A setup wizard for Windows.** The Windows installer is now a standard setup wizard instead of a one-click install: a welcome page that says what FullDots is, the license to accept, installing for you or for everyone, the folder to install into, and a finish page that opens FullDots. It adds Start menu and desktop shortcuts and an uninstall entry in Settings → Apps; uninstalling keeps your workspace. Updates still download by themselves and install on restart, into the folder you chose. Coming from 2.1.0, run the new setup once: it removes the 2.1.0 app and keeps your data. The 2.1.0 app cannot update itself to this release: download the new setup from the release page once, and later versions update themselves again. See [`docs/DESKTOP.md`](docs/DESKTOP.md#install).
+
 ## 2.1.0 — the desktop app (2026-11-12)
 
 FullDots is now also an app for Windows, macOS and Linux, and the window is calmer everywhere: a frame, a slim rail of your Dots and one panel for the page. The same release adds a full Linux desktop for Dot computers, Codex beside Claude Code, connected apps through Composio, Dots that think with an agent you run, Dot packs, Slack and Telegram channels, and a library that shows a Space's pages and files on one shelf.

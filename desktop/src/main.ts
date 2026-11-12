@@ -16,7 +16,6 @@ import {
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import started from 'electron-squirrel-startup';
 import type { DesktopUpdate } from '../../src/shared/desktop-bridge';
 import { IPC, type BootState } from './ipc';
 import { chooseProfile, resolvePaths } from './main/app-paths';
@@ -60,9 +59,9 @@ function main(): void {
     app.quit();
     return;
   }
-  // Matches the shortcut Squirrel creates, so Windows groups notifications under FullDots.
+  // Matches the shortcuts the setup wizard creates, so Windows groups notifications under FullDots.
   if (process.platform === 'win32' && app.isPackaged)
-    app.setAppUserModelId('com.squirrel.FullDots.fulldots');
+    app.setAppUserModelId('com.fulldots.desktop');
 
   const paths = resolvePaths();
   const log = createLog(path.join(paths.logs, 'desktop.log'));
@@ -445,6 +444,4 @@ function main(): void {
   });
 }
 
-// Squirrel runs the app briefly to create or remove shortcuts on Windows; that is all it does.
-if (started) app.quit();
-else main();
+main();

@@ -1,8 +1,9 @@
 name: Release desktop
 # Builds the desktop app for a release tag and attaches its installers to that GitHub release.
 # Runs when a release is published (the same event that publishes the Docker images), or by hand
-# for an existing v* tag. Installed copies then update themselves from the release: the Windows and
-# macOS apps through update.electronjs.org, which reads these assets. See desktop/README.md.
+# for an existing v* tag. Installed copies then update themselves from the release: the Windows app
+# through electron-updater, which reads latest.yml, and the macOS app through update.electronjs.org.
+# See desktop/README.md.
 on:
   release:
     types: [published]
@@ -100,15 +101,15 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Windows: Setup.exe for people, RELEASES and .nupkg for the updater. macOS: .dmg for
-        # people, .zip for the updater. Linux: .deb. The website's download page and
-        # update.electronjs.org both find them by these names.
+        # Windows: the Setup.exe wizard for people, latest.yml and the .blockmap for the updater.
+        # macOS: .dmg for people, .zip for the updater. Linux: .deb. The website's download page,
+        # electron-updater and update.electronjs.org all find them by these names.
         #
         # Written for the bash that macOS ships (3.2): no mapfile, no process substitution.
         run: |
           list="$RUNNER_TEMP/installers.txt"
           find desktop/out/make -type f \( \
-            -name '*.exe' -o -name '*.nupkg' -o -name 'RELEASES' -o \
+            -name '*.exe' -o -name 'latest.yml' -o -name '*.blockmap' -o \
             -name '*.dmg' -o -name '*.zip' -o -name '*.deb' -o -name '*.rpm' \) > "$list"
           if [[ ! -s "$list" ]]; then
             echo "::error::No installers were made."

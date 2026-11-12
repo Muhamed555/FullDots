@@ -1,6 +1,5 @@
 // Opening FullDots when the person signs in to their computer, started in the tray.
 import { app } from 'electron';
-import path from 'node:path';
 
 /** Passed at sign-in so the app starts without putting a window in front of the person. */
 export const HIDDEN_ARGUMENT = '--hidden';
@@ -11,19 +10,10 @@ export function loginItemSupported(): boolean {
 }
 
 function target(): Electron.LoginItemSettingsOptions {
+  // Windows: the installed fulldots.exe itself. The setup wizard installs into one folder and
+  // updates in place, so this path stays the same from version to version.
   if (process.platform !== 'win32') return {};
-  // An installed Windows app is started through Squirrel's Update.exe, which finds the current
-  // version's folder; the path of this executable changes with every update.
-  const executable = path.basename(process.execPath);
-  return {
-    path: path.resolve(path.dirname(process.execPath), '..', 'Update.exe'),
-    args: [
-      '--processStart',
-      `"${executable}"`,
-      '--process-start-args',
-      `"${HIDDEN_ARGUMENT}"`,
-    ],
-  };
+  return { path: process.execPath, args: [HIDDEN_ARGUMENT] };
 }
 
 export function opensAtLogin(): boolean {

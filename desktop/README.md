@@ -26,24 +26,26 @@ the web app and the desktop app together. Nothing is copied between them.
 
 What lives in `desktop/` is only what a browser tab cannot do:
 
-| File                        | What it does                                                                |
-| --------------------------- | --------------------------------------------------------------------------- |
-| `src/main.ts`               | The entry point: one instance, the window, quitting cleanly.                |
-| `src/main/server.ts`        | Runs the server in a utility process, waits for it, stops it.               |
-| `src/main/server-env.ts`    | The environment the server starts with (this machine only, the data folder) |
-| `src/main/window.ts`        | The frameless window and the system's window buttons over the page.         |
-| `src/main/navigation.ts`    | Keeps the window on FullDots; other sites open in the browser.              |
-| `src/main/page-reader.ts`   | Runs the page reader beside the server, driving an installed browser.       |
-| `src/main/computer-kit.ts`  | Keeps the Docker setup files for Dot computers in the data folder.          |
-| `src/main/updates.ts`       | Updates from GitHub releases.                                               |
-| `src/main/tray.ts`          | The tray icon: keep running when the window is closed.                      |
-| `src/main/menu.ts`          | The application menu and its keyboard shortcuts.                            |
-| `src/main/permissions.ts`   | Microphone, notifications and clipboard for FullDots' own pages only.       |
-| `src/preload.ts`            | `window.fulldotsDesktop`, and `data-desktop` on `<html>`.                   |
-| `index.html`, `renderer.ts` | The boot screen, and the screen shown when the server cannot start.         |
-| `resources/server-host.mjs` | Lets the shell ask the server to stop cleanly on every platform.            |
-| `scripts/stage-server.mjs`  | Collects the server build and only the files it imports, for packaging.     |
-| `forge.config.mts`          | Packaging, installers and signing.                                          |
+| File                        | What it does                                                                 |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| `src/main.ts`               | The entry point: one instance, the window, quitting cleanly.                 |
+| `src/main/server.ts`        | Runs the server in a utility process, waits for it, stops it.                |
+| `src/main/server-env.ts`    | The environment the server starts with (this machine only, the data folder)  |
+| `src/main/window.ts`        | The frameless window and the system's window buttons over the page.          |
+| `src/main/navigation.ts`    | Keeps the window on FullDots; other sites open in the browser.               |
+| `src/main/page-reader.ts`   | Runs the page reader beside the server, driving an installed browser.        |
+| `src/main/computer-kit.ts`  | Keeps the Docker setup files for Dot computers in the data folder.           |
+| `src/main/updates.ts`       | Updates from GitHub releases (electron-updater on Windows).                  |
+| `src/main/tray.ts`          | The tray icon: keep running when the window is closed.                       |
+| `src/main/menu.ts`          | The application menu and its keyboard shortcuts.                             |
+| `src/main/permissions.ts`   | Microphone, notifications and clipboard for FullDots' own pages only.        |
+| `src/preload.ts`            | `window.fulldotsDesktop`, and `data-desktop` on `<html>`.                    |
+| `index.html`, `renderer.ts` | The boot screen, and the screen shown when the server cannot start.          |
+| `resources/server-host.mjs` | Lets the shell ask the server to stop cleanly on every platform.             |
+| `scripts/stage-server.mjs`  | Collects the server build and only the files it imports, for packaging.      |
+| `forge.config.mts`          | Packaging, installers and signing.                                           |
+| `makers/maker-nsis.ts`      | The Windows setup wizard: Forge's packaged app, wrapped by electron-builder. |
+| `installer/`                | The wizard's welcome text, its side banner and its install steps.            |
 
 The web app knows about the desktop in a few small places, all of which do nothing in a browser:
 
@@ -108,11 +110,11 @@ npm run desktop:make
 This builds the web app, stages the server (`desktop/.stage/server`) and makes the installers for
 the platform you are on, in `desktop/out/make`:
 
-| Platform | Result                                                                     |
-| -------- | -------------------------------------------------------------------------- |
-| Windows  | `FullDots-x.y.z-Setup.exe` (Squirrel)                                      |
-| macOS    | `FullDots-x.y.z-<arch>.dmg`, and a `.zip` for the updater                  |
-| Linux    | `.deb`. An `.rpm` too with `--targets=rpm`, where `rpm` is older than 4.20 |
+| Platform | Result                                                                         |
+| -------- | ------------------------------------------------------------------------------ |
+| Windows  | `FullDots-x.y.z-Setup.exe` (NSIS setup wizard), `latest.yml` and a `.blockmap` |
+| macOS    | `FullDots-x.y.z-<arch>.dmg`, and a `.zip` for the updater                      |
+| Linux    | `.deb`. An `.rpm` too with `--targets=rpm`, where `rpm` is older than 4.20     |
 
 ## One version, one release
 
@@ -134,9 +136,10 @@ Publishing the release starts two workflows:
 
 Installed desktop apps then find the new release themselves:
 
-- **Windows** checks [update.electronjs.org](https://github.com/electron/update.electronjs.org)
-  (free for public repositories, and the service Electron's own documentation uses), downloads
-  the update in the background and shows "FullDots x.y.z is ready" with a Restart button.
+- **Windows** checks the release's `latest.yml` with
+  [electron-updater](https://www.electron.build/auto-update), downloads the new setup in the
+  background and shows "FullDots x.y.z is ready" with a Restart button. Restart installs it
+  silently into the folder the person chose and opens FullDots again.
 - **macOS** does the same once the app is signed and notarised (see below). Unsigned, it shows
   the notice with a link to the download instead.
 - **Linux** shows the notice with a link to the download.
@@ -156,6 +159,24 @@ certificates. Set these as repository secrets for the release workflow:
 
 Without them, Windows shows a SmartScreen warning on first install, and macOS asks the person to
 allow the app in System Settings.
+
+## The Windows setup wizard
+
+The Windows installer is an [NSIS](https://nsis.sourceforge.io) wizard made by
+[electron-builder](https://www.electron.build/nsis) from the app Forge packaged
+([`makers/maker-nsis.ts`](makers/maker-nsis.ts)). It walks through a welcome page that says
+what FullDots is, the MIT license (**I Agree**), installing for you or for everyone on the
+computer, the install folder, and a finish page that can open FullDots. It adds Start menu and
+desktop shortcuts and an entry in **Settings → Apps** to uninstall it.
+
+- The welcome text and the install steps are in [`installer/installer.nsh`](installer/installer.nsh).
+  One step removes a FullDots 2.1.0 installation (Squirrel, in `%LOCALAPPDATA%FullDots`), so
+  there is one FullDots after an upgrade.
+- The side banner is `installer/sidebar.bmp`, drawn by
+  [`scripts/make-installer-art.cjs`](scripts/make-installer-art.cjs). Run
+  `npm --prefix desktop run installer-art` after changing the brand.
+- Uninstalling leaves the workspace (`%APPDATA%FullDots`), so a reinstall picks up where you
+  were.
 
 ## Icons
 

@@ -1,7 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { ForgeConfig } from '@electron-forge/shared-types';
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -9,6 +8,7 @@ import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import { MakerNsis } from './makers/maker-nsis';
 
 // One version for the web app and the desktop app: the repository root's package.json. This
 // package's own "version" is a placeholder, stamped below, so there is nothing to keep in step.
@@ -17,6 +17,8 @@ const root = JSON.parse(
 ) as { version: string; license: string };
 const version = root.version;
 
+/** The app's id everywhere: macOS bundle, Windows installer, shortcuts and notifications. */
+const APP_ID = 'com.fulldots.desktop';
 const DESCRIPTION =
   'Self-hosted, local-first AI coworkers with their own computers.';
 const HOMEPAGE = 'https://github.com/asasemahmed/FullDots';
@@ -41,7 +43,7 @@ const config: ForgeConfig = {
     asar: true,
     name: 'FullDots',
     executableName: 'fulldots',
-    appBundleId: 'com.fulldots.desktop',
+    appBundleId: APP_ID,
     appCategoryType: 'public.app-category.productivity',
     appVersion: version,
     appCopyright: `Copyright © ${new Date().getFullYear()} FullDots contributors`,
@@ -59,6 +61,15 @@ const config: ForgeConfig = {
       FileDescription: 'FullDots',
       ProductName: 'FullDots',
     },
+    // The app's own .exe; the setup wizard is signed by its maker below.
+    ...(windowsCertificate
+      ? {
+          windowsSign: {
+            certificateFile: windowsCertificate,
+            certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD,
+          },
+        }
+      : {}),
     ...(appleId
       ? {
           osxSign: {},
@@ -90,21 +101,18 @@ const config: ForgeConfig = {
     },
   },
   makers: [
-    new MakerSquirrel({
-      name: 'FullDots',
-      exe: 'fulldots.exe',
-      setupExe: `FullDots-${version}-Setup.exe`,
-      setupIcon: 'assets/icons/icon.ico',
-      iconUrl: `https://raw.githubusercontent.com/asasemahmed/FullDots/main/desktop/assets/icons/icon.ico`,
-      authors: 'FullDots',
-      description: DESCRIPTION,
-      noMsi: true,
-      ...(windowsCertificate
-        ? {
-            certificateFile: windowsCertificate,
-            certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD,
-          }
-        : {}),
+    // Windows: a setup wizard (welcome, license, folder, shortcuts), plus latest.yml for the
+    // updater. See makers/maker-nsis.ts and installer/installer.nsh.
+    new MakerNsis({
+      appId: APP_ID,
+      productName: 'FullDots',
+      github: { owner: 'asasemahmed', repo: 'FullDots' },
+      license: '../LICENSE',
+      icon: 'assets/icons/icon.ico',
+      sidebar: 'installer/sidebar.bmp',
+      include: 'installer/installer.nsh',
+      certificateFile: windowsCertificate,
+      certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD,
     }),
     // macOS: the .zip is what the updater downloads; the .dmg is what a person does.
     new MakerZIP({}, ['darwin']),

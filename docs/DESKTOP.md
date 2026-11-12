@@ -16,6 +16,15 @@ Download the installer for your system from the
 | macOS   | `FullDots-x.y.z-arm64.dmg` (Apple silicon) or `FullDots-x.y.z-x64.dmg` (Intel) |
 | Linux   | the `.deb`                                                                     |
 
+On Windows, run the setup. It is a short wizard: a welcome page, the license (**I Agree**), whether
+to install for you or for everyone on the computer, the install folder (you can change it), and a
+finish page that opens FullDots. It adds FullDots to the Start menu and the desktop, and to
+**Settings → Apps**, where you can uninstall it. Uninstalling keeps your workspace.
+
+Coming from FullDots 2.1.0 on Windows? It cannot update itself to the wizard version, so download
+the new setup once and run it. It removes the 2.1.0 app for you and keeps your workspace, chats
+and keys. Later versions update themselves again.
+
 Open FullDots, then add a model in **Settings → Models**. Everything else works as described in
 the rest of these docs.
 

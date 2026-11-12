@@ -1,8 +1,11 @@
-// App updates. Windows and signed macOS builds update themselves through Electron's updater, fed
-// by update.electronjs.org from this repository's GitHub releases. Where that cannot install for
-// us (Linux packages, unsigned macOS builds) the app still looks for a newer release and offers
-// the download page. Either way the page is told, and shows its own notice.
+// App updates. Windows and signed macOS builds update themselves from this repository's GitHub
+// releases: Windows through electron-updater, which reads the latest.yml the setup wizard's build
+// publishes and installs into the folder the person chose; macOS through Electron's updater, fed by
+// update.electronjs.org. Where that cannot install for us (Linux packages, unsigned macOS builds)
+// the app still looks for a newer release and offers the download page. Either way the page is
+// told, and shows its own notice.
 import { app, autoUpdater, net, shell } from 'electron';
+import electronUpdater from 'electron-updater';
 import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
 import type { DesktopUpdate } from '../../../src/shared/desktop-bridge';
 import type { Log } from './log';
@@ -23,6 +26,8 @@ export interface Updates {
 }
 
 const MANUAL_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const WINDOWS_INTERVAL_MS = 60 * 60 * 1000;
+const [OWNER, REPO] = RELEASE_REPOSITORY.split('/');
 const CHECK_TIMEOUT_MS = 45_000;
 const settled = (update: DesktopUpdate) =>
   update.status !== 'checking' && update.status !== 'idle';
@@ -79,6 +84,38 @@ export function createUpdates(options: {
         setInterval(() => void lookUp(), MANUAL_INTERVAL_MS).unref();
         return;
       }
+      if (process.platform === 'win32') {
+        // electron-updater (the NSIS setup wizard's updater). The feed is set here rather than
+        // read from app-update.yml, so the packaged app needs no extra file.
+        const updater = electronUpdater.autoUpdater;
+        updater.setFeedURL({ provider: 'github', owner: OWNER, repo: REPO });
+        updater.autoDownload = true;
+        updater.autoInstallOnAppQuit = true;
+        updater.logger = {
+          info: (message) => log.info(String(message)),
+          warn: (message) => log.warn(String(message)),
+          error: (message) => log.error(String(message)),
+          debug: () => {},
+        };
+        updater.on('checking-for-update', () => set({ status: 'checking' }));
+        updater.on('update-available', () => set({ status: 'downloading' }));
+        updater.on('update-not-available', () => set({ status: 'current' }));
+        updater.on('update-downloaded', (info) =>
+          set({ status: 'ready', version: info.version }),
+        );
+        updater.on('error', (error) => {
+          log.error('The Windows updater failed', error);
+          native = false;
+          void lookUp();
+        });
+        const look = () =>
+          void updater.checkForUpdates().catch((error: unknown) => {
+            log.error('Could not check for updates', error);
+          });
+        look();
+        setInterval(look, WINDOWS_INTERVAL_MS).unref();
+        return;
+      }
       autoUpdater.on('checking-for-update', () => set({ status: 'checking' }));
       autoUpdater.on('update-available', () => set({ status: 'downloading' }));
       autoUpdater.on('update-not-available', () => set({ status: 'current' }));
@@ -126,11 +163,17 @@ export function createUpdates(options: {
         };
         waiting.add(finish);
       });
-      if (native) {
+      if (native && process.platform === 'win32') {
+        electronUpdater.autoUpdater
+          .checkForUpdates()
+          .catch((error: unknown) => {
+            log.error('Could not start an update check', error);
+            set({ status: 'error', message: 'Could not check for updates.' });
+          });
+      } else if (native) {
         try {
           autoUpdater.checkForUpdates();
         } catch (error) {
-          // Thrown while Squirrel is still finishing an install on first run.
           log.error('Could not start an update check', error);
           set({ status: 'error', message: 'Could not check for updates.' });
         }
@@ -144,7 +187,10 @@ export function createUpdates(options: {
       }
       if (current.status !== 'ready') return;
       await options.beforeInstall();
-      autoUpdater.quitAndInstall();
+      // Windows: install silently into the same folder, then open FullDots again.
+      if (process.platform === 'win32')
+        electronUpdater.autoUpdater.quitAndInstall(true, true);
+      else autoUpdater.quitAndInstall();
     },
   };
 }
