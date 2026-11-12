@@ -10,11 +10,11 @@ keep open in a browser.
 Download the installer for your system from the
 [latest release](https://github.com/asasemahmed/FullDots/releases/latest):
 
-| System  | File                               |
-| ------- | ---------------------------------- |
-| Windows | `FullDots-x.y.z-Setup.exe`         |
-| macOS   | `FullDots-darwin-<arch>-x.y.z.zip` |
-| Linux   | the `.deb` or the `.rpm`           |
+| System  | File                                                                           |
+| ------- | ------------------------------------------------------------------------------ |
+| Windows | `FullDots-x.y.z-Setup.exe`                                                     |
+| macOS   | `FullDots-x.y.z-arm64.dmg` (Apple silicon) or `FullDots-x.y.z-x64.dmg` (Intel) |
+| Linux   | the `.deb` or the `.rpm`                                                       |
 
 Open FullDots, then add a model in **Settings → Models**. Everything else works as described in
 the rest of these docs.

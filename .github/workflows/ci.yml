@@ -60,9 +60,17 @@ jobs:
         run: npm run smoke -- dev
 
   desktop:
-    name: Desktop app builds and opens
-    runs-on: windows-latest
-    timeout-minutes: 30
+    name: Desktop app (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: macOS
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -77,12 +85,24 @@ jobs:
         working-directory: desktop
       - run: npm run typecheck
         working-directory: desktop
-      - name: Build the web app, stage the server and package the shell
+      - name: Build the web app, stage the server and make the installer
         working-directory: desktop
-        run: npm run package
+        run: npm run make
       - name: Open the window and check it end to end
+        # The checks drive the Windows window; macOS is built here and checked by hand.
+        if: runner.os == 'Windows'
         working-directory: desktop
         run: npm run test:e2e
+      - name: Keep the installer to download from this run
+        uses: actions/upload-artifact@v7
+        with:
+          name: FullDots-Desktop-${{ matrix.name }}
+          # Unsigned test builds. Releases are built by release-desktop.yml.
+          path: |
+            desktop/out/make/**/*.exe
+            desktop/out/make/**/*.dmg
+          if-no-files-found: error
+          retention-days: 7
 
   audit:
     name: Dependency audit

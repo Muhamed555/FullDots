@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
+import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
@@ -105,7 +106,9 @@ const config: ForgeConfig = {
           }
         : {}),
     }),
+    // macOS: the .zip is what the updater downloads; the .dmg is what a person does.
     new MakerZIP({}, ['darwin']),
+    new MakerDMG({ icon: 'assets/icons/icon.icns', format: 'ULFO' }),
     new MakerRpm({ options: { ...linux, license: root.license } }),
     new MakerDeb({
       options: { ...linux, maintainer: 'FullDots', section: 'utils' },

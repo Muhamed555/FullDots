@@ -108,11 +108,11 @@ npm run desktop:make
 This builds the web app, stages the server (`desktop/.stage/server`) and makes the installers for
 the platform you are on, in `desktop/out/make`:
 
-| Platform | Result                                     |
-| -------- | ------------------------------------------ |
-| Windows  | `FullDots-x.y.z-Setup.exe` (Squirrel)      |
-| macOS    | `FullDots-darwin-<arch>-x.y.z.zip`         |
-| Linux    | `.deb` and `.rpm` (the latter needs `rpm`) |
+| Platform | Result                                                    |
+| -------- | --------------------------------------------------------- |
+| Windows  | `FullDots-x.y.z-Setup.exe` (Squirrel)                     |
+| macOS    | `FullDots-x.y.z-<arch>.dmg`, and a `.zip` for the updater |
+| Linux    | `.deb` and `.rpm` (the latter needs `rpm`)                |
 
 ## One version, one release
 
