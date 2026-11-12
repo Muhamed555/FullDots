@@ -13,7 +13,7 @@
 
 Self-hosted and local-first. Bring any model, connect your tools, and approve every risky action.
 
-[![Version 2.0.0](https://img.shields.io/badge/version-2.0.0-4f46e5.svg)](CHANGELOG.md)
+[![Version 2.1.0](https://img.shields.io/badge/version-2.1.0-4f46e5.svg)](CHANGELOG.md)
 [![CI](https://github.com/asasemahmed/FullDots/actions/workflows/ci.yml/badge.svg)](https://github.com/asasemahmed/FullDots/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Node.js 24+](https://img.shields.io/badge/node-%3E%3D24-339933.svg)
@@ -41,6 +41,17 @@ Everything lives in one SQLite file. There are no accounts, no telemetry and no 
 
 > [!NOTE]
 > FullDots is built for a single owner: there are no user accounts or shared workspaces. It started as a fork of [CopilotKit OpenDots](https://github.com/CopilotKit/OpenDots); see [FullDots and OpenDots](#fulldots-and-opendots).
+
+## What's new in 2.1
+
+Version 2.1.0 puts FullDots on your desktop.
+
+- **A desktop app** for Windows, macOS and Linux. It runs FullDots on your own computer in a window of its own, keeps your Dots working from the tray, and updates itself. It is the same app as the web version, from the same code. See [Desktop](docs/DESKTOP.md).
+- **A calmer window.** A frame, a slim rail of your Dots and one panel for the page. A new chat is one line of text and the message box.
+- **One shelf for a Space.** Pages and files together, with tabs by kind, pictures shown as pictures, and who made each item: you or one of your Dots.
+- **More for Dot computers.** A full Linux desktop, Codex beside Claude Code, and a page reader that uses the browser you already have.
+
+The full list is in the [changelog](CHANGELOG.md).
 
 ## What's new in 2.0
 
@@ -167,6 +178,18 @@ docker compose up --build -d
 
 Open <http://localhost:4310>. The port is bound to loopback, and data lives in the `opendots-data` volume.
 
+### As a desktop app
+
+FullDots Desktop runs FullDots on your own computer in a window of its own, for Windows, macOS and Linux, and updates itself. It is the same app as the web version, from the same code. Download it from the [latest release](https://github.com/asasemahmed/FullDots/releases/latest), or run it from source:
+
+```sh
+npm ci
+npm --prefix desktop ci
+npm run desktop
+```
+
+See [Desktop](docs/DESKTOP.md).
+
 ### On a server
 
 Deploy on your own server with HTTPS, a domain and automated backups: see [Deploy on a VPS](docs/DEPLOY-VPS.md) for a plain Linux VPS with Docker, or [Deploy on Dokploy](docs/DEPLOY-DOKPLOY.md) to manage it from GitHub.
@@ -273,6 +296,7 @@ docs/        Guides, brand assets and screenshots
 | Guide                                       | Covers                                        |
 | ------------------------------------------- | --------------------------------------------- |
 | [Setup](docs/SETUP.md)                      | Running, Docker, storage, search and backups  |
+| [Desktop](docs/DESKTOP.md)                  | The desktop app, its data folder and updates  |
 | [Deploy on a VPS](docs/DEPLOY-VPS.md)       | Hosting on a plain Linux VPS with Docker      |
 | [Deploy on Dokploy](docs/DEPLOY-DOKPLOY.md) | Hosting on your own server from GitHub        |
 | [Models](docs/MODELS.md)                    | Providers, keys and per-Dot models            |

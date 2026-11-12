@@ -2,6 +2,7 @@ import './privacy.js';
 import { webSearchConfig } from './web-search.js';
 import { readIntegrationSettings, readLimits } from './limits.js';
 import { createShutdown } from './shutdown.js';
+import { join } from 'node:path';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Store } from './store.js';
@@ -105,8 +106,11 @@ app.use('*', async (c, next) => {
   await next();
 });
 app.get('/api/*', (c) => c.json({ error: 'Not found.' }, 404));
-app.use('/*', serveStatic({ root: './dist/client' }));
-app.get('*', serveStatic({ path: './dist/client/index.html' }));
+// Where the built web client is. The desktop app sets CLIENT_DIR: its working directory is the
+// person's data folder, not the folder the build is in.
+const clientDir = process.env.CLIENT_DIR || './dist/client';
+app.use('/*', serveStatic({ root: clientDir }));
+app.get('*', serveStatic({ path: join(clientDir, 'index.html') }));
 const report = (operation: string, error: unknown) =>
   console.error(
     `${operation}:`,

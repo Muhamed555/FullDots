@@ -2,6 +2,17 @@
 
 A **Space** is a named workspace for the work you keep. It holds **pages** (rich-text documents in a tree) and **files** (a CSV, a report, an image, a PDF). A chat is where work happens; a Space is where results stay, organized and editable. Each Dot reaches only the Spaces you granted it.
 
+## The library
+
+Opening a Space shows its library: every page and file on one shelf.
+
+- **Tabs** pick a kind: Pages, Images, Documents (PDF, Markdown, text, HTML), Data (CSV, JSON) and Other. Each shows how many there are.
+- **Made by** names who made each item: you, or one of your Dots. When a Dot has saved something to the Space, its face appears above the shelf, and choosing it shows only that Dot's work.
+- **The shelf** is split into Today, This week and Earlier. Sort by name for one run from A to Z, and switch between a grid and a list with the buttons beside the search box.
+- Pictures are shown as pictures, a page shows its opening lines, and other files show their kind.
+
+Search looks in page text and file names, and the tabs count what it finds.
+
 ## Pages
 
 Pages nest without a depth limit. Any page can have subpages, so a page works as a folder that also has content. Use **New subpage** in a page's menu, or choose a page's **parent** in its settings to move it with everything under it. Deleting a page moves its subpages and files up to its parent.

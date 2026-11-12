@@ -161,6 +161,8 @@ export function SpaceWorkspace({
           space={space}
           pages={pages}
           files={files}
+          dots={workspace.dots}
+          conversations={workspace.conversations}
           onPage={onPage}
           onFile={onFile}
           onUpload={(picked) => void upload(picked)}

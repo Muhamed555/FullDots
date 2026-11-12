@@ -4,14 +4,18 @@ import './tokens.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { DesktopUpdateNotice } from './desktop/DesktopUpdateNotice';
 import { startThemeSync } from './theme';
 import './style.css';
 import './editor.css';
 import './space-files.css';
+// Last: the shell lays out what the files above build.
+import './shell.css';
 
 startThemeSync();
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
+    <DesktopUpdateNotice />
   </React.StrictMode>,
 );

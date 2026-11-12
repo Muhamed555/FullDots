@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The colour of the window around this page; the shell reads it (src/preload.ts). -->
+    <meta name="theme-color" content="#0e0e0e" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* ws://127.0.0.1:*"
+    />
+    <title>FullDots</title>
+  </head>
+  <body>
+    <div class="titlebar" aria-hidden="true"></div>
+    <main class="boot" data-phase="starting">
+      <svg
+        class="mark"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="14 18 100 100"
+        role="img"
+        aria-label="FullDots"
+      >
+        <circle cx="64" cy="68" r="46" fill="#6e7ff3" />
+        <path
+          d="M64 46C57 37 34 38 30 58C26 80 40 108 64 108C88 108 102 80 98 58C94 38 71 37 64 46Z"
+          fill="#ffffff"
+        />
+        <ellipse
+          cx="30.5"
+          cy="62"
+          rx="3.4"
+          ry="7.8"
+          fill="#ffc83d"
+          transform="rotate(-14 30.5 62)"
+        />
+        <ellipse
+          cx="97.5"
+          cy="62"
+          rx="3.4"
+          ry="7.8"
+          fill="#ffc83d"
+          transform="rotate(14 97.5 62)"
+        />
+        <path
+          d="M56.4 76Q64 70.4 71.6 76Q67 84.6 64 85Q61 84.6 56.4 76Z"
+          fill="#ff9d2e"
+          transform="translate(64 78) scale(1.15) translate(-64 -78)"
+        />
+        <g class="eyes">
+          <ellipse cx="49" cy="66" rx="6.9" ry="8.63" fill="#171a26" />
+          <circle cx="46.79" cy="62.72" r="2.21" fill="#fff" />
+          <ellipse cx="79" cy="66" rx="6.9" ry="8.63" fill="#171a26" />
+          <circle cx="76.79" cy="62.72" r="2.21" fill="#fff" />
+        </g>
+      </svg>
+
+      <h1 class="word">Full<span>Dots</span></h1>
+
+      <section class="starting" aria-live="polite">
+        <div class="dots" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <p id="status">Waking up your workspace</p>
+      </section>
+
+      <section class="failed" role="alert" hidden>
+        <h2>FullDots could not start</h2>
+        <p id="reason"></p>
+        <div class="actions">
+          <button id="retry" class="primary" type="button">Try again</button>
+          <button id="logs" type="button">Open logs</button>
+          <button id="data" type="button">Open data folder</button>
+          <button id="quit" type="button">Quit</button>
+        </div>
+        <details id="details" hidden>
+          <summary>What the server reported</summary>
+          <pre id="log"></pre>
+        </details>
+      </section>
+    </main>
+    <script type="module" src="/src/renderer.ts"></script>
+  </body>
+</html>

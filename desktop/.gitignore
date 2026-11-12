@@ -1,0 +1,8 @@
+node_modules/
+
+# Vite's build of the shell, and what Forge packages and makes from it.
+.vite/
+out/
+
+# The server and web client staged for packaging (scripts/stage-server.mjs).
+.stage/

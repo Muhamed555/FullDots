@@ -1,0 +1,168 @@
+/*
+ * FullDots Desktop (the Electron shell in desktop/). Nothing here applies in a browser: every rule
+ * hangs off `data-desktop`, which the shell's preload script puts on <html> with the platform's
+ * name (win32, darwin, linux).
+ *
+ * The look of the app is not here: the frame, the rail, the panel and the strip along the top are
+ * the same in a browser (shell.css). This file is only what a window of its own adds: the strip
+ * drags the window, and the system's window buttons are drawn over its corner.
+ */
+
+/* ---- The strip along the top is the title bar ------------------------------------------ */
+html[data-desktop] .template-app .topbar {
+  -webkit-app-region: drag;
+}
+/* Everything in it that can be clicked still can. */
+html[data-desktop]
+  .topbar
+  :is(
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    label,
+    summary,
+    [role='button'],
+    [tabindex]
+  ) {
+  -webkit-app-region: no-drag;
+}
+/*
+ * Windows and Linux draw minimise, maximise and close over the top right corner. The browser
+ * engine reports the strip left of them as the "title bar area"; what is not that area is theirs,
+ * and the strip's own buttons stop short of it.
+ */
+html:is([data-desktop='win32'], [data-desktop='linux']) .template-app .topbar {
+  padding-right: max(
+    12px,
+    calc(
+      100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px
+    )
+  );
+}
+
+/*
+ * macOS draws close, minimise and zoom over the top left corner, which is the rail. The rail
+ * starts below them (not in full screen, where they are hidden), and that strip drags the window.
+ */
+html[data-desktop='darwin']:not([data-desktop-fullscreen]) .template-app .sb {
+  padding-top: 46px;
+}
+html[data-desktop='darwin']:not([data-desktop-fullscreen]) .sb::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 40px;
+  -webkit-app-region: drag;
+}
+
+/* Screens without a top bar (unlocking, the first load) still need somewhere to drag from. */
+html[data-desktop] main.unlock::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--shell-bar);
+  -webkit-app-region: drag;
+}
+
+/*
+ * Anything that opens over the strip must take its clicks back: a drag region swallows them
+ * whatever is drawn on top of it. A full-window backdrop does that for everything under it, and
+ * keeps a strip of its own at the top so the window can still be moved while a dialog is open.
+ * A new full-window overlay belongs in both lists.
+ */
+html[data-desktop]
+  :is(
+    dialog,
+    [role='dialog'],
+    [role='menu'],
+    [role='listbox'],
+    .modal-backdrop,
+    .pal-backdrop,
+    .dot-notes-backdrop,
+    .fd-add-dot-backdrop,
+    .call-view,
+    .computer-overlay,
+    .sb-menu,
+    .slash-menu,
+    .nav-scrim,
+    .desktop-update
+  ) {
+  -webkit-app-region: no-drag;
+}
+html[data-desktop]
+  :is(
+    .modal-backdrop,
+    .pal-backdrop,
+    .dot-notes-backdrop,
+    .fd-add-dot-backdrop
+  )::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 32px;
+  -webkit-app-region: drag;
+}
+
+/* ---- The update notice (DesktopUpdateNotice.tsx) --------------------------------------- */
+.desktop-update {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 40px));
+  padding: 12px 12px 12px 14px;
+  background: var(--surface-0);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  animation: desktop-update-in 0.28s ease-out;
+}
+.desktop-update-mark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-soft-bg);
+  color: var(--accent);
+}
+.desktop-update-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.desktop-update-text strong {
+  font-weight: 600;
+}
+.desktop-update-text span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.desktop-update .primary {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+.desktop-update .icon-button {
+  flex-shrink: 0;
+}
+@keyframes desktop-update-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-update {
+    animation: none;
+  }
+}

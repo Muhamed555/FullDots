@@ -2,6 +2,15 @@
 
 A short map of the parts of the chat that are not plain messages. Colours come from `src/client/tokens.css` and follow the light or dark theme, while each Dot keeps its own penguin and colour everywhere it appears (see [the brand notes](brand/README.md#the-dot) for its states).
 
+## The window
+
+The app is laid out as three surfaces: a frame, the rail of Dots that sits directly on it, and one rounded panel that holds the page. Cards sit on the panel. It is the same in a browser and in [FullDots Desktop](DESKTOP.md); the layout lives in `src/client/shell.css`.
+
+- **The rail.** Your Dots as a slim column of faces, with the other places as icons below. The panel icon at its top opens the full sidebar, and FullDots remembers which you prefer.
+- **The strip along the top.** A pill in the middle says where you are. On the right are two icons: pause all Dots, and the computer panel. On the start screen the strip is empty.
+- **The start screen.** A new chat is one line of text and the message box. Until a model is connected, the line says so and **Open Settings** goes to Settings → Models.
+- **Phones** keep the top bar and the drawer behind the menu button.
+
 ## In a chat
 
 - **Group chat.** Several Dots can answer in one chat; each reply carries its Dot's character and colour, and `@Name` addresses one Dot. See [TEAMS.md](TEAMS.md#group-chats).
@@ -14,7 +23,7 @@ A short map of the parts of the chat that are not plain messages. Colours come f
 - **Dots, and only Dots.** Under each name: what the Dot is doing right now (**Working**, its computer step such as **Searching the web** or **Opening website**, **Needs you**, **Paused**), or its role while it is idle. An amber count marks a Dot with approvals, hand-offs or questions waiting for you; amber always means "waiting for you", on the Inbox badge too.
 - **Each Dot's chats** sit behind the arrow beside it, closed until you open them; the sidebar remembers which you opened. **New chat with …** comes first, then the chats newest first with the time of their last activity, the latest eight and **Show more** for the rest. A teammate's chat also sits under the chat that handed the work over, and a pulse marks chats with work running.
 - **The footer** has Search everywhere (Ctrl+K), Inbox, Mission control, Spaces, Teams, Scheduled and activity, and Memories as icons, then **Settings** and **Apps**. Apps shows the logos of a few apps you can connect (Gmail, Google Calendar, GitHub, Notion) and opens Settings → Connectors. Spaces and Teams open a panel above the footer with their pages, files and teams; Escape closes it.
-- **The computer panel** is on the right. It opens on wide windows until you close it with ✕ or the **Computer** button in the top bar, and FullDots remembers your choice. It shows the computer of the Dot you are chatting with. On narrower windows it slides over the chat, and on a phone the sidebar is a drawer behind the menu button.
+- **The computer panel** is on the right. It stays closed until you open it with the computer icon in the strip along the top, or until a Dot starts using its computer or you open a file from the chat. Close it with ✕; FullDots remembers your choice. It shows the computer of the Dot you are chatting with. On narrower windows it slides over the chat, and on a phone the sidebar is a drawer behind the menu button.
 
 ## Themes
 
