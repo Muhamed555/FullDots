@@ -2,13 +2,23 @@
 
 All notable changes to FullDots are listed here. The project follows [Semantic Versioning](https://semver.org), and releases before 1.0 may have changed without notice.
 
-## Unreleased
+## 2.1.0 — the desktop app (2026-11-12)
+
+FullDots is now also an app for Windows, macOS and Linux, and the window is calmer everywhere: a frame, a slim rail of your Dots and one panel for the page. The same release adds a full Linux desktop for Dot computers, Codex beside Claude Code, connected apps through Composio, Dots that think with an agent you run, Dot packs, Slack and Telegram channels, and a library that shows a Space's pages and files on one shelf.
+
+### Upgrading from 2.0.0
+
+1. Back up first. From source, run `npm run backup` while FullDots runs. With Docker, copy the data volume as shown in [Deploy on Dokploy](docs/DEPLOY-DOKPLOY.md#6-backups).
+2. Pull `v2.1.0`, then run `npm ci` (from source), or rebuild the images with the same compose files and profiles you started with plus `--build`. To run the published images instead of building, see [Setup](docs/SETUP.md#use-the-published-images). The database updates itself on start.
+3. Rebuild the Dot computer images: their tags changed. Open the computer panel and run **Create computers** again, or run `docker compose -f compose.computers.yml build computer-image computer-supervisor` and then `docker compose -f compose.computers.yml up -d computer-supervisor`. Each Dot's files and browser profile live in volumes and stay.
+4. The window looks different. The sidebar starts as a slim rail (the panel icon at its top opens it), and the computer panel starts closed (the screen icon in the strip along the top opens it). A choice you had already made for either is kept.
+5. To use the desktop app instead of a browser tab, download it from the release. To bring your workspace along, quit both and copy your `data` folder into the app's data folder. See [Desktop](docs/DESKTOP.md#your-data).
 
 ### Added
 
+- **FullDots Desktop.** FullDots is now also an app for Windows, macOS and Linux. It starts FullDots on your own computer, on that computer only, and opens it in a window of its own, with a title strip you drag the window by. It is the same app as the web version, built from the same code, so both change together. On Windows it stays in the tray when the window is closed, so scheduled work carries on, and it updates itself from GitHub releases. Your workspace lives in one data folder laid out like a self-hosted install. The guided Docker setup for Dot computers works from the data folder, the page reader starts with the app using Edge or Chrome, and PDFs open inside the window. See [`docs/DESKTOP.md`](docs/DESKTOP.md).
 - **A calmer window.** The app is now a frame with one rounded panel for the page. Your Dots are a slim rail on the left, which opens into the full sidebar. The strip along the top holds only where you are and two icons, pause and computer. A new chat starts with one line of text and the message box. The computer panel stays closed until you open it or a Dot starts using its computer. Phones keep their top bar and drawer. See [`docs/UI.md`](docs/UI.md).
 - **One shelf for a Space.** A Space's library shows pages and files together. Tabs with counts pick a kind (pages, images, documents, data), pictures are shown as pictures, and the shelf is split into Today, This week and Earlier. Each item names who made it, you or one of your Dots, and you can filter by maker. See [`docs/SPACES.md`](docs/SPACES.md).
-- **FullDots Desktop.** FullDots is now also an app for Windows, macOS and Linux. It starts FullDots on your own computer, on that computer only, and opens it in a window of its own, with a title strip you drag the window by. It is the same app as the web version, built from the same code, so both change together. On Windows it stays in the tray when the window is closed, so scheduled work carries on, and it updates itself from GitHub releases. Your workspace lives in one data folder laid out like a self-hosted install. The guided Docker setup for Dot computers works from the data folder, the page reader starts with the app using Edge or Chrome, and PDFs open inside the window. See [`docs/DESKTOP.md`](docs/DESKTOP.md).
 - **Nine more connector presets.** Settings → Connectors now offers monday.com, Airtable, Prisma, Netlify, Webflow and Wix with browser sign-in, and DeepWiki, Exa and Context7 with no sign-in. Each one is the vendor's own hosted server, and its card links to the vendor's setup page. monday.com can also use a personal API token from `.env`. See [`docs/CONNECTORS.md`](docs/CONNECTORS.md#presets) (closing [#10](https://github.com/asasemahmed/FullDots/issues/10)).
 - **A full Linux desktop for each Dot.** Choose Full desktop in computer settings to use Linux apps, native mouse and keyboard input, whole-screen viewing, takeover and replay. Desktop actions require an owner-enabled Images flag for the Dot's model; typing always asks unless approvals are off. The desktop image is built locally, runs its GUI as a separate user, and defaults to 4 GiB of memory. See [Dot computers](docs/COMPUTERS.md#full-desktop).
 
@@ -38,6 +48,8 @@ All notable changes to FullDots are listed here. The project follows [Semantic V
 
 ### Fixed
 
+- **The scrollbar beside a conversation.** A long chat scrolled inside its narrow column, which put the scrollbar down the middle of the page. The whole chat area now scrolls, so the scrollbar is at its edge, and the column of messages is a little wider.
+- **A first computer build that failed as it finished.** With Docker's containerd image store, the guided setup could stop with "image already exists" after everything was built. The build is now tried once more, which finishes from the cache.
 - **Two dependency advisories are fixed.** `follow-redirects` is pinned to 1.16.2 (GHSA-mrwp-f3q8-3g9p). `graphql-scalars` is pinned to 1.24.0, the last release before its PhoneNumber pattern became exponential (GHSA-x8rm-f576-gq67); FullDots does not use it directly, and the CopilotKit runtime uses only its JSON scalars, and 1.24.0 is inside both dependents' ranges.
 - **Keyboard and screen reader access in Settings, dialogs and approval cards.** Every modal dialog now shares one focus trap: Tab and Shift+Tab stay inside it and skip hidden Settings tabs and disabled controls, Escape closes it, and focus returns to the button that opened it, including from a sidebar menu. The trigger dialog gains Escape and the trap it lacked. The status chip on an open connector or provider page and approval badges are read out when they change, focus stays on an approval card after you answer it, and "Add a note" moves focus into the note. The Dot character settles at rest when reduced motion is turned on while the page is open, and Inbox jumps no longer scroll smoothly under reduced motion. See [`docs/UI.md`](docs/UI.md#accessibility).
 
@@ -49,11 +61,6 @@ All notable changes to FullDots are listed here. The project follows [Semantic V
 - A dark theme no longer flashes light when the page loads under `npm start` or in Docker. The server's Content-Security-Policy (`script-src 'self'`) blocked the inline script that applies the saved theme before the first paint, so it only ran under `npm run dev`. The script is now `public/theme-init.js`, loaded from `<head>`, and the policy is unchanged.
 - Computer actions now answer with the right status (403, 404, 409, 502, 503) instead of 400 for everything, and unhandled computer failures mask raw error details.
 - Browser search recognises Brave's current bot check ("Verifying you're not a bot"), which a new browser profile often sees. It used to be read as a results page with no results; now the search moves on to the next engine in `WEB_SEARCH_ENGINE`.
-
-### Fixed
-
-- **The scrollbar beside a conversation.** A long chat scrolled inside its narrow column, which put the scrollbar down the middle of the page. The whole chat area now scrolls, so the scrollbar is at its edge, and the column of messages is a little wider.
-- **A first computer build that failed as it finished.** With Docker's containerd image store, the guided setup could stop with "image already exists" after everything was built. The build is now tried once more, which finishes from the cache.
 
 ## 2.0.0 — the flock (2026-10-22)
 
