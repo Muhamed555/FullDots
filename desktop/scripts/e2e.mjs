@@ -78,6 +78,10 @@ async function open(home, port) {
   return app;
 }
 
+/** Whether exactly this address was handed to the browser: a whole match, never a part of one. */
+const wasOpened = (addresses, address) =>
+  addresses.some((entry) => entry === address);
+
 const profile = () => {
   const home = mkdtempSync(path.join(tmpdir(), 'fulldots-desktop-e2e-'));
   mkdirSync(path.join(home, 'workspace'), { recursive: true });
@@ -264,16 +268,16 @@ await page.waitForTimeout(600);
 const opened = await app.evaluate(() => globalThis.__opened);
 check(
   'a new-tab link opens in the browser',
-  opened.includes('https://example.com/docs'),
+  wasOpened(opened, 'https://example.com/docs'),
   opened.join(', '),
 );
 check(
   'a plain link to another site opens in the browser',
-  opened.includes('https://example.com/away'),
+  wasOpened(opened, 'https://example.com/away'),
 );
 check(
   'a file: address opens nowhere',
-  !opened.some((url) => url.startsWith('file:')),
+  !opened.some((url) => new URL(url).protocol === 'file:'),
 );
 check(
   'the window is still on the app',
@@ -299,7 +303,8 @@ check(
 );
 check(
   'the sign-in address opens in the browser',
-  (await app.evaluate(() => globalThis.__opened)).includes(
+  wasOpened(
+    await app.evaluate(() => globalThis.__opened),
     'https://example.com/authorize?state=abc',
   ),
 );

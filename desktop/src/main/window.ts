@@ -76,7 +76,15 @@ export function createMainWindow(options: {
   if (restored.maximized) window.maximize();
 
   // Shown once there is something to look at, so the window never opens as a white rectangle.
-  window.once('ready-to-show', () => window.show());
+  // That signal needs a first paint, which a locked or sleeping screen never gives: after a few
+  // seconds the window is shown anyway, in the frame's colour, rather than never.
+  const reveal = () => {
+    clearTimeout(fallback);
+    if (!window.isDestroyed() && !window.isVisible()) window.show();
+  };
+  const fallback = setTimeout(reveal, 4000);
+  window.once('ready-to-show', reveal);
+  window.once('closed', () => clearTimeout(fallback));
 
   const remember = () => {
     if (window.isDestroyed()) return;

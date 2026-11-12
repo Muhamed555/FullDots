@@ -174,6 +174,7 @@ function main(): void {
             version: VERSION,
           }),
           origin,
+          port,
           log,
           onUnexpectedExit: (code) => {
             server = undefined;

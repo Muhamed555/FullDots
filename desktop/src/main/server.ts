@@ -1,7 +1,9 @@
 // Starts and stops the FullDots server: the same build the web deployment runs, in a utility
 // process of its own so a busy server never freezes the window.
 import { utilityProcess } from 'electron';
+import { connect } from 'node:net';
 import type { Log } from './log';
+import { LOOPBACK_HOST } from './server-env';
 
 export interface ServerOptions {
   /** resources/server-host.mjs: imports the server and listens for the stop message. */
@@ -12,6 +14,8 @@ export interface ServerOptions {
   env: Record<string, string>;
   /** Where the server will answer, e.g. http://127.0.0.1:4390 */
   origin: string;
+  /** The port it listens on, on this machine only. */
+  port: number;
   log: Log;
   /** Called when the server goes away without being asked to. */
   onUnexpectedExit: (code: number) => void;
@@ -32,15 +36,22 @@ const STOP_TIMEOUT_MS = 9_500;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function answers(origin: string): Promise<boolean> {
-  try {
-    const response = await fetch(`${origin}/`, {
-      signal: AbortSignal.timeout(2_000),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+/**
+ * Whether the server is listening yet: a connection to its port on this machine, opened and closed
+ * again. Nothing is sent. The server registers every route before it listens, so a port that
+ * accepts a connection is a server that is ready.
+ */
+function answers(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect({ host: LOOPBACK_HOST, port });
+    const finish = (ready: boolean) => {
+      socket.destroy();
+      resolve(ready);
+    };
+    socket.setTimeout(2_000, () => finish(false));
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
+  });
 }
 
 export async function startServer(
@@ -85,7 +96,7 @@ export async function startServer(
       throw new Error(
         `The FullDots server stopped while starting (exit code ${exitCode}).`,
       );
-    if (await answers(options.origin)) break;
+    if (await answers(options.port)) break;
     if (Date.now() > deadline) {
       stopping = true;
       child.kill();
