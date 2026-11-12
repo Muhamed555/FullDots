@@ -69,6 +69,10 @@ jobs:
             os: windows-latest
           - name: macOS
             os: macos-latest
+          # The same package a release makes for Linux (see release-desktop.yml).
+          - name: Linux
+            os: ubuntu-latest
+            make: -- --targets=deb
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     steps:
@@ -87,9 +91,9 @@ jobs:
         working-directory: desktop
       - name: Build the web app, stage the server and make the installer
         working-directory: desktop
-        run: npm run make
+        run: npm run make ${{ matrix.make }}
       - name: Open the window and check it end to end
-        # The checks drive the Windows window; macOS is built here and checked by hand.
+        # The checks drive the Windows window; macOS and Linux are built here and checked by hand.
         if: runner.os == 'Windows'
         working-directory: desktop
         run: npm run test:e2e
@@ -101,6 +105,7 @@ jobs:
           path: |
             desktop/out/make/**/*.exe
             desktop/out/make/**/*.dmg
+            desktop/out/make/**/*.deb
           if-no-files-found: error
           retention-days: 7
 

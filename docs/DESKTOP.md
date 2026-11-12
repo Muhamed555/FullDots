@@ -14,7 +14,7 @@ Download the installer for your system from the
 | ------- | ------------------------------------------------------------------------------ |
 | Windows | `FullDots-x.y.z-Setup.exe`                                                     |
 | macOS   | `FullDots-x.y.z-arm64.dmg` (Apple silicon) or `FullDots-x.y.z-x64.dmg` (Intel) |
-| Linux   | the `.deb` or the `.rpm`                                                       |
+| Linux   | the `.deb`                                                                     |
 
 Open FullDots, then add a model in **Settings → Models**. Everything else works as described in
 the rest of these docs.
